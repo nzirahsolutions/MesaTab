@@ -9,6 +9,8 @@ import SignUp from "./Pages/User/SignUp";
 import Profile from "./Pages/User/Profile";
 import Motions from "./Pages/Motions";
 import {BrowserRouter as Router, Route, Routes} from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
 
@@ -30,6 +32,7 @@ function App() {
         </main>
         <Footer />
       </Router>
+      <ToastContainer />
     </div>
   )
 }
