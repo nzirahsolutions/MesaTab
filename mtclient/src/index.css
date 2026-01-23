@@ -1,0 +1,214 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --brandcolor: #0c1031;
+  --brandcolor-light: hsl(234, 61%, 22%);
+  --accentcolor: #b5ba72;
+  --accentcolor-light: hsl(64, 34%, 69%);
+  --background-color: hsl(0, 0%, 96%);
+  box-sizing: border-box;
+}
+body{
+  margin: 0;
+  padding: 0;
+  background-color: var(--background-color);
+  text-align: center;
+}
+.app{
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  main{
+    flex: 1;
+    z-index: 1;
+    padding: 0.5rem;
+  }
+}
+.header {
+  background-color: var(--brandcolor);
+  color: white;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  .logo{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    div{
+      width: 90%;
+      display: block;
+      img{
+        height: min( 10vh, 5rem);
+      }
+    }
+    .☰{
+      display: none;
+      font-size: 1.5rem;
+      padding: o.5rem;
+      cursor: pointer;
+      text-align: center;
+      width: 10%;
+    }
+  }
+  nav{
+    ul{
+    list-style: none;
+    padding: 0.3rem;
+    margin: 0;
+    display: flex;
+    width: 100%;
+    gap: 1rem;
+    li{
+      flex: 1;
+      text-align: center;
+      a{
+        color: white;
+        text-decoration: none;
+        }
+      }
+    }
+  }
+  .activeLink{
+    border-bottom: 2px solid var(--accentcolor);
+    color: var(--accentcolor);
+    font-weight: bold;
+  }
+}
+.sideMenu{
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--brandcolor);
+  height: 100vh;
+  width: min(40vw, 200px);
+  z-index: 10;
+  position: fixed;
+  color: white;
+  ul{
+    list-style: none;
+    padding: 0;
+    padding-top: 1rem;
+    margin: 0;
+    li{
+      width: 100%;
+      text-align: left;
+      a{
+        display: flex;
+        padding: 0.5rem 0.5rem;
+        color: white;
+        text-decoration: none;
+        width: 80%;
+      }
+      .activeLink{
+        font-weight: bold;
+        background-color: var(--accentcolor);
+        border-radius: 1rem;
+      }
+    }
+  }
+}
+.Open{
+  display: none;
+  transform: translateX(0);
+  transition: transform 0.3s ease-in-out;
+}
+.Closed{
+  display: none;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+.area{
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 5;
+  background-color: transparent;
+}
+footer{
+  background-color: var(--brandcolor);
+  color: white;
+  text-align: center;
+  padding: 0.5rem;
+  .links{
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    a{
+      color: var(--accentcolor);
+      text-decoration: none;
+      font-weight: bold;
+    }
+  }
+}
+.darkButton{
+  background-color: var(--brandcolor);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  &:hover{
+    background-color: var(--brandcolor-light);
+    scale: 1.05;
+    font-weight: bold;
+  }
+}
+.lightButton{
+  background-color: var(--accentcolor);
+  color: var(--brandcolor);
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  &:hover{
+    background-color: var(--accentcolor-light);
+    scale: 1.05;
+    font-weight: bold;
+  }
+}
+.textBlock{
+  color: #000;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.cardsContainer{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+.card{
+  background-color: var(--brandcolor);
+  color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  p{
+    text-align: center;
+  }
+}
+.buttonStack{
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+@media (max-width: 600px) {
+  .header nav{
+   display: none;
+  }
+  .header .logo .☰{
+    display: block;
+  }
+  .Open, .Closed{
+    display: block;
+  }
+}
