@@ -275,6 +275,17 @@ footer{
       }
   }
 }
+/* specific event */
+.tabList{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  .darkButton{
+    &:hover, &:active{
+      background-color: var(--accentcolor);
+    }
+  }
+}
 @media (max-width: 600px) {
   .header nav{
    display: none;

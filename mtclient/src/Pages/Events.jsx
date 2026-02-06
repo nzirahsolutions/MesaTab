@@ -1,21 +1,25 @@
-import { useEffect, useState } from "react";
-import { Auth, events as Allevents} from "../Context/Auth";
+import { useEffect, useState, useContext } from "react";
+import { AuthContext } from "../Context/AuthContext";
+import { events as Allevents} from "../Context/SampleData";
 import {Findbar} from "../Components/Searchbar";
 import { toast } from "react-toastify";
+import {useNavigate} from 'react-router-dom';
 
 
 export default function Events() {
+  const { user, isAuthenticated, setSelectedEvent } = useContext(AuthContext);
   const [creating, setCreating] = useState(false);
   const [events, setEvents] = useState([]);
   const [foundEvent, setFoundEvent] = useState({});
   // const [loading, setLoading] = useState(true);
   // const [error, setError] = useState(null);
   const [userEvents,setUserEvents]=useState([]);
+  const navigate=useNavigate();
 
   
   useEffect(() => {
     function fetchEvents() {
-    let userEventIds = Auth.user.events;
+    let userEventIds = user.events;
     setEvents([...Allevents]);
     const userEventIdSet = new Set(userEventIds);
     const attendedEvents = Allevents.filter(ev => 
@@ -29,13 +33,13 @@ export default function Events() {
   //console.log(userEvents);
   function findEvent(r){
     const term=r.current.value.toLowerCase();
-    const found=events.filter((event)=>event.url.toLowerCase()===term);
+    const found=events.filter((event)=>event.slug.toLowerCase()===term);
     if(found.length===0){
       toast.error('Event not found');
       setFoundEvent([]);
       return;
     }
-    console.log(found[0]);
+    //console.log(found[0]);
     setFoundEvent({...foundEvent, ...found[0]});
   }
   return (
@@ -46,7 +50,7 @@ export default function Events() {
     </section>
     <section id='newEvent'>
         <h2>Create New Event</h2>
-        {Auth.isAuthenticated ? <><p>Tap here to create and new</p><button className="darkButton" onClick={() => setCreating(!creating)}>{creating?'Cancel Create':'Create Event'}</button></> : <><p>Please log in to create and manage events</p><button className="darkButton">Log In</button></>}
+        {isAuthenticated ? <><p>Tap here to create and new</p><button className="darkButton" onClick={() => setCreating(!creating)}>{creating?'Cancel Create':'Create Event'}</button></> : <><p>Please log in to create and manage events</p><button className="darkButton">Log In</button></>}
         {creating && 
         <form className="textBlock">
           <h1>New Event</h1>
@@ -57,9 +61,9 @@ export default function Events() {
       <h2>User Events</h2>
       <div className="eventList">
         {userEvents.length===0 ? <p>No ongoing events at the moment.</p> : userEvents.map((event)=>(
-          <div key={event.id} className="eventCard">
+          <div key={event.id} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
             <h3>{event.title}</h3>
-            <div>{event.tracks.map((e,i)=><span key={i}>{e}</span>)}</div>
+            <div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>
             <div>
               <p>By <strong>{event.organizer}</strong></p>
             </div>
@@ -70,12 +74,12 @@ export default function Events() {
     <section id="otherEvents">
       <h2>Find Event</h2>
       <div className="textBlock">
-        <p>Enter the event's unique url</p>
+        <p>Enter the exact event slug</p>
         <Findbar placeholder='e.g: "PAUDC-2023"' onSearch={findEvent} />
-      {foundEvent.url &&
-        <div className="eventCard">
+      {foundEvent.slug &&
+        <div className="eventCard" onClick={()=>{setSelectedEvent({...foundEvent}); navigate(`/${foundEvent.slug}`)}}>
           <h3>{foundEvent.title}</h3>
-            <div>{foundEvent.tracks.map((e,i)=><span key={i}>{e}</span>)}</div>
+            <div>{[...new Set(foundEvent.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>
             <div>
               <p>By <strong>{foundEvent.organizer}</strong></p>
             </div>

@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { AuthContext } from "../Context/AuthContext";
 
 export default function Header() {
   const navigate = useNavigate();
+  const {isEvent, selectedEvent} = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
   return (
+    <>
+    {isEvent?
     <>
     <div className='header'>
       <div className='logo'>
         <div>
-          <img src="/header.svg" alt="logo.svg" onClick={()=>{navigate('/'); setMenuOpen(false)}}/>
+          <img src="/header.svg" alt="logo.svg"  onClick={()=>{navigate('/'); setMenuOpen(false)}}/>
         </div>
         <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? '':'☰'}</span>
       </div>
@@ -33,7 +37,19 @@ export default function Header() {
           <li onClick={()=>setMenuOpen(false)}><NavLink to="/resources" className={({isActive})=>isActive?'activeLink':''}>Resources</NavLink></li>
         </ul>
     </div>
-    {menuOpen && <div className='area' onClick={()=>setMenuOpen(false)}></div>}    
+    {menuOpen && <div className='area' onClick={()=>setMenuOpen(false)}></div>}
+    </>  
+    :<>
+    <div className='header'>
+      <div className='logo'>
+        <div>
+          <img src="/header.svg" alt="logo.svg" onClick={()=>{navigate(`/${selectedEvent.slug}`); setMenuOpen(false)}}/>
+        </div>
+      </div>
+      <span>{selectedEvent.title}</span>
+    </div>
+    </>
+    }
     </>
   )
 }
