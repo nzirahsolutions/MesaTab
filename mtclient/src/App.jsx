@@ -22,8 +22,8 @@ function App() {
       <div className="app">
         <Router>
           <Header />
-          <main>
-          <Routes>
+        <main>
+        <Routes>
           <Route path="/" element={<Home/>}/>
           <Route path="/prompts" element={<Prompts/>}/>
           <Route path="/motions" element={<Motions/>}/>

@@ -1,8 +1,8 @@
 import React from 'react'
 
-export default function WSDCTab({tab}) {
+export default function ChessSwiss({tab}) {
   console.log(tab.title);
   return (
-    <div>WSDCTab</div>
+    <div>ChessSwiss</div>
   )
 }

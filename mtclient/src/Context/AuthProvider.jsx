@@ -14,12 +14,12 @@ export const AuthProvider = ({ children }) => {
       id: 1,
       name: "John Doe",
       email: 'JohnDoe@test.com',
-      events: [1, 3],
+      events: [5, 1, 3],
     };
   });
 
-  const [tabType, setTabType] = useState(() => {
-    const saved = localStorage.getItem('tabType');
+  const [tab, setTab] = useState(() => {
+    const saved = localStorage.getItem('tab');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -36,6 +36,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
   }, [isAuthenticated]);
+
   useEffect(() => {
     localStorage.setItem('isEvent', JSON.stringify(isEvent));
   }, [isEvent]);
@@ -45,11 +46,15 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
+    localStorage.setItem('tab', JSON.stringify(tab));
+  }, [tab]);
+
+  useEffect(() => {
     localStorage.setItem('selectedEvent', JSON.stringify(selectedEvent));
   }, [selectedEvent]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, user, setUser, selectedEvent, setSelectedEvent, tabType, setTabType , isEvent, setIsEvent}}>
+    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, user, setUser, selectedEvent, setSelectedEvent, tab, setTab , isEvent, setIsEvent}}>
       {children}
     </AuthContext.Provider>
   );

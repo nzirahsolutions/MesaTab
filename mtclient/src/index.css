@@ -12,6 +12,7 @@ body{
   padding: 0;
   background-color: var(--background-color);
   text-align: center;
+  container-type: inline-size;
 }
 .app{
   display: flex;
@@ -114,7 +115,7 @@ body{
 }
 .Closed{
   display: none;
-  transform: translateX(-100%);
+  transform: translateX(-110%);
   transition: transform 0.3s ease-in-out;
 }
 .area{
@@ -262,7 +263,9 @@ footer{
     font-size: 1.6rem;
   }
   div{
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(50px, 1fr));
+    gap: 0.2rem; 
     span{
       background-color: var(--accentcolor);
       padding: 0.2rem;
@@ -286,6 +289,148 @@ footer{
     }
   }
 }
+/* specific tab */
+.tabMenu{
+  display: flex;
+  flex-direction: row;
+  position:relative;
+  left:-0.5rem;
+  top:-0.5rem;
+  width: 100cqw;
+  margin: 0;
+  background-color: var(--brandcolor);
+  color: var(--background-color);
+  ul{
+    display: flex;
+    width: 100%;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0.5em;
+    margin: 0;
+    span{
+      background-color: var(--accentcolor);
+      color: var(--brandcolor);
+      padding: 0.3rem;
+      border-radius: 2rem;
+      &:hover{
+        cursor: pointer;
+      }
+    }
+    li{
+      min-width: fit-content;
+      list-style: none;
+      &:hover{
+        cursor: pointer;
+      }
+    }
+  }
+}
+.tabSideMenu{
+  position: relative;
+  left:-0.5rem;
+  top: -0.5rem;
+  width: 100vw;
+  .tTitle{
+    display: none;
+    flex-direction: row;
+    justify-content: space-between;
+    background-color: var(--brandcolor);
+    color: var(--background-color);
+    padding: 0.2rem;
+    span{
+      background-color: var(--accentcolor);
+      color: var(--brandcolor);
+      padding: 0.3rem;
+      margin: 0;
+      border-radius: 2rem;
+      &:hover{
+        cursor: pointer;
+      }
+    }
+  }
+  .tSideMenu{
+    display: none;
+    flex-direction: row;
+    margin: 0;
+    background-color: var(--brandcolor);
+    color: var(--background-color);
+    padding: 0;
+    position: fixed;
+    min-width: 30%;
+    height: 100%;
+    ul{
+      display: flex;
+      flex-direction: column;
+      align-items: start;
+      gap:0.3rem;
+      padding: 0.5em;
+      margin: 0;
+      li{
+        min-width: fit-content;
+        list-style: none;
+        border-bottom: 1px solid var(--accentcolor);
+        &:hover{
+          cursor: pointer;
+        }
+      }
+    }
+  }
+}
+.tabHome, .results{
+  display: block;
+  flex-direction: column;
+  align-items: start;
+  li{
+    background-color: white;
+    border-radius: 0.5rem;
+    margin: 0.1rem;
+    list-style: none;
+    display: block;
+    padding: 0.3rem;
+    &:hover, &:active{
+      cursor: pointer;
+      background-color: var(--accentcolor);
+      color: var(--brandcolor);
+
+    }
+  }
+}
+.round-buttons{
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.roomCard{
+  background-color: whitesmoke;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+  max-width: 90%;
+  display: grid;
+  justify-self: center;
+  
+  .roomHeader{
+    background-color: var(--brandcolor);
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+    padding: 0.1rem;
+    color: var(--accentcolor);
+  }
+  .roomBody{
+  padding-bottom: 0.5rem;
+    li{
+      list-style: none;
+      display: grid;
+      grid-template-columns: 3fr repeat(2, 1fr);
+      border-bottom: 1px solid var(--background-color);
+      text-align: start;
+      gap: 0.3rem;
+      span, strong{
+        margin-left: 0.5rem;
+      }
+    } 
+  }
+}
 @media (max-width: 600px) {
   .header nav{
    display: none;
@@ -295,5 +440,18 @@ footer{
   }
   .Open, .Closed{
     display: block;
+  }
+  .tabMenu{
+    display: none;
+  }
+  .tabSideMenu{
+    display: block;
+
+    .tTitle{
+    display: flex;
+    }
+    .tSideMenu{
+      display: flex;
+    }
   }
 }

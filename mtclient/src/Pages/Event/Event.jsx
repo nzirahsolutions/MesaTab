@@ -3,7 +3,7 @@ import { useContext } from "react";
 import { AuthContext } from "../../Context/AuthContext";
 
 export default function Event() {
-  const {selectedEvent} = useContext(AuthContext);
+  const {selectedEvent, setTab} = useContext(AuthContext);
   //console.log(selectedEvent);
   const navigate=useNavigate();
   const event = {...selectedEvent};
@@ -16,7 +16,7 @@ export default function Event() {
     <section>
       <h2>Choose Tab to View</h2>
       <div className="tabList">
-        {event.tabs.map((tab)=><button key={tab.tabID} className="darkButton" onClick={()=>{navigate(`/${event.slug}/${tab.tabID}`);}}>{tab.title}</button>)}
+        {event.tabs.map((tab)=><button key={tab.tabID} className="darkButton" onClick={()=>{navigate(`/${event.slug}/${tab.title}`); setTab(tab)}}>{tab.title}</button>)}
       </div>
     </section>
     </>

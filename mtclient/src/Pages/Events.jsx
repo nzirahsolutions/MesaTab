@@ -19,13 +19,16 @@ export default function Events() {
   
   useEffect(() => {
     function fetchEvents() {
-    let userEventIds = user.events;
+    let userEventIds = [...user.events];
+    // console.log(userEventIds);
     setEvents([...Allevents]);
     const userEventIdSet = new Set(userEventIds);
+    // console.log(userEventIdSet);
     const attendedEvents = Allevents.filter(ev => 
-      userEventIdSet.has(ev.id)
+      userEventIdSet.has(ev.eventID)
     );
     setUserEvents(attendedEvents);
+    // console.log(attendedEvents);
   }
     fetchEvents();
   }, []);
@@ -60,8 +63,11 @@ export default function Events() {
     <section id="userEvent">
       <h2>User Events</h2>
       <div className="eventList">
-        {userEvents.length===0 ? <p>No ongoing events at the moment.</p> : userEvents.map((event)=>(
-          <div key={event.id} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
+        {userEvents.length===0 ? 
+        <p>No ongoing events at the moment.</p> 
+        : 
+        userEvents.map((event)=>(
+          <div key={event.eventID} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
             <h3>{event.title}</h3>
             <div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>
             <div>
