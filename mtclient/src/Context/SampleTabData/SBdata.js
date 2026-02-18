@@ -5,11 +5,11 @@ export const SpellingBeeTab={
   title:'The Hive',
   slug:'the-hive',
   schools:[
-    {id:1, name:'Greenwood High' ,code:'GH'},
-    {id:2, name:'Lakeside Academy',code:'LA'},
-    {id:3, name:'Hilltop School',code:'HS'},
-    {id:4, name:'Riverside Prep',code:'RP'},
-    {id:5, name:'Maple Leaf School',code:'MLS'},
+    {id:1, name:'Greenwood High' ,code:'GH', participants:5},
+    {id:2, name:'Lakeside Academy',code:'LA', participants:5},
+    {id:3, name:'Hilltop School',code:'HS', participants:4},
+    {id:4, name:'Riverside Prep',code:'RP', participants:6},
+    {id:5, name:'Maple Leaf School',code:'MLS', participants:5},
   ],
   participants:[
     {id:1, name:'Alice Johnson', schoolCode:'GH'},
@@ -52,8 +52,9 @@ export const SpellingBeeTab={
     {id:4, name:'Spelling Bee Room 4'},
     {id:5, name:'Spelling Bee Room 5'},
   ],
+  prelimRounds: 3,
   rounds:[
-    {roundID:1, name:'Round 1', type:'Timed', timeLimit:'60 seconds',
+    {roundID:1, name:'Round 1',breaks: false, completed: true, type:'Timed', timeLimit:'60 seconds',
       matches:[
         {roomID:1, participantIDs:[1,2,3,4,5], judgeID:1, 
           result:[
@@ -102,7 +103,7 @@ export const SpellingBeeTab={
         },
       ]
     },
-    {roundID:2, name:'Round 2', type:'WordLimit', wordLimit:'20 words',
+    {roundID:2, name:'Round 2',breaks: false, completed: true, type:'WordLimit', wordLimit:'20 words',
       matches:[
         {roomID:1, participantIDs:[1,6,11,16,21], judgeID:1,
           result:[
@@ -151,7 +152,7 @@ export const SpellingBeeTab={
         },
       ]
     },
-    {roundID:3, name:'Round 3', type:'Timed', timeLimit:'90 seconds',
+    {roundID:3, name:'Round 3',breaks: false, completed: true,  type:'Timed', timeLimit:'90 seconds',
       matches:[
         {roomID:1, participantIDs:[1,7,13,19,25], judgeID:1,
           result:[
@@ -176,7 +177,7 @@ export const SpellingBeeTab={
             {participantID:3, score:5},
             {participantID:9, score:8},
             {participantID:15, score:6},
-            {participantID:16, score:7},
+            // {participantID:16, score:7},
             {participantID:22, score:4},
           ],
         },
@@ -184,7 +185,7 @@ export const SpellingBeeTab={
           result:[
             {participantID:4, score:7},
             {participantID:10, score:6},
-            {participantID:11, score:8},
+            {participantID:11, score:7},
             {participantID:17, score:5},
             {participantID:23, score:4},
           ],
@@ -199,7 +200,7 @@ export const SpellingBeeTab={
         },
       ]
     },
-    {roundID:4, name:'Semi-Finals', type:'Eliminator',
+    {roundID:4, name:'Semi-Finals',breaks: true, completed: true,  type:'Eliminator',
       matches:[
         {roomID:1, participantIDs:[1,8,15,22], judgeID:1,
           result:[
@@ -217,10 +218,9 @@ export const SpellingBeeTab={
             {participantID:19, status:'lost'},            
           ]
         }
-  ],
-}
-    ,
-    {roundID:5, name:'Finals', type:'Eliminator',
+      ],
+    },
+    {roundID:5, name:'Finals',breaks: true, completed: true,  type:'Eliminator',
       matches:[
         {roomID:1, participantIDs:[1,7], judgeID:1,
           result:[
@@ -231,4 +231,64 @@ export const SpellingBeeTab={
       ]
     },
   ],
+  standings:[],
+  words:[
+    'abacus','abandon','abbreviate','abdicate','aberration','abhorrent','abide','abject','abolish','abominate','aboriginal','abrasive','abrogate','abrupt','absence','absolute','absolve','absorb','abstain','abstract','abstruse','absurd','abundance','academic','accede','accelerate','accentuate','acceptable','acclaim','acclimate','accolade','accommodate','accomplice','accordance','accumulate','accurate','accusation','acerbic','acoustic','acquaint','acquire','acquittal','acrid','acrimony','activate','actual','acumen','adaptable','addendum','adept','adhere','adjacent','adjudicate','adjunct','administer','admirable','admonish','adolescent','adoptive','adorable','adornment','adroit','adulation','adulterate','advance','adversary','adverse','advertent','advocate','aerial','aerodynamic','aesthetic','affable','affectation','affiliate','affinity','affirmation','affliction','affluent','afford','aficionado','aggravate','aggregate','agile','agitate','agnostic','agrarian','ailment','airborne','alacrity','albeit','albino','alchemy','alcoholic','alcove','alderman','algebra','algorithm','alias','alibi','alienate','alimentary','allegation','alleviate','alliance','alliteration','allocate','alloy','allude','allure','almond','alphabet','alpine','altercation','alternate','altitude','altruism','amalgam','amateur','ambassador','ambiguity','ambition','ambivalent','amble','ameliorate','amenable','amendment','amiable','amicable','amnesty','amorphous','amphibian','ample','amplify','amputate','anachronism','analogy','analyze','anarchy','anatomy','ancestor','ancestry','anchor','anecdote','anemia','anesthetic','angelic','angular','animate','annexation','annihilate','annotate','announce','annuity','anomaly','anonymous','antagonist','antecedent','antediluvian','anthem','anthology','antibiotic','anticipate','antidote','antipathy','antiquity','antiseptic','anvil','anxiety','apathetic','aperture',
+'apex','aphorism','apology','apostrophe','apothecary','appall','apparatus','apparel','appease',
+'appellation','appendix','appetite','applaud','appliance','applicable','appoint','appraise','apprehend','apprentice','approach','appropriate','approve','aquatic','arbiter','arbitrary','arbitrate','arcade','archaeology','archaic','archive','ardent','arduous','arid','aristocrat','arithmetic','armada','aroma','arraign','arrangement','arrogant','articulate','artifact','artisan','ascend','ascertain','ascribe','aseptic','ashamed','asinine','aspect','aspersion','aspirant','assailant','assassin','assemble','assess','asset','assiduous','assimilate','assist','associate','assorted','assuage','asteroid','astonish','astronomy','astute','asylum','athlete','atlas','atmosphere','atrophy','attain','attempt','attentive','attenuate','attic','attitude','attorney','attract','attribute','atypical','audacious','audible','augment','augury','auspicious','austere','authentic','authorize','autobiography','autocracy','autonomous','autopsy','auxiliary','available','avalanche','avarice','avenue','average','aversion','aviary','avid','avocation','avowal','awkward','axiom','azure','baboon','bachelor','backbone','bacteria','baffling','ballad','ballistic','bamboo','banquet','barbarian','baritone','barricade','barren','basilica','bastion','battery','beacon','behemoth','belated','beleaguer','belittle','belligerent','benefactor','benevolent','benign','bequeath','beryl','beseech','besiege','bestow','betrayal','beverage','bewilder','bibliography','bicycle','bifurcate','bigotry','bilateral','biography','biological','bizarre','blasphemy','blatant','blemish','blizzard','blossom','boisterous','bolster','bombastic','bonanza','botanical','boundary','bourgeois','boycott','bravado','brethren','brevity','brigade','brilliant','brisket','brochure','bronchial','brutality','buccaneer','buffalo','bulwark','bureaucracy','burgeon','burlesque','buttress','cabinet','cacophony','cadence','calamity','calculate','caliber','calligraphy','calorie','camaraderie','camouflage','campaign','canary','candor','canister','cannibal','canonical','canopy','cantankerous','capability','capacious','capacity','capillary','capital','capitulate','caption','captivate','carbohydrate','cardinal','careen','caricature','carnivore','carousel','carpenter','cartilage','cascade','casualty','cataclysm','catalogue','catalyst','catapult','catastrophe','catchment','category','caterpillar','caustic','cavalier','ceaseless','celebrate','celerity','celestial','cenotaph','censure','census','centennial','central','centurion','ceramic','ceremony',
+'certain','certificate','cessation','chagrin','chairman','chalice','chameleon','champion','chandelier','chaotic','character','charisma','charlatan','charter','chastise','chauffeur','checkmate','cherish','chicanery','chimera','chivalry','chlorophyll','choreography','chronic','chronicle','circuitous','cinnamon','cipher','citadel','citation','citizen','civilian','clairvoyant','clamor','clandestine','clarify','classify','claustrophobia','clemency','clerical','cliffhanger','climatic','clinical','cloister','clumsy','coalesce','coalition','coarse','cobalt','cobbler','cognition','cognizant','coherent','cohesive','coincide','colander','collaborate','collateral','colleague','collective','colloquial','colonel','colossal','combative','comely','comet','comfort','commandeer','commemorate','commence','commendable','commerce','commiserate','commission','commodious','commonplace','commotion','communicate','commute','compact','companion','comparable','compartment','compassion','compatible','compel','compendium','compensate','competent','compile','complacent','complaint','complement'
+  ]
 };
+
+// Compute standings from preliminary rounds (roundID 1-3)
+(() => {
+  const prelimRoundIDs = SpellingBeeTab.rounds.filter((r)=>!r.breaks).map(r=>r.roundID);
+  const participants = SpellingBeeTab.participants || [];
+  const schools = SpellingBeeTab.schools || [];
+  const rounds = SpellingBeeTab.rounds || [];
+
+  const standings = participants.map(p => {
+    const school = schools.find(s => s.code === p.schoolCode)?.name || p.schoolCode;
+    const rScores = prelimRoundIDs.map(rid => {
+      const round = rounds.find(r => r.roundID === rid);
+      if (!round) return null;
+      for (const match of round.matches || []) {
+        const res = (match.result || []).find(rr => rr.participantID === p.id);
+        if (res && typeof res.score === 'number') return res.score;
+      }
+      return null;
+    });
+    const total = rScores.reduce((acc, v) => acc + (typeof v === 'number' ? v : 0), 0);
+    return {
+      participantID: p.id,
+      speller: p.name,
+      school,
+      // round1: rScores[0],
+      // round2: rScores[1],
+      // round3: rScores[2],
+      scores: [...rScores],
+      total,
+      rank: null,
+    };
+  });
+
+  // assign ranks (higher total -> better rank). Ties get same rank, next rank skips accordingly.
+  standings.sort((a,b) => b.total - a.total);
+  let rank = 0;
+  let prevTotal = null;
+  let itemsWithPrevRank = 0;
+  for (let i = 0; i < standings.length; i++) {
+    const s = standings[i];
+    if (s.total !== prevTotal) {
+      rank = i + 1;
+      prevTotal = s.total;
+      itemsWithPrevRank = 1;
+    } else {
+      itemsWithPrevRank++;
+    }
+    s.rank = rank;
+  }
+
+  // attach standings (sorted by rank)
+  SpellingBeeTab.standings = standings;
+})();

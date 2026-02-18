@@ -330,18 +330,18 @@ footer{
   left:-0.5rem;
   top: -0.5rem;
   width: 100vw;
+
   .tTitle{
     display: none;
     flex-direction: row;
     justify-content: space-between;
     background-color: var(--brandcolor);
     color: var(--background-color);
-    padding: 0.2rem;
     span{
       background-color: var(--accentcolor);
       color: var(--brandcolor);
       padding: 0.3rem;
-      margin: 0;
+      margin: 0.2rem;
       border-radius: 2rem;
       &:hover{
         cursor: pointer;
@@ -356,8 +356,20 @@ footer{
     color: var(--background-color);
     padding: 0;
     position: fixed;
+    top: 0;
+    z-index: 2;
     min-width: 30%;
     height: 100%;
+    span{
+      background-color: var(--accentcolor);
+      color: var(--brandcolor);
+      padding: 0.3rem;
+      margin: 0.2rem;
+      border-radius: 2rem;
+      &:hover{
+        cursor: pointer;
+      }
+    }
     ul{
       display: flex;
       flex-direction: column;
@@ -375,6 +387,19 @@ footer{
       }
     }
   }
+}
+.aoe{
+  z-index: 1;
+  background-color:#0c103125;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.selectedTabItem{
+  font-weight: bold;
+  color: var(--accentcolor);
 }
 .tabHome, .results{
   display: block;
@@ -431,6 +456,67 @@ footer{
     } 
   }
 }
+table{
+  overflow-x:hidden;
+  border-radius: 1rem;
+  min-width: 90%;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  tr{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  }
+  thead{
+    background-color: var(--brandcolor);
+    color: var(--accentcolor);
+    padding: 0.5rem;
+  }
+  tbody{
+    background-color: whitesmoke;
+    tr{
+      border-bottom: 1px solid var(--background-color);
+    }
+  }
+}
+#speller-standings{
+  overflow-x: auto;
+  scrollbar-width: none;
+  table{
+    margin-left: 0.5rem;
+    justify-self: start;
+    text-align: start;
+    thead{
+      padding-left: 0;
+    }
+    th{
+      text-align: start;
+    }
+    tr{
+      grid-template-columns: 3rem repeat(2, minmax(150px, 1fr));
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(70px, 1fr);
+      gap: 1rem;
+      padding-left: 0.5rem;
+    }
+  }
+}
+
+.words{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  .word{
+    padding: 0.2rem;
+    margin: 0.2rem;
+    border-radius: 0.5rem;
+    background-color: var(--accentcolor);
+    &:hover{
+      background-color: var(--brandcolor);
+      color: white;
+    }
+  }
+}
+
 @media (max-width: 600px) {
   .header nav{
    display: none;
@@ -449,6 +535,7 @@ footer{
 
     .tTitle{
     display: flex;
+    width: 100cqw;
     }
     .tSideMenu{
       display: flex;

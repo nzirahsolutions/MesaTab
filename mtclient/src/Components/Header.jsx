@@ -4,7 +4,7 @@ import { AuthContext } from "../Context/AuthContext";
 
 export default function Header() {
   const navigate = useNavigate();
-  const {selectedEvent} = useContext(AuthContext);
+  const {selectedEvent, setSelectedEvent} = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <>
@@ -43,7 +43,7 @@ export default function Header() {
     <div className='header'>
       <div className='logo'>
         <div>
-          <img src="/header.svg" alt="logo.svg" onClick={()=>{navigate(`/${selectedEvent.slug}`); setMenuOpen(false)}}/>
+          <img src="/header.svg" alt="logo.svg" onClick={()=>{navigate(`/`); setMenuOpen(false);setSelectedEvent(null)}}/>
         </div>
       </div>
       <span onClick={()=>{navigate(`/${selectedEvent.slug}`); setMenuOpen(false)}}>{selectedEvent.title}</span>
