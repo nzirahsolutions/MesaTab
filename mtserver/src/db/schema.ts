@@ -11,3 +11,4 @@ export * from './schema/spelling/drawsSB';
 export * from './schema/spelling/drawSpellers';
 export * from './schema/spelling/drawJudgesSB';
 export * from './schema/spelling/resultsSB';
+export * from './schema/spelling/standingsSB';

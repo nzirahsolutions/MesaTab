@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : {
-      id: 1,
+      id: '123e4567-e89b-12d3-a456-426614174000',
       name: "John Doe",
       email: 'JohnDoe@test.com',
       events: [5, 1, 3],

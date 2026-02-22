@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771548950092,
-      "tag": "0000_nice_white_queen",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771621003563,
-      "tag": "0001_typical_chronomancer",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771621039075,
-      "tag": "0002_swift_whistler",
+      "when": 1771774563210,
+      "tag": "0000_pretty_mariko_yashida",
       "breakpoints": true
     }
   ]
