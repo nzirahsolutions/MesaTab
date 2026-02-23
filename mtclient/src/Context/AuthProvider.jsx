@@ -1,21 +1,13 @@
 import {useState, useEffect } from 'react';
 import { AuthContext } from './AuthContext';
+import {jwtDecode} from 'jwt-decode';
 
 export const AuthProvider = ({ children }) => {
+  
   // Initialize from localStorage
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const saved = localStorage.getItem('isAuthenticated');
-    return saved ? JSON.parse(saved) : true;
-  });
-
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : {
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      name: "John Doe",
-      email: 'JohnDoe@test.com',
-      events: [5, 1, 3],
-    };
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [tab, setTab] = useState(() => {
@@ -34,15 +26,12 @@ export const AuthProvider = ({ children }) => {
 
   // Save to localStorage whenever state changes
   useEffect(() => {
-    localStorage.setItem('isAuthenticated', JSON.stringify(isAuthenticated));
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     localStorage.setItem('isEvent', JSON.stringify(isEvent));
   }, [isEvent]);
 
   useEffect(() => {
-    localStorage.setItem('user', JSON.stringify(user));
+    if(user) localStorage.setItem('user', JSON.stringify(user));
+    else localStorage.removeItem('user');
   }, [user]);
 
   useEffect(() => {
@@ -53,8 +42,30 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('selectedEvent', JSON.stringify(selectedEvent));
   }, [selectedEvent]);
 
+    // Rehydrate user from token on app start
+  useEffect(() => {
+    if (user) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const decoded = jwtDecode(token);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (!decoded?.exp || decoded.exp <= now || !decoded?.userInfo) {
+        localStorage.removeItem('token');
+        return;
+      }
+      setUser(decoded.userInfo);
+    
+    } catch {
+      localStorage.removeItem('token');
+    }
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, setIsAuthenticated, user, setUser, selectedEvent, setSelectedEvent, tab, setTab , isEvent, setIsEvent}}>
+    <AuthContext.Provider value={{ user, setUser, selectedEvent, setSelectedEvent, tab, setTab , isEvent, setIsEvent}}>
       {children}
     </AuthContext.Provider>
   );

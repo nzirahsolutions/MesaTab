@@ -3,13 +3,13 @@ import { AuthContext } from "../Context/AuthContext";
 import {useNavigate} from 'react-router-dom';
 
 export default function Home() {
-  const { isAuthenticated, user } = useContext(AuthContext);
+  const {user } = useContext(AuthContext);
   const navigate=useNavigate();
   return (
     <>
     <section id='intro'>
       <div className="textBlock">
-        <h1>Welcome {isAuthenticated && user.name} to MesaTab!</h1>
+        <h1>Welcome {user && user.name} to MesaTab!</h1>
         <p>For all your tournament tabulation needs. From debate to chess, MesaTab has your back.</p>
       </div>
     </section>
@@ -18,16 +18,15 @@ export default function Home() {
       <div className="cardsContainer">
         <div className="card">
           <p>Create and run multi-track tournaments with ease</p>
-          {isAuthenticated ?
+          {user ?
           <div className="buttonStack">
             <button className="lightButton" onClick={()=>navigate('/events')}>Create Event</button>
             <button className="lightButton"  onClick={()=>navigate('/events')}>Review Events</button>
           </div>:
           <button className="lightButton"  onClick={()=>navigate('/login')}>Log In</button>
-          }
-                    
+          }         
         </div>
-        <div className="card">
+        {/* <div className="card">
           <p>Browse our database of debate motions</p>
           <div className="buttonStack">
             <button className="lightButton"  onClick={()=>navigate('/motions')}> Debate Motions</button>
@@ -44,7 +43,7 @@ export default function Home() {
           <div className="buttonStack">
             <button className="lightButton"  onClick={()=>navigate('/resources')}> Resources</button>
           </div>          
-        </div>
+        </div> */}
       </div>
       
     </section>

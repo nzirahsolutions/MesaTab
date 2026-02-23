@@ -7,7 +7,7 @@ import {useNavigate} from 'react-router-dom';
 
 
 export default function Events() {
-  const { user, isAuthenticated, setSelectedEvent } = useContext(AuthContext);
+  const { user, setSelectedEvent } = useContext(AuthContext);
   const [creating, setCreating] = useState(false);
   const [events, setEvents] = useState([]);
   const [foundEvent, setFoundEvent] = useState({});
@@ -19,7 +19,7 @@ export default function Events() {
   
   useEffect(() => {
     function fetchEvents() {
-    let userEventIds = [...user.events];
+    const userEventIds = Array.isArray(user?.events) ? user.events : [];
     // console.log(userEventIds);
     setEvents([...Allevents]);
     const userEventIdSet = new Set(userEventIds);
@@ -51,9 +51,10 @@ export default function Events() {
       <h1>Events Management</h1>
       <p>Review past events, create new events, manage ongoing events</p>
     </section>
+    {user ?<>
     <section id='newEvent'>
         <h2>Create New Event</h2>
-        {isAuthenticated ? <><p>Tap here to create and new</p><button className="darkButton" onClick={() => setCreating(!creating)}>{creating?'Cancel Create':'Create Event'}</button></> : <><p>Please log in to create and manage events</p><button className="darkButton">Log In</button></>}
+         <><p>Tap here to create and new</p><button className="darkButton" onClick={() => setCreating(!creating)}>{creating?'Cancel Create':'Create Event'}</button></> 
         {creating && 
         <form className="textBlock">
           <h1>New Event</h1>
@@ -77,6 +78,9 @@ export default function Events() {
         ))}
       </div>
     </section>
+    </>
+    :<div className="textBlock">
+    <p>Please log in to create and manage events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button></div>}
     <section id="otherEvents">
       <h2>Find Event</h2>
       <div className="textBlock">

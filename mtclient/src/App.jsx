@@ -15,9 +15,8 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider } from "./Context/AuthProvider";
 
-function App() {
-
-  return (
+function App() {  
+    return (
     <AuthProvider>
       <div className="app">
         <Router>

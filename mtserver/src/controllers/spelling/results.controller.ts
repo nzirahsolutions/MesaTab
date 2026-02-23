@@ -26,8 +26,8 @@ router.post('/results', async (req: Request, res: Response) => {
       .insert(resultsSB)
       .values({
         drawSpellerId,
-        score: score || null,
-        status: status || null,
+        score: score ?? null,
+        status: status ?? null,
       })
       .returning();
 

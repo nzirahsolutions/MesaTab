@@ -1,9 +1,11 @@
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --brandcolor: #0c1031;
+  --brandcolor: hsl(234, 61%, 12%);
   --brandcolor-light: hsl(234, 61%, 22%);
+  --brandcolor-dark: hsl(234, 61%, 5%);
   --accentcolor: #b5ba72;
   --accentcolor-light: hsl(64, 34%, 69%);
+  --accentcolor-dark: hsl(64, 34%, 49%);
   --background-color: hsl(0, 0%, 90%);
   box-sizing: border-box;
 }
@@ -193,8 +195,10 @@ footer{
   font-size: 1rem;
   &:hover{
     background-color: var(--brandcolor-light);
-    scale: 1.05;
-    font-weight: bold;
+    scale: 1.02;
+  }
+  &:active{
+    background-color: var(--brandcolor-dark);
   }
 }
 .lightButton{
@@ -207,8 +211,10 @@ footer{
   font-size: 1rem;
   &:hover{
     background-color: var(--accentcolor-light);
-    scale: 1.05;
-    font-weight: bold;
+    scale: 1.02;
+  }
+  &:active{
+    background-color: var(--accentcolor-dark);
   }
 }
 .textBlock{
@@ -217,6 +223,31 @@ footer{
   padding: 1rem;
   border-radius: 0.5rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+form{
+  background-color: whitesmoke;
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
+  border-radius: 0.5rem;
+  width: 80%;
+  max-width: 600px;
+  justify-self: center;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  input{
+    outline: none;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    background-color: var(--background-color);
+  }
+  span{
+    color: var(--accentcolor);
+    font-weight: bold;
+    cursor: pointer;
+  }
 }
 .cardsContainer{
   display: grid;
