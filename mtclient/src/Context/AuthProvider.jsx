@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!decoded?.exp || decoded.exp <= now || !decoded?.userInfo) {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         return;
       }
       setUser(decoded.userInfo);
