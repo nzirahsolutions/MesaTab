@@ -32,7 +32,7 @@ export default function SignUp() {
         setLoading(false);
         setError(false);
         setSuccess(true);
-        // navigate('/');
+        navigate('/');
     }
     catch(err){
         console.log(err);
@@ -50,8 +50,8 @@ export default function SignUp() {
       <input type='email' required name="email" value={newUser.email} onChange={handleChange} placeholder="Enter email"/>
       <input type="password" required name="password" value={newUser.password} onChange={handleChange} placeholder="Enter password"/>
       <button className="darkButton" onClick={handleSubmit} >{loading?'Signing Up':'Sign Up'}</button>
-      {error && <p>{errorMessage}</p>}
-      {success && <p>Log in successful</p>}
+      {error && <p style={{color:'red'}}>{errorMessage}</p>}
+      {success && <p style={{color:'green'}}>Sign up successful</p>}
       <p>Already have an account? <span onClick={()=>navigate('/login')}>Log In</span></p>  
     </form>
     </>

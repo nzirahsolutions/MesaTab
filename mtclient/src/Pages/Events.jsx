@@ -4,6 +4,8 @@ import { events as Allevents} from "../Context/SampleData";
 import {Findbar} from "../Components/Searchbar";
 import { toast } from "react-toastify";
 import {useNavigate} from 'react-router-dom';
+import axios from 'axios';
+import { currentServer } from "../Context/urls";
 
 
 export default function Events() {
@@ -11,11 +13,16 @@ export default function Events() {
   const [creating, setCreating] = useState(false);
   const [events, setEvents] = useState([]);
   const [foundEvent, setFoundEvent] = useState({});
-  // const [loading, setLoading] = useState(true);
-  // const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('Something Went Wrong');
   const [userEvents,setUserEvents]=useState([]);
+  const [newEvent,setNewEvent]=useState({title:'', organizer:'',slug:''});
   const navigate=useNavigate();
-
+  const [eventView, setEventView]=useState('review');
+  // const tracks=['Spelling Bee', 'Public Speaking','BP Debate', 'WSDC Debate','Chess'];
+  // const [eventTabs, setEventTabs]=useState([{title:'',track:''}]);
   
   useEffect(() => {
     function fetchEvents() {
@@ -33,7 +40,24 @@ export default function Events() {
     fetchEvents();
   }, []);
 
-  //console.log(userEvents);
+  function handleChange(e){
+    setError(false);
+    setLoading(false);
+    setSuccess(false);
+    setNewEvent({...newEvent, [e.target.name]:e.target.value})
+  }
+  function handleSubmit(e){
+    e.preventDefault();
+    setLoading(true);
+    try{
+      const res=axios.post(`${currentServer}/event`,newEvent);
+      console.log(res);
+    }
+    catch(err){
+      setError(true);
+      setErrorMessage(err.message? err.message: 'Something Went Wrong');
+    }
+  }
   function findEvent(r){
     const term=r.current.value.toLowerCase();
     const found=events.filter((event)=>event.slug.toLowerCase()===term);
@@ -45,42 +69,56 @@ export default function Events() {
     //console.log(found[0]);
     setFoundEvent({...foundEvent, ...found[0]});
   }
-  return (
-    <>
-    <section id='intro'>
-      <h1>Events Management</h1>
-      <p>Review past events, create new events, manage ongoing events</p>
+  function reviewEvents(){
+    if (user)
+    return(
+      <section id="userEvent">
+        <h2>User Events</h2>
+        <div className="eventList">
+          {userEvents.length===0 ? 
+          <div className="eventCard"><p>You have no events</p></div> 
+          : 
+          userEvents.map((event)=>(
+            <div key={event.eventID} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
+              <h3>{event.title}</h3>
+              <div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>
+              <div>
+                <p>By <strong>{event.organizer}</strong></p>
+              </div>
+            </div>
+          ))}
+        </div>
     </section>
-    {user ?<>
-    <section id='newEvent'>
-        <h2>Create New Event</h2>
-         <><p>Tap here to create and new</p><button className="darkButton" onClick={() => setCreating(!creating)}>{creating?'Cancel Create':'Create Event'}</button></> 
+    );
+    return (
+      <div className="textBlock">
+        <p>Please log in to review your events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button>
+      </div>
+    );
+  }
+  function createEvent(){
+    if (user)
+    return(
+      <section id='newEvent'>
         {creating && 
-        <form className="textBlock">
-          <h1>New Event</h1>
+        <form>
+          <strong style={{fontSize:'1.5rem'}}>Create New Event</strong>
+          <input type="text" name="title" placeholder="Event Title" value={newEvent.title} onChange={handleChange}/>
+          <input type="text" name="organizer" placeholder="Event Organizer" value={newEvent.organizer} onChange={handleChange}/>
+          <input type="text" name="slug" placeholder="url extension e.g.: lumumba-opens" value={newEvent.slug} onChange={handleChange}/>
+          <button className="darkButton" disabled={loading} onClick={handleSubmit}>{loading?'Creating':'Create Event'}</button>
         </form>
         }
     </section>
-    <section id="userEvent">
-      <h2>User Events</h2>
-      <div className="eventList">
-        {userEvents.length===0 ? 
-        <p>No ongoing events at the moment.</p> 
-        : 
-        userEvents.map((event)=>(
-          <div key={event.eventID} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
-            <h3>{event.title}</h3>
-            <div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>
-            <div>
-              <p>By <strong>{event.organizer}</strong></p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-    </>
-    :<div className="textBlock">
-    <p>Please log in to create and manage events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button></div>}
+    );
+    
+    return (
+      <div className="textBlock">
+        <p>Please log in to create events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button>
+      </div>);
+  }
+  function findEvents(){
+    return(
     <section id="otherEvents">
       <h2>Find Event</h2>
       <div className="textBlock">
@@ -95,7 +133,25 @@ export default function Events() {
             </div>
           </div>}
       </div>
+    </section>);
+  }
+  function viewer(e){
+    e!=='create' && setCreating(false);
+    e=='create' & creating? setEventView('review')
+    :setEventView(e);
+  }
+  return (
+    <>
+    <section id='intro'>
+      <h1>Events Management</h1>
+      <p>Review past events, create new events, manage ongoing events</p>
+      <div className="buttonStack" style={{justifySelf:'center',marginBottom:'0.5rem'}}>
+        <button className={eventView==='review'? 'lightButton': 'darkButton'} onClick={()=>viewer('review')}>Review</button>
+        <button className={eventView==='create'? 'lightButton': 'darkButton'} onClick={()=>{viewer('create'); setCreating(!creating)}}>{creating?'Cancel':'Create'}</button>
+        <button className={eventView==='find'? 'lightButton': 'darkButton'} onClick={()=>viewer('find')}>Find</button>
+      </div>
     </section>
+    {eventView==='review'? reviewEvents(): eventView==='create'? createEvent(): eventView==='find'? findEvents():''}
     </>
   )
 }

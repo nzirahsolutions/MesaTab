@@ -49,8 +49,8 @@ export default function LogIn() {
       <input type='email' required name="email" value={user1.email} onChange={handleChange} placeholder="Enter email"/>
       <input type="password" required name="password" value={user1.password} onChange={handleChange} placeholder="Enter password"/>
       <button className="darkButton" onClick={handleSubmit} >{loading?'Logging In':'Log In'}</button>
-      {error && <p>{errorMessage}</p>}
-      {success && <p>Log in successful</p>}
+      {error && <p style={{color:'red'}}>{errorMessage}</p>}
+      {success && <p style={{color:'green'}}>Log in successful</p>}
       <p>Don't have an account? <span onClick={()=>navigate('/signup')}>Sign Up</span></p>  
     </form>
     </>

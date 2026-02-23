@@ -227,11 +227,9 @@ footer{
 form{
   background-color: whitesmoke;
   display: grid;
-  grid-auto-flow: row;
   grid-template-columns: 1fr;
   border-radius: 0.5rem;
   width: 80%;
-  max-width: 600px;
   justify-self: center;
   align-items: center;
   justify-content: center;
@@ -241,7 +239,11 @@ form{
     outline: none;
     padding: 0.5rem;
     border-radius: 1rem;
+    border: none;
     background-color: var(--background-color);
+  }
+  input:focus{
+    box-shadow: 5px 5px 5px var(--accentcolor);
   }
   span{
     color: var(--accentcolor);
