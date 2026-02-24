@@ -15,10 +15,6 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [selectedEvent, setSelectedEvent] = useState(() => {
-    const saved = localStorage.getItem('selectedEvent');
-    return saved ? JSON.parse(saved) : null;
-  });
   const [isEvent, setIsEvent] = useState(() => {
     const saved = localStorage.getItem('isEvent');
     return saved ? JSON.parse(saved) : false;
@@ -37,10 +33,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('tab', JSON.stringify(tab));
   }, [tab]);
-
-  useEffect(() => {
-    localStorage.setItem('selectedEvent', JSON.stringify(selectedEvent));
-  }, [selectedEvent]);
 
     // Rehydrate user from token on app start
   useEffect(() => {
@@ -66,7 +58,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, selectedEvent, setSelectedEvent, tab, setTab , isEvent, setIsEvent}}>
+    <AuthContext.Provider value={{ user, setUser, tab, setTab , isEvent, setIsEvent}}>
       {children}
     </AuthContext.Provider>
   );

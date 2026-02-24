@@ -18,12 +18,12 @@ export const tabsSB = pgTable('tabs_sb', {
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
 },
 (t)=>({
-    tab_slug_unique_per_event: unique().on(t.eventId, t.slug),
-    eventIdIdx: index('tabs_eventId_idx').on(t.eventId),
+    tabsb_slug_unique_per_event: unique().on(t.eventId, t.slug),
+    eventIdIdx: index('tabs_sb_eventId_idx').on(t.eventId),
 })
 );
 
-export const tabRelations= relations(tabsSB,({one, many})=>({
+export const tabSBRelations= relations(tabsSB,({one, many})=>({
     event: one(events,{
         fields:[tabsSB.eventId],
         references:[events.eventId],

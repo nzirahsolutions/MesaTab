@@ -12,3 +12,11 @@ export * from './schema/spelling/drawSpellers';
 export * from './schema/spelling/drawJudgesSB';
 export * from './schema/spelling/resultsSB';
 export * from './schema/spelling/standingsSB';
+//WSDC
+export * from './schema/WSDC debate/tabsWSDC';
+//Chess
+export * from './schema/chess/tabsChess';
+//PS
+export * from './schema/public speaking/tabsPS';
+//BP
+export * from './schema/BP debate/tabsBP';

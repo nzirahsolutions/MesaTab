@@ -31,8 +31,8 @@ function App() {
           <Route path="/login" element={<LogIn/>}/>
           <Route path="/signup" element={<SignUp/>}/>
           <Route path="/profile" element={<Profile/>}/>
-          <Route path="/:slug" element={<Event/>}/>
-          <Route path="/:slug/:tab" element={<Tab/>}/>
+          <Route path="/:eventSlug" element={<Event/>}/>
+          <Route path="/:event/:tab" element={<Tab/>}/>
         </Routes>
         </main>
         <Footer />

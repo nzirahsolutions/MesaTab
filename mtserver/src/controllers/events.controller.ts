@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db/db";
-import { events } from "../db/schema";
+import { events, users} from "../db/schema";
+import bcrypt from 'bcryptjs';
 
 export async function createEvent(req: Request, res: Response){
     // console.log('Create Event Called');
@@ -91,6 +92,7 @@ export async function getUserEvents(req: Request, res: Response){
     return res.status(500).json({message:'Failed to fetch user events'});
   }
 }
+
  export async function findEvent(req: Request, res: Response){
   // console.log('Find Event called');
   // console.log(req.params);
@@ -125,4 +127,70 @@ export async function getUserEvents(req: Request, res: Response){
     console.error('findEvent error:', error);
     return res.status(500).json({message:'Failed to find event'});
   }  
- }
+}
+
+export async function deleteEvent(req: Request, res: Response){
+  // console.log('Delete Event called');
+  try{
+    const {slug, ownerId, password}=req.body as{
+      slug?: string;
+      ownerId?: string;
+      password?: string;
+    };
+
+    const normalizedSlug= slug?.trim().toLowerCase();
+    if(!normalizedSlug || !password || !ownerId){
+      return res.status(400).json({message: 'Event url and user password are required'});
+    }
+
+    const foundUser = await db
+      .select({ userId: users.userId, passwordHash: users.password_hash })
+      .from(users)
+      .where(eq(users.userId, ownerId))
+      .limit(1);
+
+    if (!foundUser.length || !(await bcrypt.compare(password, foundUser[0].passwordHash))) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+   const foundEvent = await db
+      .select({
+        eventId: events.eventId,
+        title: events.title,
+        organizer: events.organizer,
+        slug: events.slug,
+        ownerId: events.ownerId,
+      })
+      .from(events)
+      .where(and(eq(events.slug, normalizedSlug), eq(events.ownerId, ownerId)))
+      .limit(1);
+
+    if (!foundEvent.length) {
+      return res.status(404).json({ message: "Event not found. Is this yours?" });
+    }
+
+    const deleted = await db
+      .delete(events)
+      .where(eq(events.eventId, foundEvent[0].eventId))
+      .returning({
+        eventId: events.eventId,
+        title: events.title,
+        organizer: events.organizer,
+        slug: events.slug,
+        ownerId: events.ownerId,
+      });
+
+    return res.status(200).json({
+      message: "Event deleted successfully",
+      data: deleted[0],
+    });
+  }
+  catch(error){
+    console.error('deleteEvent error:', error);
+    return res.status(500).json({message:'Failed to delete event'});
+  }
+}
+
+export async function addEventTab(req: Request, res:Response){
+  
+}

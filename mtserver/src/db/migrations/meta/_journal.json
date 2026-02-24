@@ -8,6 +8,13 @@
       "when": 1771774563210,
       "tag": "0000_pretty_mariko_yashida",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771902291828,
+      "tag": "0001_windy_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

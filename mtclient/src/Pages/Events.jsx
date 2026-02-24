@@ -1,6 +1,5 @@
 import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../Context/AuthContext";
-import { events as Allevents} from "../Context/SampleData";
 import {Findbar} from "../Components/Searchbar";
 import { toast } from "react-toastify";
 import {useNavigate} from 'react-router-dom';
@@ -9,7 +8,7 @@ import { currentServer } from "../Context/urls";
 
 
 export default function Events() {
-  const { user, setSelectedEvent } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const [creating, setCreating] = useState(false);
   const [foundEvent, setFoundEvent] = useState({});
   const [loading, setLoading] = useState(false);
@@ -19,22 +18,13 @@ export default function Events() {
   const [successMessage, setSuccessMessage] = useState('Success');
   const [userEvents,setUserEvents]=useState([]);
   const [newEvent,setNewEvent]=useState({title:'', organizer:'',slug:'', ownerId:''});
+  const [newDeleteEvent,setNewDeleteEvent]=useState({slug:'', password:''});
+  const [deleteStates,setDeleteStates]=useState({loading:false, success:false, error:false, errorMessage:'Something went wrong', successMessage:'Deleted Successfully'});
   const navigate=useNavigate();
   const [eventView, setEventView]=useState('review');
   const defaultEvent={title:'', organizer:'',slug:'', ownerId:''};
   
-  useEffect(() => {
-    async function fetchUserEvents() {
-      // const userEventIds = Array.isArray(user?.events) ? user.events : [];
-      // // console.log(userEventIds);
-      // setEvents([...Allevents]);
-      // const userEventIdSet = new Set(userEventIds);
-      // // console.log(userEventIdSet);
-      // const attendedEvents = Allevents.filter(ev => 
-      //   userEventIdSet.has(ev.eventID)
-      // );
-      // setUserEvents(attendedEvents);
-      // // console.log(attendedEvents);
+  async function fetchUserEvents() {
         if(!user?.id){
           setUserEvents([]);
           return;
@@ -49,10 +39,29 @@ export default function Events() {
           toast.error(err?.response?.data?.message || "Failed to load your events");
         }
     }
-    
+  
+  useEffect(() => {
     fetchUserEvents();
   }, [user]);
 
+  function handleDeleteOnChange(e){
+    setNewDeleteEvent({...newDeleteEvent, [e.target.name]:e.target.value});
+    setDeleteStates({...deleteStates, success: false, error:false, loading:false});
+  }
+  async function handleDelete(e){
+    e.preventDefault();
+    setDeleteStates({...deleteStates, loading:true});
+    try {
+      const res=await axios.delete(`${currentServer}/event`,{data:{...newDeleteEvent, ownerId: user.id}});
+      setDeleteStates({...deleteStates, successMessage: res?.data?.message || 'Deleted Successfully', loading: false, success: true, error: false});
+      fetchUserEvents();
+    } 
+    catch(err){
+      const message= err?.response?.data?.message || "Something went wrong";
+      setDeleteStates({...deleteStates, loading: false, success: false, error:true, errorMessage: message})
+    }
+
+  }
   function handleChange(e){
     setError(false);
     setLoading(false);
@@ -106,13 +115,10 @@ export default function Events() {
           <div className="eventCard"><p>You have no events</p></div> 
           : 
           userEvents.map((event)=>(
-            <div key={event.eventId} className="eventCard" onClick={()=>{setSelectedEvent({...event}); navigate(`/${event.slug}`)}}>
+            <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
               <h3>{event.title}</h3>
-              {/* <div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div> */}
-              <div style={{display:'flex',flexDirection:'column'}}>
-                <p><strong>url: </strong>{event.slug}</p>
-                <p><strong>By: </strong>{event.organizer}</p>
-              </div>
+              <p style={{margin:'0.3rem'}}><strong>Url: </strong>{event.slug}</p>
+              {event.tabs?<div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
             </div>
           ))}
         </div>
@@ -155,15 +161,33 @@ export default function Events() {
         <p>Enter the exact event slug</p>
         <Findbar placeholder='e.g: "PAUDC-2023"' onSearch={findEvent} />
       {foundEvent.slug &&
-        <div className="eventCard" onClick={()=>{setSelectedEvent({...foundEvent}); navigate(`/${foundEvent.slug}`)}}>
+        <div className="eventCard" onClick={()=>navigate(`/${foundEvent.slug}`)}>
           <h3>{foundEvent.title}</h3>
-            {/* <div>{[...new Set(foundEvent.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div> */}
+            <p style={{margin:'0.3rem'}}><strong>Url: </strong>{foundEvent.slug}</p>
+            {foundEvent.tabs?<div>{[...new Set(foundEvent.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
             <div>
               <p>By <strong>{foundEvent.organizer}</strong></p>
             </div>
           </div>}
       </div>
     </section>);
+  }
+  function deleteEvents(){
+    if(user)
+    return(
+      <form onSubmit={handleDelete}>
+        <h2>Delete Event</h2>
+        <input type="text" name="slug" value={newDeleteEvent.slug} autoComplete="one-time-code" placeholder="Event url" onChange={handleDeleteOnChange}/>
+        <input type="password" name="password" value={newDeleteEvent.password} autoComplete="one-time-code" placeholder="Enter password" onChange={handleDeleteOnChange}/>
+        <button className="darkButton" disabled={deleteStates.loading}>{deleteStates.loading?'Deleting':'Delete Event'}</button>
+        {deleteStates.error && <p style={{color:'red'}}>{deleteStates.errorMessage}</p>}
+        {deleteStates.success && <p style={{color:'green'}}>{deleteStates.successMessage}</p>}        
+      </form>
+    );
+    return (
+      <div className="textBlock">
+        <p>Please log in to delete your events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button>
+      </div>);    
   }
   function viewer(e){
     e!=='create' && setCreating(false);
@@ -179,9 +203,10 @@ export default function Events() {
         <button className={eventView==='review'? 'lightButton': 'darkButton'} onClick={()=>viewer('review')}>Review</button>
         <button className={eventView==='create'? 'lightButton': 'darkButton'} onClick={()=>{viewer('create'); setCreating(!creating)}}>{creating?'Cancel':'Create'}</button>
         <button className={eventView==='find'? 'lightButton': 'darkButton'} onClick={()=>viewer('find')}>Find</button>
+        <button className={eventView==='delete'? 'lightButton': 'darkButton'} onClick={()=>viewer('delete')}>Delete</button>
       </div>
     </section>
-    {eventView==='review'? reviewEvents(): eventView==='create'? createEvent(): eventView==='find'? findEvents():''}
+    {eventView==='review'? reviewEvents(): eventView==='create'? createEvent(): eventView==='find'? findEvents():eventView==='delete'? deleteEvents():''}
     </>
   )
 }
