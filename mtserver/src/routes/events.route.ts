@@ -8,5 +8,6 @@ router.get('/find/:slug', eventsController.findEvent);
 router.get('/:ownerId', eventsController.getUserEvents);
 router.delete('/', eventsController.deleteEvent);
 router.post('/tab', eventsController.addEventTab);
+router.delete('/tab', eventsController.deleteEventTab);
 
 export default router;

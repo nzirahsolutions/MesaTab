@@ -60,7 +60,6 @@ export default function Events() {
       const message= err?.response?.data?.message || "Something went wrong";
       setDeleteStates({...deleteStates, loading: false, success: false, error:true, errorMessage: message})
     }
-
   }
   function handleChange(e){
     setError(false);
@@ -96,8 +95,8 @@ export default function Events() {
     const slug=r.current.value.toLowerCase();
     const found=await axios.get(`${currentServer}/event/find/${slug}`);
     toast.success('Event Found');
-    // console.log(found.data.data[0]);
-    setFoundEvent({...found.data.data[0]});
+    // console.log(found.data.data);
+    setFoundEvent({...found.data.data});
     }
     catch(err){
       const message= err?.response?.data?.message || "Something went wrong";
@@ -118,7 +117,7 @@ export default function Events() {
             <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
               <h3>{event.title}</h3>
               <p style={{margin:'0.3rem'}}><strong>Url: </strong>{event.slug}</p>
-              {event.tabs?<div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
+              {event.tabs && event.tabs.length!==0?<div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
             </div>
           ))}
         </div>
@@ -164,7 +163,7 @@ export default function Events() {
         <div className="eventCard" onClick={()=>navigate(`/${foundEvent.slug}`)}>
           <h3>{foundEvent.title}</h3>
             <p style={{margin:'0.3rem'}}><strong>Url: </strong>{foundEvent.slug}</p>
-            {foundEvent.tabs?<div>{[...new Set(foundEvent.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
+            {foundEvent.tabs && foundEvent.tabs.length!==0?<div>{[...new Set(foundEvent.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
             <div>
               <p>By <strong>{foundEvent.organizer}</strong></p>
             </div>

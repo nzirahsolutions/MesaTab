@@ -321,6 +321,16 @@ form{
       background-color: var(--accentcolor);
     }
   }
+  div{
+    display: grid;
+    justify-content: center;
+    justify-self: center;
+    grid-auto-flow: row;
+    margin: 0;
+    p{
+      margin: 0;
+    }
+  }
 }
 /* specific tab */
 .tabMenu{
