@@ -1,13 +1,42 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import {GiBee} from 'react-icons/gi';
 import {IoClose} from 'react-icons/io5';
+import {AuthContext} from '../../../../Context/AuthContext';
+import Dropdown from "../../../../Components/Dropdown";
+import SpellingAdmin from "./SpellingAdmin";
+import { useEffect } from "react";
+import { currentServer } from "../../../../Context/urls";
+import Loading from "../../../../Components/Loading";
+import axios from "axios";
 
-export default function SpellingBeeTab({tab}) {
+export default function SpellingBeePublicTab({tab, event}) {
   // console.log(tab.title);
   const [tabItem, setTabItem]=useState('home');
   const [participant, setParticipant]=useState('spellers');
   const [menuOpen, setMenuOpen]=useState(false);
   const [viewRound, setViewRound]=useState(null);
+  const {user}= useContext(AuthContext);
+  const [access, setAccess]=useState('public');
+  const [pageLoad, setPageLoad]=useState({loading: true, authorized:false});
+  const [fullTab, setFullTab]=useState(null);
+  // console.log(tab, event);
+  // console.log(access);
+
+  async function getFullTab() {
+    try {
+        const res=await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
+        // console.log(res.data.data);
+        setFullTab({...res.data.data});
+        setPageLoad({...pageLoad, loading: false, authorized:(user && (user.id===event.ownerId) || tab.tabMasters.find(e=>e.email===user.email))});
+    } 
+    catch (error) {
+        console.log(error);        
+    }    
+  }
+  getFullTab();
+  useEffect(()=>{
+    getFullTab();
+  },[]);
 
   function tabChange(t){
     setTabItem(t);
@@ -29,10 +58,10 @@ export default function SpellingBeeTab({tab}) {
     return(
       <>
       {/* {console.log(tab.rounds)} */}
-      {tab.rounds.length<0?
-      <p>No Rounds Were Completed</p>:
+      {fullTab.rounds.length===0?
+      <p>No Rounds Have Been Added</p>:
       <div className="results">
-      {tab.rounds.map((r,i)=>
+      {fullTab.rounds.map((r,i)=>
       <li key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</li>)}
       </div>}
       </>
@@ -42,10 +71,10 @@ export default function SpellingBeeTab({tab}) {
     return(
       <>
       <section id="other-rounds">
-        {tab.rounds.length<0?
+        {fullTab.rounds.length<0?
       <p>No Rounds Were Completed</p>:
       <div className="round-buttons">
-      {tab.rounds.map((r,i)=>
+      {fullTab.rounds.map((r,i)=>
       <button className={r.name===viewRound.name? 'darkButton':'lightButton'} key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</button>)}
       </div>}
       </section>
@@ -59,13 +88,13 @@ export default function SpellingBeeTab({tab}) {
         {viewRound.matches.map((m,i)=>
         <div key={i} className="roomCard">
           <div className="roomHeader">
-            <h2 style={{margin:'0.1rem'}}>{tab.rooms.filter((r)=>r.id===m.roomID)[0].name}</h2>
-            <p style={{margin:'0.5rem'}}>Adjudicator: <strong>{tab.judges.filter((r)=>r.id===m.judgeID)[0].name}</strong></p>
+            <h2 style={{margin:'0.1rem'}}>{fullTab.rooms.filter((r)=>r.id===m.roomID)[0].name}</h2>
+            <p style={{margin:'0.5rem'}}>Adjudicator: <strong>{fullTab.judges.filter((r)=>r.id===m.judgeID)[0].name}</strong></p>
           </div>
           <div className="roomBody">
             <li><strong>Participant Name</strong> <strong>School Code</strong> <strong>Score</strong></li>
             {m.result.map((r,index)=>
-            <li key={index}><span>{tab.participants.filter((p)=>p.id===r.participantID)[0].name}</span><span>{tab.participants.filter((p)=>p.id===r.participantID)[0].schoolCode}</span>
+            <li key={index}><span>{fullTab.participants.filter((p)=>p.id===r.participantID)[0].name}</span><span>{tab.participants.filter((p)=>p.id===r.participantID)[0].schoolCode}</span>
             {!viewRound.breaks?<span>{r.score}</span>:<span style={r.status==='won'?{color:'green'}:{color:'red'}}>{r.status}</span>}</li>
             )}
           </div>
@@ -76,7 +105,8 @@ export default function SpellingBeeTab({tab}) {
   }
   function spellerTab(){
     return(
-      <>
+      fullTab.standings && fullTab.standings.length>0?
+      <>      
       <section id="intro">
         <h1>Speller Tab</h1>
         <p>This is a summary of points accrued during the preliminary rounds of the tournament.</p>
@@ -90,12 +120,12 @@ export default function SpellingBeeTab({tab}) {
               <th>Rank</th>
               <th>Speller</th>
               <th>School</th>
-              {tab.rounds.filter((r)=>!r.breaks).map((r,i)=><th key={i}>{r.name}</th>)}
+              {fullTab.rounds.filter((r)=>!r.breaks).map((r,i)=><th key={i}>{r.name}</th>)}
               <th>Total</th>
             </tr>
           </thead>
           <tbody>
-            {tab.standings.map((s,i)=>
+            {fullTab.standings.map((s,i)=>
             <tr key={i}>
               <td>{s.rank}</td>
               <td>{s.speller}</td>
@@ -107,6 +137,7 @@ export default function SpellingBeeTab({tab}) {
         </table>
       </section>
       </>
+      :<p>No Rounds Compeleted Yet</p>
     )
   }
   function participants(){
@@ -120,7 +151,7 @@ export default function SpellingBeeTab({tab}) {
       {participant==='spellers'?
       <section id="spellers">
         <h2>Spellers</h2>
-        <table>
+        {fullTab.spellingBees.length>0?<table>
           <thead>
             <tr style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <th>Name</th>
@@ -128,33 +159,33 @@ export default function SpellingBeeTab({tab}) {
             </tr>
           </thead>
           <tbody>
-            {tab.participants.map((p,i)=>
+            {fullTab.spellingBees.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <td>{p.name}</td>
-              <td>{tab.schools.find((s)=>s.code===p.schoolCode).name}</td>
+              <td>{fullTab.institutions.find((s)=>s.code===p.schoolCode).name}</td>
             </tr>)}
           </tbody>
-        </table>
+        </table>:<p>No Registered Spellers</p>}
       </section>:participant==='judges'?
       <section id="judges">
         <h2>Judges</h2>
-        <table>
+        {fullTab.judges.length>0?<table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr'}}>
               <th>Name</th>
             </tr>
           </thead>
           <tbody>
-            {tab.judges.map((p,i)=>
+            {fullTab.judges.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr'}}>
               <td>{p.name}</td>
             </tr>)}
           </tbody>
-        </table>
+        </table>:<p>No Registered Judges</p>}
       </section>:
       <section id="institutions">
         <h2>Institutions</h2>
-        <table>
+        {fullTab.institutions.length>0?<table>
           <thead>
             <tr style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <th>Name</th>
@@ -163,14 +194,14 @@ export default function SpellingBeeTab({tab}) {
             </tr>
           </thead>
           <tbody>
-            {tab.schools.map((p,i)=>
+            {fullTab.institutions.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{p.code}</td>
-              <td>{p.participants}</td>
+              <td>{p.spellers}</td>
             </tr>)}
           </tbody>
-        </table>
+        </table>:<p>No Registered Institutions</p>}
       </section>}
     </div>)
   }
@@ -179,16 +210,19 @@ export default function SpellingBeeTab({tab}) {
       <>
       <h2>Words</h2>
       <section className="words">
-        {tab.words.map((w,i)=><div className="word" key={i}>{w}</div>)}
+        {fullTab.words.map((w,i)=><div className="word" key={i}>{w}</div>)}
+        {fullTab.words.length===0 && <p>No Words Added</p>}
       </section>
       </>
     )
   }
   return (
+    !pageLoad.loading && access==='public'?
     <>
     <nav className="tabMenu">
       <ul>
-        <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>
+        {pageLoad.authorized? <Dropdown options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+        <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
         <li onClick={()=>tabChange('spellerTab')} className={tabItem==='spellerTab'?'selectedTabItem':''}>Speller Tab</li>
         <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
@@ -197,7 +231,8 @@ export default function SpellingBeeTab({tab}) {
     </nav>
     <div className="tabSideMenu">
       <nav className="tTitle">
-          <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>
+          {pageLoad.authorized? <Dropdown options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+        <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? <IoClose/>:'☰'}</span>
       </nav>
       <nav className={`tSideMenu ${menuOpen? 'Open':'Closed'}`}>
@@ -214,6 +249,6 @@ export default function SpellingBeeTab({tab}) {
     {
       tabItem==='home'? home():tabItem==='rounds'? rounds():tabItem==='round'? round():tabItem==='spellerTab'? spellerTab():tabItem==='participants'? participants():tabItem==='words'? words():''
     }
-    </>
+    </>:!pageLoad.loading && access==='admin'?<SpellingAdmin tab={tab} event={event}/>:<Loading/>
   )
 }

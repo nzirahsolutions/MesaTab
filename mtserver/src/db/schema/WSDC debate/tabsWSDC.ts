@@ -6,6 +6,7 @@ export const tabsWSDC = pgTable('tabs_wsdc', {
   tabId: uuid('tab_id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   slug: text('slug').notNull(),
+  track:text('track').notNull().default('WSDC Debate'),
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
 },
 (t)=>({

@@ -6,6 +6,7 @@ export * from './schema/spelling/roundsSB';
 export * from './schema/spelling/institutionsSB';
 export * from './schema/spelling/spellers';
 export * from './schema/spelling/judgesSB';
+export * from './schema/spelling/tabMastersSB';
 export * from './schema/spelling/roomsSB';
 export * from './schema/spelling/drawsSB';
 export * from './schema/spelling/drawSpellers';

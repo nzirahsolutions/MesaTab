@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../Context/AuthContext";
 import axios from "axios";
 import { currentServer } from "../../Context/urls";
+import Loading from "../../Components/Loading";
 
 export default function Event() {
   const {user} = useContext(AuthContext);
@@ -83,7 +84,7 @@ export default function Event() {
   function reviewTabs(){
     return(
       <section>
-        <h2>Choose Tab to View</h2>
+        <h2 style={{margin:0}}>Choose Tab to View</h2>
         <div className="tabList">
           {event.tabs && event.tabs.length!==0? event.tabs.map((tab)=><div key={tab.tabId}><button className="darkButton" onClick={()=>navigate(`/${event.slug}/${tab.slug}`)}>{tab.title}</button> <p><strong>url: </strong>{tab.slug} <strong>Track: </strong>{tab.track}</p></div>):<p>No Tab Added</p>}
         </div>
@@ -133,7 +134,7 @@ export default function Event() {
     )
   }
   return (
-    loadingPage?<><p>Loading...</p></>:
+    loadingPage? <Loading/>:
     <>
     <section id="welcome-section">
       <h1>Welcome to {event.title}</h1>

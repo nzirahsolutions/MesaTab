@@ -4,6 +4,7 @@ import { institutionsSB } from './institutionsSB';
 import { roomsSB } from './roomsSB';
 import { spellers } from './spellers';
 import { judgesSB } from './judgesSB';
+import { tabMastersSB } from './tabMastersSB';
 import { relations } from 'drizzle-orm';
 import { roundsSB } from './roundsSB';
 import { drawsSB } from './drawsSB';
@@ -15,6 +16,7 @@ export const tabsSB = pgTable('tabs_sb', {
   tabId: uuid('tab_id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   slug: text('slug').notNull(),
+  track:text('track').notNull().default('Spelling Bee'),
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
 },
 (t)=>({
@@ -32,6 +34,7 @@ export const tabSBRelations= relations(tabsSB,({one, many})=>({
     rooms: many(roomsSB),
     spellers: many(spellers),
     judges: many(judgesSB),
+    tabMasters: many(tabMastersSB),
     rounds:many(roundsSB),
     draws: many(drawsSB),
     drawSpellers: many(drawSpellers),

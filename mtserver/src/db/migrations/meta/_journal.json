@@ -15,6 +15,20 @@
       "when": 1771902291828,
       "tag": "0001_windy_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771943554634,
+      "tag": "0002_powerful_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772121438726,
+      "tag": "0003_wakeful_skin",
+      "breakpoints": true
     }
   ]
 }

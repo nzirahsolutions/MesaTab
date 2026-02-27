@@ -7,6 +7,7 @@
   --accentcolor-light: hsl(64, 34%, 69%);
   --accentcolor-dark: hsl(64, 34%, 49%);
   --background-color: hsl(0, 0%, 90%);
+  --transparent: hsla(0, 0%, 90%, 0);
   box-sizing: border-box;
 }
 body{
@@ -130,6 +131,33 @@ body{
   z-index: 5;
   background-color: transparent;
 }
+@keyframes pulse-glow{
+  0%{
+    border-radius: 50%;
+    border: 2px solid var(--transparent);
+  }
+  50%{
+    box-shadow: 0 0 0 1rem var(--accentcolor);
+    border-radius: 50%;
+    scale: 1.05;
+    border: 2px solid var(--brandcolor);
+  }
+  100%{
+    border-radius: 50%;
+    border: 2px solid var(--transparent);
+  }
+}
+.loading{
+  width: 10vh;
+  height: 10vh;
+  display: flex;
+  align-self: center;
+  justify-self: center;
+  transform: translateY(10vh);
+  background-image: url(/loadingMT.svg);
+  background-size: cover;
+  animation: pulse-glow 2s infinite;
+}
 footer{
   background-color: var(--brandcolor);
   color: white;
@@ -184,6 +212,52 @@ footer{
     color: var(--brandcolor);
     font-size: 1.2rem;
   }
+}
+.dropdown{
+  cursor: pointer;
+  position: relative;
+  .selected{
+    background-color: var(--accentcolor);
+    padding: 0.3rem;
+    border-radius: 1rem;
+    color: white;
+  }
+  .options{
+    position: absolute;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-1rem);
+    transition: all 0.5s ease-in-out;
+  }
+  .area{
+    z-index:1;
+    background-color:#0c103125;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .dropped{
+    opacity: 1;
+    z-index: 2;
+    background-color: none;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .selectedOption, .otherOptions{
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--background-color);
+  }
+  .selectedOption{
+    background-color: var(--accentcolor);
+  }
+  .otherOptions{
+    background-color: var(--brandcolor);}
+}
+button:disabled{
+  opacity: 0.5;
+  pointer-events: none;
 }
 .darkButton{
   background-color: var(--brandcolor);
@@ -273,6 +347,7 @@ form{
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  justify-content: center;
 }
 .eventList{
   display: flex;
@@ -314,8 +389,7 @@ form{
 /* specific event */
 .tabList{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: 0.2rem;
   .darkButton{
     &:hover, &:active{
       background-color: var(--accentcolor);
@@ -323,10 +397,9 @@ form{
   }
   div{
     display: grid;
-    justify-content: center;
-    justify-self: center;
-    grid-auto-flow: row;
-    margin: 0;
+    background-color: whitesmoke;
+    padding: 1rem;
+    grid-template-rows: repeat(auto-fit, minmax(1rem, 1fr));
     p{
       margin: 0;
     }
@@ -348,7 +421,7 @@ form{
     width: 100%;
     justify-content: space-around;
     align-items: center;
-    padding: 0.5em;
+    padding: 0.2rem;
     margin: 0;
     span{
       background-color: var(--accentcolor);
@@ -378,6 +451,7 @@ form{
     display: none;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
     background-color: var(--brandcolor);
     color: var(--background-color);
     span{

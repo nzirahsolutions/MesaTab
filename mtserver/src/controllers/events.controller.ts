@@ -190,33 +190,33 @@ export async function getUserEvents(req: Request, res: Response){
     const event = foundEvent[0];
 
     const [sb, wsdc, chess, ps, bp] = await Promise.all([
-      db.select({ tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug })
+      db.select({ tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, track: tabsSB.track })
         .from(tabsSB)
         .where(eq(tabsSB.eventId, event.eventId)),
 
-      db.select({ tabId: tabsWSDC.tabId, title: tabsWSDC.title, slug: tabsWSDC.slug })
+      db.select({ tabId: tabsWSDC.tabId, title: tabsWSDC.title, slug: tabsWSDC.slug, track: tabsWSDC.track })
         .from(tabsWSDC)
         .where(eq(tabsWSDC.eventId, event.eventId)),
 
-      db.select({ tabId: tabsChess.tabId, title: tabsChess.title, slug: tabsChess.slug })
+      db.select({ tabId: tabsChess.tabId, title: tabsChess.title, slug: tabsChess.slug, track: tabsChess.track })
         .from(tabsChess)
         .where(eq(tabsChess.eventId, event.eventId)),
 
-      db.select({ tabId: tabsPS.tabId, title: tabsPS.title, slug: tabsPS.slug })
+      db.select({ tabId: tabsPS.tabId, title: tabsPS.title, slug: tabsPS.slug, track: tabsPS.track })
         .from(tabsPS)
         .where(eq(tabsPS.eventId, event.eventId)),
 
-      db.select({ tabId: tabsBP.tabId, title: tabsBP.title, slug: tabsBP.slug })
+      db.select({ tabId: tabsBP.tabId, title: tabsBP.title, slug: tabsBP.slug, track: tabsBP.track })
         .from(tabsBP)
         .where(eq(tabsBP.eventId, event.eventId)),
     ]);
 
     const tabs = [
-      ...sb.map((t) => ({ ...t, track: "Spelling Bee" })),
-      ...wsdc.map((t) => ({ ...t, track: "WSDC Debate" })),
-      ...chess.map((t) => ({ ...t, track: "Chess" })),
-      ...ps.map((t) => ({ ...t, track: "Public Speaking" })),
-      ...bp.map((t) => ({ ...t, track: "BP Debate" })),
+      ...sb.map((t) => ({ ...t})),
+      ...wsdc.map((t) => ({ ...t})),
+      ...chess.map((t) => ({ ...t})),
+      ...ps.map((t) => ({ ...t})),
+      ...bp.map((t) => ({ ...t})),
     ];
 
     return res.status(200).json({
@@ -324,18 +324,20 @@ export async function addEventTab(req: Request, res:Response){
       title: title,
       slug: normalizedSlug,
       eventId: eventId,
+      track: track,
     })
     .returning({
       eventId: tabs.eventId,
       title: tabs.title,
       slug: tabs.slug,
+      track: tabs.track,
     });
 
   const createdTab = created[0];
 
   return res.status(201).json({
     message: "Tab added Successfully",
-    data: {...createdTab, track: track},
+    data: createdTab,
   });  
   
   } 
@@ -387,6 +389,7 @@ export async function deleteEventTab(req: Request, res:Response) {
         title: tab.title,
         slug: tab.slug,
         tabId: tab.tabId,
+        track: tab.track,
       })
       .from(tab)
       .where(and(eq(tab.slug, normalizedSlug), eq(tab.eventId, eventId)))
@@ -404,6 +407,7 @@ export async function deleteEventTab(req: Request, res:Response) {
         title: tab.title,
         slug: tab.slug,
         eventId: tab.eventId,
+        track: tab.track,
       });
 
     return res.status(200).json({
@@ -416,3 +420,69 @@ export async function deleteEventTab(req: Request, res:Response) {
     return res.status(500).json({message:'Failed to delete tab'});
   }
 }
+export async function getTabBySlugs(req: Request, res: Response) {
+  // console.log('tabby');
+  try {
+    const {event, tab}=req.params as {
+      event?: string;
+      tab?: string;
+    }
+    const eventSlug=event?.trim().toLocaleLowerCase();
+    const tabSlug=tab?.trim().toLocaleLowerCase();
+
+    if (!eventSlug || !tabSlug) {
+      return res.status(400).json({ message: "eventSlug and tabSlug are required" });
+    }
+    const eventRow = await db
+      .select({
+        eventId: events.eventId,
+        title: events.title,
+        slug: events.slug,
+        organizer: events.organizer,
+        ownerId: events.ownerId,
+      })
+      .from(events)
+      .where(eq(events.slug, eventSlug))
+      .limit(1);
+
+    if (!eventRow.length) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const eventId = eventRow[0].eventId;
+
+    const [sb, wsdc, chess, ps, bp] = await Promise.all([
+      db.select({ tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, eventId: tabsSB.eventId })
+        .from(tabsSB).where(and(eq(tabsSB.eventId, eventId), eq(tabsSB.slug, tabSlug))).limit(1),
+      db.select({ tabId: tabsWSDC.tabId, title: tabsWSDC.title, slug: tabsWSDC.slug, eventId: tabsWSDC.eventId })
+        .from(tabsWSDC).where(and(eq(tabsWSDC.eventId, eventId), eq(tabsWSDC.slug, tabSlug))).limit(1),
+      db.select({ tabId: tabsChess.tabId, title: tabsChess.title, slug: tabsChess.slug, eventId: tabsChess.eventId })
+        .from(tabsChess).where(and(eq(tabsChess.eventId, eventId), eq(tabsChess.slug, tabSlug))).limit(1),
+      db.select({ tabId: tabsPS.tabId, title: tabsPS.title, slug: tabsPS.slug, eventId: tabsPS.eventId })
+        .from(tabsPS).where(and(eq(tabsPS.eventId, eventId), eq(tabsPS.slug, tabSlug))).limit(1),
+      db.select({ tabId: tabsBP.tabId, title: tabsBP.title, slug: tabsBP.slug, eventId: tabsBP.eventId })
+        .from(tabsBP).where(and(eq(tabsBP.eventId, eventId), eq(tabsBP.slug, tabSlug))).limit(1),
+    ]);
+
+    const match =
+      sb[0] ? { ...sb[0], track: "Spelling Bee" } :
+      wsdc[0] ? { ...wsdc[0], track: "WSDC Debate" } :
+      chess[0] ? { ...chess[0], track: "Chess" } :
+      ps[0] ? { ...ps[0], track: "Public Speaking" } :
+      bp[0] ? { ...bp[0], track: "BP Debate" } :
+      null;
+
+    if (!match) {
+      return res.status(404).json({ message: "Tab not found for this event" });
+    }
+
+    return res.status(200).json({
+      message: "Tab found successfully",
+      data: { event: eventRow[0], tab: match },
+    });
+  } catch (error) {
+    console.error("getTabBySlugs error:", error);
+    return res.status(500).json({ message: "Failed to fetch tab details" });
+  }
+}
+

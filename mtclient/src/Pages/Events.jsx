@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import {useNavigate} from 'react-router-dom';
 import axios from 'axios';
 import { currentServer } from "../Context/urls";
-
+import Loading from "../Components/Loading";
 
 export default function Events() {
   const { user } = useContext(AuthContext);
@@ -23,6 +23,7 @@ export default function Events() {
   const navigate=useNavigate();
   const [eventView, setEventView]=useState('review');
   const defaultEvent={title:'', organizer:'',slug:'', ownerId:''};
+  const [loadPage, setLoadPage]=useState(true);
   
   async function fetchUserEvents() {
         if(!user?.id){
@@ -30,9 +31,10 @@ export default function Events() {
           return;
         }
         try{
-          const res=await axios.get(`${currentServer}/event/${user.id}`);
+          const res=await axios.get(`${currentServer}/event/user/${user.id}`);
           // console.log(res.data.data);
           setUserEvents([...res.data.data]);
+          setLoadPage(false);
         }
         catch(err){
           setUserEvents([]);
@@ -105,7 +107,7 @@ export default function Events() {
     }
   }
   function reviewEvents(){
-    if (user)
+    if (user && !loadPage)
     return(
       <section id="userEvent">
         <h2>User Events</h2>
@@ -123,6 +125,7 @@ export default function Events() {
         </div>
     </section>
     );
+    if(user && loadPage) return <Loading/>
     return (
       <div className="textBlock">
         <p>Please log in to review your events</p><button className="darkButton" onClick={()=>navigate('/login')}>Log In</button>

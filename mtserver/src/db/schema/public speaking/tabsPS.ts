@@ -6,6 +6,7 @@ export const tabsPS = pgTable('tabs_ps', {
   tabId: uuid('tab_id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   slug: text('slug').notNull(),
+  track:text('track').notNull().default('Public Speaking'),
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
 },
 (t)=>({

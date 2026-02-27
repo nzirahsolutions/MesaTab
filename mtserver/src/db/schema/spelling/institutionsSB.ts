@@ -1,6 +1,9 @@
 import { index, pgTable, text, serial, uuid, unique } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { tabsSB } from './tabsSB';
+import { judgesSB } from './judgesSB';
+import { spellers } from './spellers';
+import { tabMastersSB } from './tabMastersSB';
 
 export const institutionsSB = pgTable(
   'institutions_sb',
@@ -16,9 +19,12 @@ export const institutionsSB = pgTable(
   })
 );
 
-export const institutionRelations = relations(institutionsSB, ({ one }) => ({
+export const institutionRelations = relations(institutionsSB, ({ one, many }) => ({
   tab: one(tabsSB, {
     fields: [institutionsSB.tabId],
     references: [tabsSB.tabId],
   }),
+  judges: many(judgesSB),
+  spellers: many(spellers),
+  tabMasters: many(tabMastersSB)
 }));

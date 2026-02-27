@@ -1,0 +1,1927 @@
+{
+  "id": "cdd61f2d-5dd6-42f5-a686-44aa1ca19287",
+  "prevId": "d8c11910-3562-4517-9b71-3098fdbb711b",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.events": {
+      "name": "events",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organizer": {
+          "name": "organizer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "events_ownerId_idx": {
+          "name": "events_ownerId_idx",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "events_owner_id_users_user_id_fk": {
+          "name": "events_owner_id_users_user_id_fk",
+          "tableFrom": "events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "events_slug_unique": {
+          "name": "events_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tabs_sb": {
+      "name": "tabs_sb",
+      "schema": "",
+      "columns": {
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track": {
+          "name": "track",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Spelling Bee'"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tabs_sb_eventId_idx": {
+          "name": "tabs_sb_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tabs_sb_event_id_events_event_id_fk": {
+          "name": "tabs_sb_event_id_events_event_id_fk",
+          "tableFrom": "tabs_sb",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "event_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tabs_sb_event_id_slug_unique": {
+          "name": "tabs_sb_event_id_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rounds_sb": {
+      "name": "rounds_sb",
+      "schema": "",
+      "columns": {
+        "round_id": {
+          "name": "round_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed": {
+          "name": "completed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "breaks": {
+          "name": "breaks",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "type": {
+          "name": "type",
+          "type": "round_type_sb",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_limit": {
+          "name": "time_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "word_limit": {
+          "name": "word_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "rounds_tabId_idx": {
+          "name": "rounds_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rounds_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "rounds_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "rounds_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rounds_sb_tab_id_round_id_unique": {
+          "name": "rounds_sb_tab_id_round_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "round_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "rounds_sb_type_limits_chk": {
+          "name": "rounds_sb_type_limits_chk",
+          "value": "(\n        (\"rounds_sb\".\"type\" = 'Timed' AND \"rounds_sb\".\"time_limit\" IS NOT NULL AND \"rounds_sb\".\"word_limit\" IS NULL) OR\n        (\"rounds_sb\".\"type\" = 'Word Limit' AND \"rounds_sb\".\"word_limit\" IS NOT NULL AND \"rounds_sb\".\"time_limit\" IS NULL) OR\n        (\"rounds_sb\".\"type\" = 'Eliminator' AND \"rounds_sb\".\"time_limit\" IS NULL AND \"rounds_sb\".\"word_limit\" IS NULL)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.institutions_sb": {
+      "name": "institutions_sb",
+      "schema": "",
+      "columns": {
+        "institution_id": {
+          "name": "institution_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "institutions_tabId_idx": {
+          "name": "institutions_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "institutions_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "institutions_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "institutions_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "institutions_sb_tab_id_code_unique": {
+          "name": "institutions_sb_tab_id_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.spellers": {
+      "name": "spellers",
+      "schema": "",
+      "columns": {
+        "speller_id": {
+          "name": "speller_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "spellers_tabId_idx": {
+          "name": "spellers_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "spellers_institutionId_idx": {
+          "name": "spellers_institutionId_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "spellers_tab_email_uq": {
+          "name": "spellers_tab_email_uq",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"spellers\".\"email\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "spellers_tab_id_tabs_sb_tab_id_fk": {
+          "name": "spellers_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "spellers",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "spellers_institution_id_institutions_sb_institution_id_fk": {
+          "name": "spellers_institution_id_institutions_sb_institution_id_fk",
+          "tableFrom": "spellers",
+          "tableTo": "institutions_sb",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "institution_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "spellers_tab_id_speller_id_unique": {
+          "name": "spellers_tab_id_speller_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "speller_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.judges_sb": {
+      "name": "judges_sb",
+      "schema": "",
+      "columns": {
+        "judge_id": {
+          "name": "judge_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "judges_sb_tabId_idx": {
+          "name": "judges_sb_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "judges_sb_institutionId_idx": {
+          "name": "judges_sb_institutionId_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "judges_sb_tab_email_uq": {
+          "name": "judges_sb_tab_email_uq",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"judges_sb\".\"email\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "judges_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "judges_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "judges_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "judges_sb_institution_id_institutions_sb_institution_id_fk": {
+          "name": "judges_sb_institution_id_institutions_sb_institution_id_fk",
+          "tableFrom": "judges_sb",
+          "tableTo": "institutions_sb",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "institution_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "judges_sb_tab_id_judge_id_unique": {
+          "name": "judges_sb_tab_id_judge_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "judge_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tab_masters_sb": {
+      "name": "tab_masters_sb",
+      "schema": "",
+      "columns": {
+        "tab_master_id": {
+          "name": "tab_master_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tab_masters_sb_tabId_idx": {
+          "name": "tab_masters_sb_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tab_masters_sb_institutionId_idx": {
+          "name": "tab_masters_sb_institutionId_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tab_masters_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "tab_masters_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "tab_masters_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tab_masters_sb_institution_id_institutions_sb_institution_id_fk": {
+          "name": "tab_masters_sb_institution_id_institutions_sb_institution_id_fk",
+          "tableFrom": "tab_masters_sb",
+          "tableTo": "institutions_sb",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "institution_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tab_masters_sb_tab_id_tab_master_id_unique": {
+          "name": "tab_masters_sb_tab_id_tab_master_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "tab_master_id"
+          ]
+        },
+        "tab_masters_sb_tab_id_email_unique": {
+          "name": "tab_masters_sb_tab_id_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.rooms_sb": {
+      "name": "rooms_sb",
+      "schema": "",
+      "columns": {
+        "room_id": {
+          "name": "room_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "rooms_sb_tabId_idx": {
+          "name": "rooms_sb_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "rooms_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "rooms_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "rooms_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rooms_sb_tab_id_name_unique": {
+          "name": "rooms_sb_tab_id_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "name"
+          ]
+        },
+        "rooms_sb_tab_id_room_id_unique": {
+          "name": "rooms_sb_tab_id_room_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "room_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.draws_sb": {
+      "name": "draws_sb",
+      "schema": "",
+      "columns": {
+        "draw_id": {
+          "name": "draw_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "room_id": {
+          "name": "room_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "round_id": {
+          "name": "round_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "draws_tabId_idx": {
+          "name": "draws_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "draws_roomId_idx": {
+          "name": "draws_roomId_idx",
+          "columns": [
+            {
+              "expression": "room_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "draws_roundId_idx": {
+          "name": "draws_roundId_idx",
+          "columns": [
+            {
+              "expression": "round_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "draws_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "draws_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "draws_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draws_sb_room_id_rooms_sb_room_id_fk": {
+          "name": "draws_sb_room_id_rooms_sb_room_id_fk",
+          "tableFrom": "draws_sb",
+          "tableTo": "rooms_sb",
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "room_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draws_sb_round_id_rounds_sb_round_id_fk": {
+          "name": "draws_sb_round_id_rounds_sb_round_id_fk",
+          "tableFrom": "draws_sb",
+          "tableTo": "rounds_sb",
+          "columnsFrom": [
+            "round_id"
+          ],
+          "columnsTo": [
+            "round_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draws_tab_room_fk": {
+          "name": "draws_tab_room_fk",
+          "tableFrom": "draws_sb",
+          "tableTo": "rooms_sb",
+          "columnsFrom": [
+            "tab_id",
+            "room_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "room_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draws_tab_round_fk": {
+          "name": "draws_tab_round_fk",
+          "tableFrom": "draws_sb",
+          "tableTo": "rounds_sb",
+          "columnsFrom": [
+            "tab_id",
+            "round_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "round_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "draws_sb_tab_id_draw_id_unique": {
+          "name": "draws_sb_tab_id_draw_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "draw_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.draw_spellers": {
+      "name": "draw_spellers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "speller_id": {
+          "name": "speller_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draw_id": {
+          "name": "draw_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "ds_tab_id_idx": {
+          "name": "ds_tab_id_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ds_speller_id_idx": {
+          "name": "ds_speller_id_idx",
+          "columns": [
+            {
+              "expression": "speller_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ds_draw_id_idx": {
+          "name": "ds_draw_id_idx",
+          "columns": [
+            {
+              "expression": "draw_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "draw_spellers_tab_id_tabs_sb_tab_id_fk": {
+          "name": "draw_spellers_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "draw_spellers",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "draw_spellers_speller_id_spellers_speller_id_fk": {
+          "name": "draw_spellers_speller_id_spellers_speller_id_fk",
+          "tableFrom": "draw_spellers",
+          "tableTo": "spellers",
+          "columnsFrom": [
+            "speller_id"
+          ],
+          "columnsTo": [
+            "speller_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_spellers_draw_id_draws_sb_draw_id_fk": {
+          "name": "draw_spellers_draw_id_draws_sb_draw_id_fk",
+          "tableFrom": "draw_spellers",
+          "tableTo": "draws_sb",
+          "columnsFrom": [
+            "draw_id"
+          ],
+          "columnsTo": [
+            "draw_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_spellers_tab_speller_fk": {
+          "name": "draw_spellers_tab_speller_fk",
+          "tableFrom": "draw_spellers",
+          "tableTo": "spellers",
+          "columnsFrom": [
+            "tab_id",
+            "speller_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "speller_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_spellers_tab_draw_fk": {
+          "name": "draw_spellers_tab_draw_fk",
+          "tableFrom": "draw_spellers",
+          "tableTo": "draws_sb",
+          "columnsFrom": [
+            "tab_id",
+            "draw_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "draw_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "draw_spellers_draw_id_speller_id_unique": {
+          "name": "draw_spellers_draw_id_speller_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "draw_id",
+            "speller_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.draw_judges_sb": {
+      "name": "draw_judges_sb",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "judge_id": {
+          "name": "judge_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draw_id": {
+          "name": "draw_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "dj_tab_id_idx": {
+          "name": "dj_tab_id_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dj_judge_id_idx": {
+          "name": "dj_judge_id_idx",
+          "columns": [
+            {
+              "expression": "judge_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dj_draw_id_idx": {
+          "name": "dj_draw_id_idx",
+          "columns": [
+            {
+              "expression": "draw_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "draw_judges_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "draw_judges_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "draw_judges_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "draw_judges_sb_judge_id_judges_sb_judge_id_fk": {
+          "name": "draw_judges_sb_judge_id_judges_sb_judge_id_fk",
+          "tableFrom": "draw_judges_sb",
+          "tableTo": "judges_sb",
+          "columnsFrom": [
+            "judge_id"
+          ],
+          "columnsTo": [
+            "judge_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_judges_sb_draw_id_draws_sb_draw_id_fk": {
+          "name": "draw_judges_sb_draw_id_draws_sb_draw_id_fk",
+          "tableFrom": "draw_judges_sb",
+          "tableTo": "draws_sb",
+          "columnsFrom": [
+            "draw_id"
+          ],
+          "columnsTo": [
+            "draw_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_judges_tab_judge_fk": {
+          "name": "draw_judges_tab_judge_fk",
+          "tableFrom": "draw_judges_sb",
+          "tableTo": "judges_sb",
+          "columnsFrom": [
+            "tab_id",
+            "judge_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "judge_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "draw_judges_tab_draw_fk": {
+          "name": "draw_judges_tab_draw_fk",
+          "tableFrom": "draw_judges_sb",
+          "tableTo": "draws_sb",
+          "columnsFrom": [
+            "tab_id",
+            "draw_id"
+          ],
+          "columnsTo": [
+            "tab_id",
+            "draw_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "draw_judges_sb_draw_id_judge_id_unique": {
+          "name": "draw_judges_sb_draw_id_judge_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "draw_id",
+            "judge_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.results_sb": {
+      "name": "results_sb",
+      "schema": "",
+      "columns": {
+        "result_id": {
+          "name": "result_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "draw_speller_id": {
+          "name": "draw_speller_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "result_status_sb_enum",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "results_sb_draw_speller_id_draw_spellers_id_fk": {
+          "name": "results_sb_draw_speller_id_draw_spellers_id_fk",
+          "tableFrom": "results_sb",
+          "tableTo": "draw_spellers",
+          "columnsFrom": [
+            "draw_speller_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "results_sb_draw_speller_id_unique": {
+          "name": "results_sb_draw_speller_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "draw_speller_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.standings_sb": {
+      "name": "standings_sb",
+      "schema": "",
+      "columns": {
+        "standing_id": {
+          "name": "standing_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "speller_id": {
+          "name": "speller_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_score": {
+          "name": "total_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "round_scores": {
+          "name": "round_scores",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "standings_tabId_idx": {
+          "name": "standings_tabId_idx",
+          "columns": [
+            {
+              "expression": "tab_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "standings_rank_idx": {
+          "name": "standings_rank_idx",
+          "columns": [
+            {
+              "expression": "rank",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "standings_sb_tab_id_tabs_sb_tab_id_fk": {
+          "name": "standings_sb_tab_id_tabs_sb_tab_id_fk",
+          "tableFrom": "standings_sb",
+          "tableTo": "tabs_sb",
+          "columnsFrom": [
+            "tab_id"
+          ],
+          "columnsTo": [
+            "tab_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "standings_sb_speller_id_spellers_speller_id_fk": {
+          "name": "standings_sb_speller_id_spellers_speller_id_fk",
+          "tableFrom": "standings_sb",
+          "tableTo": "spellers",
+          "columnsFrom": [
+            "speller_id"
+          ],
+          "columnsTo": [
+            "speller_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "standings_sb_tab_id_speller_id_unique": {
+          "name": "standings_sb_tab_id_speller_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tab_id",
+            "speller_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tabs_wsdc": {
+      "name": "tabs_wsdc",
+      "schema": "",
+      "columns": {
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track": {
+          "name": "track",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'WSDC Debate'"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tabs_wsdc_eventId_idx": {
+          "name": "tabs_wsdc_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tabs_wsdc_event_id_events_event_id_fk": {
+          "name": "tabs_wsdc_event_id_events_event_id_fk",
+          "tableFrom": "tabs_wsdc",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "event_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tabs_wsdc_event_id_slug_unique": {
+          "name": "tabs_wsdc_event_id_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tabs_chess": {
+      "name": "tabs_chess",
+      "schema": "",
+      "columns": {
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track": {
+          "name": "track",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Chess'"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tabs_chess_eventId_idx": {
+          "name": "tabs_chess_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tabs_chess_event_id_events_event_id_fk": {
+          "name": "tabs_chess_event_id_events_event_id_fk",
+          "tableFrom": "tabs_chess",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "event_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tabs_chess_event_id_slug_unique": {
+          "name": "tabs_chess_event_id_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tabs_ps": {
+      "name": "tabs_ps",
+      "schema": "",
+      "columns": {
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track": {
+          "name": "track",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Public Speaking'"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tabs_ps_eventId_idx": {
+          "name": "tabs_ps_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tabs_ps_event_id_events_event_id_fk": {
+          "name": "tabs_ps_event_id_events_event_id_fk",
+          "tableFrom": "tabs_ps",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "event_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tabs_ps_event_id_slug_unique": {
+          "name": "tabs_ps_event_id_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tabs_bp": {
+      "name": "tabs_bp",
+      "schema": "",
+      "columns": {
+        "tab_id": {
+          "name": "tab_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "track": {
+          "name": "track",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'BP Debate'"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "tabs_bp_eventId_idx": {
+          "name": "tabs_bp_eventId_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tabs_bp_event_id_events_event_id_fk": {
+          "name": "tabs_bp_event_id_events_event_id_fk",
+          "tableFrom": "tabs_bp",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "event_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tabs_bp_event_id_slug_unique": {
+          "name": "tabs_bp_event_id_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id",
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.round_type_sb": {
+      "name": "round_type_sb",
+      "schema": "public",
+      "values": [
+        "Timed",
+        "Word Limit",
+        "Eliminator"
+      ]
+    },
+    "public.result_status_sb_enum": {
+      "name": "result_status_sb_enum",
+      "schema": "public",
+      "values": [
+        "Eliminated",
+        "Won"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -24,12 +24,12 @@ function App() {
         <main>
         <Routes>
           <Route path="/" element={<Home/>}/>
+          <Route path="/login" element={<LogIn/>}/>
+          <Route path="/signup" element={<SignUp/>}/>
           <Route path="/prompts" element={<Prompts/>}/>
           <Route path="/motions" element={<Motions/>}/>
           <Route path="/resources" element={<Resources/>}/>
           <Route path="/events" element={<Events/>}/>
-          <Route path="/login" element={<LogIn/>}/>
-          <Route path="/signup" element={<SignUp/>}/>
           <Route path="/profile" element={<Profile/>}/>
           <Route path="/:eventSlug" element={<Event/>}/>
           <Route path="/:event/:tab" element={<Tab/>}/>
