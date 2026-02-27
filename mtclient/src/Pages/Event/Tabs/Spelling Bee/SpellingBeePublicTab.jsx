@@ -4,7 +4,7 @@ import {IoClose} from 'react-icons/io5';
 import {AuthContext} from '../../../../Context/AuthContext';
 import Dropdown from "../../../../Components/Dropdown";
 import SpellingAdmin from "./SpellingAdmin";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
 import axios from "axios";
@@ -12,6 +12,7 @@ import axios from "axios";
 export default function SpellingBeePublicTab({tab, event}) {
   // console.log(tab.title);
   const [tabItem, setTabItem]=useState('home');
+  const tabHistoryRef=useRef(false);
   const [participant, setParticipant]=useState('spellers');
   const [menuOpen, setMenuOpen]=useState(false);
   const [viewRound, setViewRound]=useState(null);
@@ -22,21 +23,55 @@ export default function SpellingBeePublicTab({tab, event}) {
   // console.log(tab, event);
   // console.log(access);
 
-  async function getFullTab() {
-    try {
-        const res=await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
-        // console.log(res.data.data);
-        setFullTab({...res.data.data});
-        setPageLoad({...pageLoad, loading: false, authorized:(user && (user.id===event.ownerId) || tab.tabMasters.find(e=>e.email===user.email))});
-    } 
-    catch (error) {
-        console.log(error);        
-    }    
-  }
-  getFullTab();
-  useEffect(()=>{
+  useEffect(() => {
+    async function getFullTab() {
+      try {
+        const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
+        setFullTab({ ...res.data.data });
+
+        const isOwner = !!user && user.id === event.ownerId;
+        const isTabMaster =
+          !!user &&
+          Array.isArray(fullTab?.tabMasters) &&
+          fullTab.tabMasters.some((e) => e.email === user.email);
+
+        setPageLoad({ loading: false, authorized: isOwner || isTabMaster });
+      } catch (error) {
+        console.log(error);
+        setPageLoad((prev) => ({ ...prev, loading: false }));
+      }
+    }
+
     getFullTab();
-  },[]);
+  }, [tab.tabId, fullTab, event.ownerId, user]);
+
+   //tab-level navigation
+    useEffect(() => {
+    // Add one same-route history entry only when entering a non-home tab
+    if (tabItem !== "home" && !tabHistoryRef.current) {
+      window.history.pushState({ internalTab: true }, "", window.location.href);
+      tabHistoryRef.current = true;
+    }
+  
+    // Reset so next time user enters a sub-tab we can add again
+    if (tabItem === "home") {
+      tabHistoryRef.current = false;
+    }
+  }, [tabItem]);
+  
+  useEffect(() => {
+    const onPopState = () => {
+      // If currently in sub-tab, first back should only return to home tab
+      if (tabItem !== "home") {
+        setTabItem("home");
+        // IMPORTANT: do not pushState here
+      }
+      // If already home, do nothing; browser back will leave page normally
+    };
+  
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [tabItem, setTabItem]);
 
   function tabChange(t){
     setTabItem(t);
@@ -162,7 +197,7 @@ export default function SpellingBeePublicTab({tab, event}) {
             {fullTab.spellingBees.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <td>{p.name}</td>
-              <td>{fullTab.institutions.find((s)=>s.code===p.schoolCode).name}</td>
+              <td>{fullTab.institutions.find((s)=>s.id===p.institutionId).name}</td>
             </tr>)}
           </tbody>
         </table>:<p>No Registered Spellers</p>}
@@ -210,7 +245,7 @@ export default function SpellingBeePublicTab({tab, event}) {
       <>
       <h2>Words</h2>
       <section className="words">
-        {fullTab.words.map((w,i)=><div className="word" key={i}>{w}</div>)}
+        {fullTab.words.map((w,i)=><div className="word" key={i}>{w.word || w}</div>)}
         {fullTab.words.length===0 && <p>No Words Added</p>}
       </section>
       </>
@@ -221,7 +256,7 @@ export default function SpellingBeePublicTab({tab, event}) {
     <>
     <nav className="tabMenu">
       <ul>
-        {pageLoad.authorized? <Dropdown options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+        {pageLoad.authorized? <Dropdown selectedIdx={0} options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
         <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
         <li onClick={()=>tabChange('spellerTab')} className={tabItem==='spellerTab'?'selectedTabItem':''}>Speller Tab</li>
@@ -231,7 +266,7 @@ export default function SpellingBeePublicTab({tab, event}) {
     </nav>
     <div className="tabSideMenu">
       <nav className="tTitle">
-          {pageLoad.authorized? <Dropdown options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+          {pageLoad.authorized? <Dropdown selectedIdx={0} options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
         <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? <IoClose/>:'☰'}</span>
       </nav>

@@ -345,9 +345,12 @@ form{
 }
 .buttonStack{
   display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  justify-content: center;
+  width: 90%;
+  justify-content: space-evenly;
+  justify-self: center;
+  gap: 0.5rem;
+  button{
+  flex-grow: 1;}
 }
 .eventList{
   display: flex;

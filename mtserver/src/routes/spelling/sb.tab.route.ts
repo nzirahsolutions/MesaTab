@@ -8,6 +8,10 @@ router.get('/tab/:tabId', sbController.getFullTab);
 router.post('/institution',sbController.addInstitution);
 router.put('/institution',sbController.updateInstitution);
 router.delete('/institution',sbController.deleteInstitution);
+//tabMaster
+router.post('/tabMaster',sbController.addTabMaster);
+router.put('/tabMaster',sbController.updateTabMaster);
+router.delete('/tabMaster',sbController.deleteTabMaster);
 //speller
 router.post('/speller',sbController.addSpeller);
 router.put('/speller',sbController.updateSpeller);
@@ -26,6 +30,7 @@ router.put('/round',sbController.updateRound);
 router.delete('/round',sbController.deleteRound);
 //word
 router.post('/word',sbController.addWord);
+router.put('/word',sbController.updateWord);
 router.delete('/word',sbController.deleteWord);
 //draw
 

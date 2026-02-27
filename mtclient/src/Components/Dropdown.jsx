@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {IoIosArrowDropdown, IoIosArrowDropup} from 'react-icons/io'
 
-export default function Dropdown({options, setValue}) {
+export default function Dropdown({options, selectedIdx,setValue}) {
     // const options=[
     //     {option:'Option 1', value:'Option 1'},
     //     {option:'Option 2', value:'Option 2'},
     //     {option:'Option 3', value:'Option 3'},
     // ];
-    const [dropdown, setDropdown]=useState({dropped:false, selected:options[0]});
+    const [dropdown, setDropdown]=useState({dropped:false, selected:options[selectedIdx]});
   return (
     <div className='dropdown'>        
         <div onClick={()=>setDropdown({...dropdown, dropped:!dropdown.dropped})
