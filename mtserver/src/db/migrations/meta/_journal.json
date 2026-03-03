@@ -36,6 +36,20 @@
       "when": 1772202619203,
       "tag": "0004_little_trish_tilby",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772547682102,
+      "tag": "0005_slow_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772572692086,
+      "tag": "0006_whole_galactus",
+      "breakpoints": true
     }
   ]
 }

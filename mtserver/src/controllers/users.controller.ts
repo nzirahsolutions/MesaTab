@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const BCRYPT_ROUNDS = 12;
-const ACCESS_TOKEN_TTL = "24h";
+const ACCESS_TOKEN_TTL = "60s";
 
 type JwtUserInfo = {
   id: string;

@@ -2,6 +2,7 @@ import { pgTable,serial, integer, index, unique, uuid, foreignKey} from "drizzle
 import { spellers } from "./spellers";
 import { drawsSB } from "./drawsSB";
 import { tabsSB } from "./tabsSB";
+import { roomsSB } from "./roomsSB";
 import { relations } from "drizzle-orm";
 
 export const drawSpellers=pgTable('draw_spellers',{
@@ -9,6 +10,7 @@ export const drawSpellers=pgTable('draw_spellers',{
     tabId:uuid('tab_id').notNull().references(()=>tabsSB.tabId),
     spellerId: integer('speller_id').notNull().references(()=>spellers.spellerId,{onDelete:'cascade'}),
     drawId: integer('draw_id').notNull().references(()=>drawsSB.drawId,{onDelete:'cascade'}),
+    roomId: integer('room_id').notNull().references(()=>roomsSB.roomId,{onDelete:'cascade'}),
 },
 (ds)=>({
     spellerUniquePerDraw: unique().on(ds.drawId, ds.spellerId),
@@ -16,6 +18,7 @@ export const drawSpellers=pgTable('draw_spellers',{
     tabIdIdx:index('ds_tab_id_idx').on(ds.tabId),
     spellerIdIdx:index('ds_speller_id_idx').on(ds.spellerId),
     drawIdIdx:index('ds_draw_id_idx').on(ds.drawId),
+    roomIdIdx:index('ds_room_id_idx').on(ds.roomId),
 
     spellerMustMatchTab: foreignKey({
         columns: [ds.tabId, ds.spellerId],
@@ -43,5 +46,9 @@ export const drawSpellersRelations=relations(drawSpellers,({one, many})=>({
     draw: one(drawsSB,{
         fields:[drawSpellers.drawId],
         references: [drawsSB.drawId]
+    }),
+    room: one(roomsSB,{
+        fields:[drawSpellers.drawId],
+        references: [roomsSB.roomId]
     }),
 }))

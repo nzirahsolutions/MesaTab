@@ -21,23 +21,31 @@ export default function SpellingAdmin({tab, event}) {
 
   const [navState, setNavState]=useState({institution:'review',tabMaster:'review',speller:'review',judge:'review',room:'review',round:'review',word:'review', draw:'review'});
 
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}});
+  const [reviewItems, setReviewItems]=useState({draw:{roundId:0}});
+  
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:'', powerPair:true}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:'', powerPair:true}});
 
-  const [deleteItems, setDeleteItems]=useState({institution:{id:'', name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:'',name:'', status:false},round:{id:'',name:'', status:false}, word:{id:'',word:'', status:false}});
+  const [deleteItems, setDeleteItems]=useState({institution:{id:'', name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:'',name:'', status:false},round:{id:'',name:'', status:false}, word:{id:'',word:'', status:false}, draw:{roundId:'', powerPair:true, status: false}});
 
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:'',email:'', status:false},speller:{name:'',institutionId:'',email:'', status:false},judge:{name:'',institutionId:'',email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}};
+  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:'',email:'', status:false},speller:{name:'',institutionId:'',email:'', status:false},judge:{name:'',institutionId:'',email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:'', powerPair:true, status:false}};
 
   const [institutionStates, setInstitutionStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Institution Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Institution Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Institution Updated'});
 
   const [spellerStates, setSpellerStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Speller Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Speller Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Speller Updated'});
 
   const [tabMasterStates, setTabMasterStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Tab Master Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Tab Master Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Tab Master Updated'});
+  
   const [judgeStates, setJudgeStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Judge Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Judge Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Judge Updated'});
+  
   const [roomStates, setRoomStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Room Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Room Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Room Updated'});
+  
   const [roundStates, setRoundStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Round Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Round Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Round Updated'});
+  
   const [wordStates, setWordStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Word Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Word Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Word Updated'});
+  
+  const [drawStates, setDrawSates]=useState({generateSuccess:false, generateError:false, generateLoading:false, generateErrorMessage:'Something went wrong', generateSuccessMessage:'Draw Generated',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Draw Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Draw Updated'});
 
   const roundTypes=['Timed','Word Limit','Eliminator'];
 
@@ -45,7 +53,7 @@ export default function SpellingAdmin({tab, event}) {
     try {
         const res=await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
         // console.log(res.data.data);
-        setFulltab({...res.data.data});       
+        setFulltab({...res.data.data});    
     } 
     catch (error) {
         console.log(error);        
@@ -67,7 +75,7 @@ export default function SpellingAdmin({tab, event}) {
     }
 
     loadPage();
-  }, [tab.tabId, fullTab, event.ownerId, user]);
+  }, [fullTab, user]);
   
   //tab-level navigation
   useEffect(() => {
@@ -205,6 +213,27 @@ useEffect(() => {
     switch(navState.word){
         case'add':
             setAddItems({...addItems, word:{...addItems.word,[e.target.name]:e.target.value}});
+            break;
+        case 'update':
+            setUpdateItems({...updateItems, word:{...updateItems.word,[e.target.name]:e.target.value}});
+            break;
+        case 'delete':
+            setDeleteItems({...deleteItems, word:{...deleteItems.word,[e.target.name]:e.target.checked}});
+            break;
+        default: console.log('No Change');
+    }
+  }
+  function drawOnChange(e){
+    setDrawSates({...drawStates, generateSuccess: false, generateError: false, generateLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
+
+    switch(navState.draw){
+        case'generate':
+            setAddItems({...addItems, draw:{...addItems.draw,[e.target.name]:e.target.value}});
+            if(e.target.type==='checkbox')
+                setAddItems({...addItems, draw:{...addItems.draw,[e.target.name]:e.target.checked}});
+            break;
+        case'review':
+            setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'update':
             setUpdateItems({...updateItems, word:{...updateItems.word,[e.target.name]:e.target.value}});
@@ -539,6 +568,51 @@ useEffect(() => {
         default: console.log('check submitWord');
     }
   }
+  async function submitDraw(e){
+    e.preventDefault();
+    switch(navState.draw){
+        case'generate':
+            setDrawSates({...drawStates, generateLoading: true});
+            try {
+                const res=await axios.post(`${currentServer}/sb/draw/generate`,{...addItems.draw, roundId:parseInt(addItems.draw.roundId), tabId: tab.tabId});
+                setAddItems({...addItems, draw:{...defaultItems.draw}});
+                getFullTab();
+                setDrawSates({...wordStates, generateErrorError: false, generateSuccess: true, generateLoading:false, generateSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setDrawSates({...drawStates, generateSuccess: false, generateError: true, generateLoading: false, generateErrorMessage:message});
+            }
+            break;
+        case 'update':
+            setWordStates({...wordStates, updateLoading: true});
+            try {
+                const res=await axios.put(`${currentServer}/sb/word`,{...updateItems.word, tabId: tab.tabId});
+                setUpdateItems({...updateItems, word:{...defaultItems.word}});
+                getFullTab();
+                setWordStates({...wordStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setWordStates({...wordStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
+            }
+            break;
+        case 'delete':
+            setWordStates({...wordStates, deleteLoading: true});
+            try {
+                const res=await axios.delete(`${currentServer}/sb/word`,{data:{...deleteItems.word, tabId: tab.tabId}});
+                setDeleteItems({...deleteItems, word:{...defaultItems.word, status: false}});
+                getFullTab();
+                setWordStates({...wordStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setWordStates({...wordStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
+            }
+            break;
+        default: console.log('check submitWord');
+    }
+  }
 
   //return functions
   function home(){
@@ -656,7 +730,7 @@ useEffect(() => {
     </div>
     {navState.speller==='review'&&
     <section id="spellerReview">
-        <h2>Registered Spellers</h2>
+        <h2>Registered Spellers ({fullTab.spellingBees?.length})</h2>
         {fullTab.spellingBees?.length>0?<table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
@@ -707,7 +781,7 @@ useEffect(() => {
                 {fullTab.spellingBees.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
             <input type="text" placeholder="Speller Name" required name="name" value={updateItems.speller.name} onChange={spellerOnChange}/>
-            <input type="text" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
+            <input type="email" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
             <button className="darkButton" disabled={spellerStates.updateLoading}>{spellerStates.updateLoading? 'Updating':'Update Speller'}</button>
             {spellerStates.updateError &&<p style={{color:'red'}}>{spellerStates.updateErrorMessage}</p>}
             {spellerStates.updateSuccess &&<p style={{color:'green'}}>{spellerStates.updateSuccessMessage}</p>}
@@ -794,7 +868,7 @@ useEffect(() => {
                 {fullTab.judges.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
             <input type="text" placeholder="Judge Name" required name="name" value={updateItems.judge.name} onChange={judgeOnChange}/>
-            <input type="text" placeholder="Judge Email" name="email" value={updateItems.judge.email} onChange={judgeOnChange}/>
+            <input type="email" placeholder="Judge Email" name="email" value={updateItems.judge.email} onChange={judgeOnChange}/>
             <select required name="institutionId" onChange={judgeOnChange} value={updateItems.judge.institutionId}>
                 <option value=''>Choose Institution</option>
                 {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
@@ -885,7 +959,7 @@ useEffect(() => {
                 {fullTab.tabMasters.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
             <input type="text" placeholder="Tab Master Name" required name="name" value={updateItems.tabMaster.name} onChange={tabMasterOnChange}/>
-            <input type="text" placeholder="Tab Master Email" required name="email" value={updateItems.tabMaster.email} onChange={tabMasterOnChange}/>
+            <input type="email" placeholder="Tab Master Email" required name="email" value={updateItems.tabMaster.email} onChange={tabMasterOnChange}/>
             <select required name="institutionId" onChange={tabMasterOnChange} value={updateItems.tabMaster.institutionId}>
                 <option value=''>Choose Institution</option>
                 {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
@@ -1173,7 +1247,95 @@ useEffect(() => {
   function draws(){
     return(
     <>
-    Draws
+    <div className="buttonStack">
+        <button className={navState.draw==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'review'})}>Review</button>
+        <button className={navState.draw==='generate'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'generate'})}>Generate</button>
+        <button className={navState.draw==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'update'})}>Update</button>
+        <button className={navState.draw==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'delete'})}>Delete</button>
+    </div>
+    {navState.draw==='review'&&
+    <section id="drawReview">
+        <h2>Draws</h2>
+        {fullTab.draws?.length>0? 
+        <>
+        <select name="roundId" value={reviewItems.draw.roundId} onChange={drawOnChange}>
+            <option value=''>Select Round</option>
+            {fullTab.rounds.map((r,i)=><option key={i} value={r.roundId}>{r.name}</option>)}
+        </select>
+        {/* <table>
+            <thead>
+                <tr><th>Room</th><th>Judges</th><th>Spellers</th></tr>
+            </thead>
+            <tbody>
+               {fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=><tr key={n}>
+                <td>{r.room.name}</td>
+                <td>{r.judges.map((j,x)=><p style={{margin:0}} key={x}>{j.name}</p>)}</td>
+                <td>{r.spellers.map((s,y)=><p style={{margin:0}} key={y}>{s.name}</p>)}</td>
+               </tr>)} 
+            </tbody>        
+        </table> */}
+        {fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=>
+        <div className="roomCard" key={n}>
+            <div className="roomHeader">
+                <h2 style={{margin:0}}>{r.room.name}</h2>
+                <div style={{margin:0}}><strong>Judge(s): </strong><p style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
+                }</p></div>
+            </div>
+            <div className="roomBody">
+                {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'2fr 1fr', textAlign:'center'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span></li>)}
+            </div>
+        </div>)}
+        </>
+          :<p>No Draws Made</p>}
+    </section>}
+    {navState.draw==='generate'&&
+    <section id="drawGenerate">
+        <form onSubmit={submitDraw}>
+            <p><strong>Generate Draw</strong></p>
+            <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
+                <option value={defaultItems.draw.roundId}>Select Round</option>
+                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+            </select>
+            <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/>
+            <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
+            {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
+            {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
+        </form>
+    </section>}
+    {navState.word==='update' &&
+    <section id="wordUpdate">
+        <form onSubmit={submitWord}>
+            <p><strong>Update word</strong></p>
+            <select onChange={(e)=>{
+                e.target.value && setUpdateItems({...updateItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value))}});
+                e.target.value==='' && setUpdateItems({...updateItems, word:defaultItems.word});
+                }} value={updateItems.word.id || ''}>
+                <option value="">Select a word</option>
+                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
+            </select>
+            <input type="text" placeholder="Word" required name="word" value={updateItems.word.word || ''} onChange={wordOnChange}/>
+            <button className="darkButton" disabled={wordStates.updateLoading}>{wordStates.updateLoading? 'Updating':'Update Word'}</button>
+            {wordStates.updateError &&<p style={{color:'red'}}>{wordStates.updateErrorMessage}</p>}
+            {wordStates.updateSuccess &&<p style={{color:'green'}}>{wordStates.updateSuccessMessage}</p>}
+        </form>
+    </section>}
+    {navState.word==='delete' &&
+    <section id="wordDelete">
+        <form onSubmit={submitWord}>
+            <p><strong>Delete word?</strong></p>
+            <select onChange={(e)=>{
+                e.target.value && setDeleteItems({...deleteItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value)), status: false}});
+                e.target.value==='' && setDeleteItems({...deleteItems, word:{id:'',word:'',status:false}});
+                }} value={deleteItems.word.id || ''}>
+                <option value="">Select Word</option>
+                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
+            </select>
+            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.word.status} onChange={wordOnChange} /></label>
+            <button className="darkButton" disabled={wordStates.deleteLoading || !deleteItems.word.status}>{wordStates.deleteLoading? 'Deleting':'Delete Word'}</button>
+            {wordStates.deleteError &&<p style={{color:'red'}}>{wordStates.deleteErrorMessage}</p>}
+            {wordStates.deleteSuccess &&<p style={{color:'green'}}>{wordStates.deleteSuccessMessage}</p>}
+        </form>
+    </section>}
     </>);
   }
 

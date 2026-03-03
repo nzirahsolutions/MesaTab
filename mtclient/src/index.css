@@ -349,6 +349,7 @@ form{
   justify-content: space-evenly;
   justify-self: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
   button{
   flex-grow: 1;}
 }
@@ -550,7 +551,7 @@ form{
   background-color: whitesmoke;
   border-radius: 1rem;
   margin-bottom: 1rem;
-  max-width: 90%;
+  width: 90%;
   display: grid;
   justify-self: center;
   

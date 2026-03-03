@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB} from "../../db/schema";
+import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers} from "../../db/schema";
+import { MySqlColumnWithAutoIncrement } from "drizzle-orm/mysql-core";
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -62,7 +63,7 @@ export async function getFullTab(req: Request, res: Response) {
 
     const tab = tabRow[0];
 
-    const [institutionsRow, spellingBees, judges, tabMasters, rooms, rounds, words] =
+    const [institutionsRow, spellingBees, judges, tabMasters, rooms, rounds, words, draws] =
       await Promise.all([
         db
           .select({
@@ -129,6 +130,14 @@ export async function getFullTab(req: Request, res: Response) {
           })
           .from(wordsSB)
           .where(eq(wordsSB.tabId, tab.tabId)),
+        db
+          .select({
+            drawId: drawsSB.drawId,
+            roundId: drawsSB.roundId,
+            roomId: drawsSB.roomId,
+          })
+          .from(drawsSB)
+          .where(eq(drawsSB.tabId, tab.tabId)),
 
       ]);
       const institutions= institutionsRow.map((i)=>({
@@ -137,6 +146,57 @@ export async function getFullTab(req: Request, res: Response) {
         code: i.code,
         spellers: spellingBees.filter((s)=>s.institutionId===i.id).length,
       }))
+
+      const drawIds=draws.map((d) => d.drawId);
+      const [drawSpellerRows, drawJudgeRows] = drawIds.length? 
+      await Promise.all([
+          db
+            .select({
+              drawId: drawSpellers.drawId,
+              spellerId: drawSpellers.spellerId,
+            })
+            .from(drawSpellers)
+            .where(inArray(drawSpellers.drawId, drawIds)),
+
+          db
+            .select({
+              drawId: drawJudgesSB.drawId,
+              judgeId: drawJudgesSB.judgeId,
+            })
+            .from(drawJudgesSB)
+            .where(inArray(drawJudgesSB.drawId, drawIds)),
+        ])
+      : [[], []];
+    
+      //build maps and shape nested draws (help return all info by either participant id or draw id)
+    const spellerById = new Map(spellingBees.map((s) => [s.id, s]));
+    const judgeById = new Map(judges.map((j) => [j.id, j]));
+    const roomById = new Map(rooms.map((r) => [r.id, r]));
+
+    const spellersByDraw = new Map<number, number[]>();
+    for (const r of drawSpellerRows) {
+      const list = spellersByDraw.get(r.drawId) ?? [];
+      list.push(r.spellerId);
+      spellersByDraw.set(r.drawId, list);
+    }
+
+    const judgesByDraw = new Map<number, number[]>();
+    for (const r of drawJudgeRows) {
+      const list = judgesByDraw.get(r.drawId) ?? [];
+      list.push(r.judgeId);
+      judgesByDraw.set(r.drawId, list)};
+
+    const drawsDetailed = draws.map((d) => ({
+      drawId: d.drawId,
+      roundId: d.roundId,
+      room: roomById.get(d.roomId) ?? null,
+      judges: (judgesByDraw.get(d.drawId) ?? [])
+        .map((id) => judgeById.get(id))
+        .filter(Boolean),
+      spellers: (spellersByDraw.get(d.drawId) ?? [])
+        .map((id) => spellerById.get(id))
+        .filter(Boolean),
+    }));
 
 
     return res.status(200).json({
@@ -154,6 +214,7 @@ export async function getFullTab(req: Request, res: Response) {
         rooms,
         rounds,
         words,
+        draws: drawsDetailed,
       },
     });
   } catch (error) {
@@ -327,13 +388,15 @@ export async function addSpeller(req: Request, res: Response) {
             tabId?: string;
             institutionId?: number;
         }
-        const normalizedEmail=email?.trim().toLocaleLowerCase();       
+        const normalizedEmail=email?.trim().toLowerCase();       
         if (!name || !institutionId || !tabId) {
             return res
             .status(400)
             .json({ message: "Speller name and institution are required" });
         }
-        const existing = await db
+        // console.log('Email:',normalizedEmail);
+        if(normalizedEmail){
+          const existing = await db
                     .select({ email: spellers.email })
                     .from(spellers)
                     .where(and(eq(spellers.email, normalizedEmail),eq(spellers.tabId, tabId)))
@@ -341,12 +404,12 @@ export async function addSpeller(req: Request, res: Response) {
       
         if (existing.length > 0) {
             return res.status(409).json({ message: "Student with that email is already in tab" });
-        }
+        }}
         const added = await db
             .insert(spellers)
             .values({
             name: name,
-            email: normalizedEmail,
+            email: normalizedEmail? normalizedEmail:null,
             tabId: tabId,
             institutionId: institutionId
             })
@@ -627,7 +690,7 @@ export async function addJudge(req: Request, res: Response) {
             .insert(judgesSB)
             .values({
             name: name,
-            email: normalizedEmail,
+            email: normalizedEmail? normalizedEmail:null,
             tabId: tabId,
             institutionId: institutionId
             })

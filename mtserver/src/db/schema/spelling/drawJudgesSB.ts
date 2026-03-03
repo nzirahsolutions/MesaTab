@@ -2,6 +2,7 @@ import { pgTable,serial, integer, index, unique, uuid, foreignKey} from "drizzle
 import { judgesSB } from "./judgesSB";
 import { drawsSB } from "./drawsSB";
 import { tabsSB } from "./tabsSB";
+import { roomsSB } from "./roomsSB";
 import { relations } from "drizzle-orm";
 
 export const drawJudgesSB=pgTable('draw_judges_sb',{
@@ -9,6 +10,7 @@ export const drawJudgesSB=pgTable('draw_judges_sb',{
     tabId:uuid('tab_id').notNull().references(()=>tabsSB.tabId),
     judgeId: integer('judge_id').notNull().references(()=>judgesSB.judgeId,{onDelete:'cascade'}),
     drawId: integer('draw_id').notNull().references(()=>drawsSB.drawId,{onDelete:'cascade'}),
+    roomId: integer('room_id').notNull().references(()=>roomsSB.roomId,{onDelete:'cascade'}),
 },
 (ds)=>({
     judgeUniquePerDraw: unique().on(ds.drawId, ds.judgeId),
@@ -16,6 +18,7 @@ export const drawJudgesSB=pgTable('draw_judges_sb',{
     tabIdIdx:index('dj_tab_id_idx').on(ds.tabId),
     judgeIdIdx:index('dj_judge_id_idx').on(ds.judgeId),
     drawIdIdx:index('dj_draw_id_idx').on(ds.drawId),
+    roomIdIdx:index('dj_room_id_idx').on(ds.roomId),
 
     judgeMustMatchTab: foreignKey({
         columns: [ds.tabId, ds.judgeId],
@@ -43,5 +46,9 @@ export const drawJudgesSBRelations=relations(drawJudgesSB,({one})=>({
     draw: one(drawsSB,{
         fields:[drawJudgesSB.drawId],
         references: [drawsSB.drawId]
+    }),
+    room: one(roomsSB,{
+        fields:[drawJudgesSB.drawId],
+        references: [roomsSB.roomId]
     }),
 }))

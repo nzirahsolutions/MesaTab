@@ -3,7 +3,9 @@ import cors from 'cors';
 import { corsOptions } from './config/cors';
 import userRoutes from './routes/users.route';
 import eventRoutes from './routes/events.route';
-import sbRoutes from './routes/spelling/sb.tab.route';
+import sbTabRoutes from './routes/spelling/sb.tab.route';
+import sbDrawRoutes from './routes/spelling/sb.draw.route';
+import sbResultRoutes from './routes/spelling/sb.results.route';
 
 const app = express();
 
@@ -15,7 +17,10 @@ app.use(express.urlencoded({extended: false})); //parses form data (like HTML fo
 //routes
 app.use('/user',userRoutes);
 app.use('/event',eventRoutes);
-app.use('/sb',sbRoutes);
+/*Spelling Bee */
+app.use('/sb',sbTabRoutes);
+app.use('/sb/draw',sbDrawRoutes);
+app.use('/sb/results',sbResultRoutes);
 
 //run server
 app.listen(process.env.PORT ?? 3500, () => {
