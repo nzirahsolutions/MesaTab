@@ -23,13 +23,13 @@ export default function SpellingAdmin({tab, event}) {
 
   const [reviewItems, setReviewItems]=useState({draw:{roundId:0}});
   
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:'', powerPair:true}});
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:'',email:''},speller:{name:'',institutionId:'',email:''},judge:{name:'',institutionId:'',email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:'', powerPair:true}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}});
 
-  const [deleteItems, setDeleteItems]=useState({institution:{id:'', name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:'',name:'', status:false},round:{id:'',name:'', status:false}, word:{id:'',word:'', status:false}, draw:{roundId:'', powerPair:true, status: false}});
+  const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}});
 
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:'',email:'', status:false},speller:{name:'',institutionId:'',email:'', status:false},judge:{name:'',institutionId:'',email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:'', powerPair:true, status:false}};
+  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}};
 
   const [institutionStates, setInstitutionStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Institution Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Institution Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Institution Updated'});
 
@@ -236,10 +236,15 @@ useEffect(() => {
             setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'update':
-            setUpdateItems({...updateItems, word:{...updateItems.word,[e.target.name]:e.target.value}});
+            setUpdateItems({...updateItems, draw:{...updateItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'delete':
-            setDeleteItems({...deleteItems, word:{...deleteItems.word,[e.target.name]:e.target.checked}});
+            // console.log(e.target);
+            if(e.target.type==='checkbox')
+                setDeleteItems({...deleteItems, draw:{...deleteItems.draw,[e.target.name]:e.target.checked}});
+            else{
+            setDeleteItems({...deleteItems, draw:{...deleteItems.draw,[e.target.name]:parseInt(e.target.value)}});
+            }
             break;
         default: console.log('No Change');
     }
@@ -585,32 +590,32 @@ useEffect(() => {
             }
             break;
         case 'update':
-            setWordStates({...wordStates, updateLoading: true});
+            setDrawSates({...drawStates, updateLoading: true});
             try {
-                const res=await axios.put(`${currentServer}/sb/word`,{...updateItems.word, tabId: tab.tabId});
-                setUpdateItems({...updateItems, word:{...defaultItems.word}});
+                const res=await axios.put(`${currentServer}/sb/draw/update`,{...updateItems.draw, tabId: tab.tabId});
+                setUpdateItems({...updateItems, draw:{...defaultItems.draw}});
                 getFullTab();
-                setWordStates({...wordStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
+                setDrawSates({...drawStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
             } 
             catch (err) {
                 const message= err?.response?.data?.message || "Something went wrong";
-                setWordStates({...wordStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
+                setDrawSates({...drawStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
             }
             break;
         case 'delete':
-            setWordStates({...wordStates, deleteLoading: true});
+            setDrawSates({...drawStates, deleteLoading: true});
             try {
-                const res=await axios.delete(`${currentServer}/sb/word`,{data:{...deleteItems.word, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, word:{...defaultItems.word, status: false}});
+                const res=await axios.delete(`${currentServer}/sb/draw/delete`,{data:{...deleteItems.draw, tabId: tab.tabId}});
+                setDeleteItems({...deleteItems, draw:{...defaultItems.draw, status: false}});
                 getFullTab();
-                setWordStates({...wordStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
+                setDrawSates({...drawStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
             } 
             catch (err) {
                 const message= err?.response?.data?.message || "Something went wrong";
-                setWordStates({...wordStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
+                setDrawSates({...drawStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
             }
             break;
-        default: console.log('check submitWord');
+        default: console.log('check submitDraw');
     }
   }
 
@@ -1259,22 +1264,10 @@ useEffect(() => {
         {fullTab.draws?.length>0? 
         <>
         <select name="roundId" value={reviewItems.draw.roundId} onChange={drawOnChange}>
-            <option value=''>Select Round</option>
+            <option value={0}>Select Round</option>
             {fullTab.rounds.map((r,i)=><option key={i} value={r.roundId}>{r.name}</option>)}
         </select>
-        {/* <table>
-            <thead>
-                <tr><th>Room</th><th>Judges</th><th>Spellers</th></tr>
-            </thead>
-            <tbody>
-               {fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=><tr key={n}>
-                <td>{r.room.name}</td>
-                <td>{r.judges.map((j,x)=><p style={{margin:0}} key={x}>{j.name}</p>)}</td>
-                <td>{r.spellers.map((s,y)=><p style={{margin:0}} key={y}>{s.name}</p>)}</td>
-               </tr>)} 
-            </tbody>        
-        </table> */}
-        {fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=>
+        {fullTab.draws.find((a)=>a.roundId===reviewItems.draw.roundId)?fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=>
         <div className="roomCard" key={n}>
             <div className="roomHeader">
                 <h2 style={{margin:0}}>{r.room.name}</h2>
@@ -1284,7 +1277,7 @@ useEffect(() => {
             <div className="roomBody">
                 {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'2fr 1fr', textAlign:'center'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span></li>)}
             </div>
-        </div>)}
+        </div>):<p>Draw for this round is not out yet</p>}
         </>
           :<p>No Draws Made</p>}
     </section>}
@@ -1294,51 +1287,118 @@ useEffect(() => {
             <p><strong>Generate Draw</strong></p>
             <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
                 <option value={defaultItems.draw.roundId}>Select Round</option>
-                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+                {fullTab.rounds?.filter((d)=>!d.breaks).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
-            <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/>
+            <label>Power Pair? <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/></label>            
             <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
             {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
             {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
         </form>
-    </section>}
-    {navState.word==='update' &&
-    <section id="wordUpdate">
-        <form onSubmit={submitWord}>
-            <p><strong>Update word</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, word:defaultItems.word});
-                }} value={updateItems.word.id || ''}>
-                <option value="">Select a word</option>
-                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
+        {/* <form onSubmit={submitDraw}>
+            <p><strong>Generate Breaks</strong></p>
+            <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
+                <option value={defaultItems.draw.roundId}>Select Round</option>
+                {fullTab.rounds?.filter((d)=>d.breaks).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
-            <input type="text" placeholder="Word" required name="word" value={updateItems.word.word || ''} onChange={wordOnChange}/>
-            <button className="darkButton" disabled={wordStates.updateLoading}>{wordStates.updateLoading? 'Updating':'Update Word'}</button>
-            {wordStates.updateError &&<p style={{color:'red'}}>{wordStates.updateErrorMessage}</p>}
-            {wordStates.updateSuccess &&<p style={{color:'green'}}>{wordStates.updateSuccessMessage}</p>}
+            <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/>
+            <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Breaks'}</button>
+            {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
+            {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
+        </form> */}
+    </section>}
+    {navState.draw==='update' &&
+    <section id="drawUpdate">
+        <form onSubmit={submitDraw}>
+            <p><strong>Update Draw</strong></p>
+            <select name="roundId" value={updateItems.draw.roundId} onChange={drawOnChange}>
+                <option value={defaultItems.draw.roundId}>Select Round</option>
+                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+            </select>
+            {!fullTab.draws.find((a)=>a.roundId===updateItems.draw.roundId)?
+            <p>Draw for this round is not out yet</p>
+            :            
+            <>
+            <strong>Swaps/Moves</strong>
+            <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                <option value={0}>Select First Room</option>
+                {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+            </select>
+            <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                <option value={0}>Select Second Room</option>
+                {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+            </select>
+            <select name="swapState" value={updateItems.draw.swapState} onChange={drawOnChange}>
+                <option value={0}>Select Update</option>
+                <option value={1}>Swap Spellers</option>
+                <option value={2}>Swap Judges</option>
+                <option value={3}>Move Speller</option>
+                <option value={4}>Move Judge</option>
+            </select>
+            {updateItems.draw.swapState===1 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
+                    <option value={0}>Select speller in first room</option>
+                    {/* {console.log(fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId))} */}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+                <select name="speller2" value={updateItems.draw.speller2} onChange={drawOnChange}>
+                    <option value={0}>Select speller in second room</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }
+            {updateItems.draw.swapState===2 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
+                    <option value={0}>Select judge in first room</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+                <select name="judge2" value={updateItems.draw.judge2} onChange={drawOnChange}>
+                    <option value={0}>Select judge in second room</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }
+            {updateItems.draw.swapState===3 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
+                    <option value={0}>Select speller in first room</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }
+            {updateItems.draw.swapState===4 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
+                    <option value={0}>Select judge in first room</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }            
+            </>}
+            <button className="darkButton" disabled={drawStates.updateLoading}>{drawStates.updateLoading? 'Updating':'Update Draw'}</button>
+            {drawStates.updateError &&<p style={{color:'red'}}>{drawStates.updateErrorMessage}</p>}
+            {drawStates.updateSuccess &&<p style={{color:'green'}}>{drawStates.updateSuccessMessage}</p>}
         </form>
     </section>}
-    {navState.word==='delete' &&
-    <section id="wordDelete">
-        <form onSubmit={submitWord}>
-            <p><strong>Delete word?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, word:{id:'',word:'',status:false}});
-                }} value={deleteItems.word.id || ''}>
-                <option value="">Select Word</option>
-                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
+    {navState.draw==='delete' &&
+    <section id="drawDelete">
+        <form onSubmit={submitDraw}>
+            <p><strong>Delete draw?</strong></p>
+            <select name="roundId" value={deleteItems.draw.roundId} onChange={drawOnChange}>
+                <option value={0}>Select Round</option>
+                {fullTab.rounds.map((r, i)=><option key={i} value={r.roundId}>{r.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.word.status} onChange={wordOnChange} /></label>
-            <button className="darkButton" disabled={wordStates.deleteLoading || !deleteItems.word.status}>{wordStates.deleteLoading? 'Deleting':'Delete Word'}</button>
-            {wordStates.deleteError &&<p style={{color:'red'}}>{wordStates.deleteErrorMessage}</p>}
-            {wordStates.deleteSuccess &&<p style={{color:'green'}}>{wordStates.deleteSuccessMessage}</p>}
+            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.draw.status} onChange={drawOnChange} /></label>
+            <button className="darkButton" disabled={drawStates.deleteLoading || !deleteItems.draw.status}>{drawStates.deleteLoading? 'Deleting':'Delete Draw'}</button>
+            {drawStates.deleteError &&<p style={{color:'red'}}>{drawStates.deleteErrorMessage}</p>}
+            {drawStates.deleteSuccess &&<p style={{color:'green'}}>{drawStates.deleteSuccessMessage}</p>}
         </form>
     </section>}
     </>);
   }
-
+  function results(){
+  }
   return (
     !pageLoad.loading && access==='admin'?
     <>
@@ -1353,6 +1413,7 @@ useEffect(() => {
             <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
             <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
             <li onClick={()=>tabChange('draws')} className={tabItem==='draws'?'selectedTabItem':''}>Draws</li>
+            <li onClick={()=>tabChange('results')} className={tabItem==='results'?'selectedTabItem':''}>Results</li>
           </ul>
         </nav>
         <div className="tabSideMenu">
@@ -1371,12 +1432,13 @@ useEffect(() => {
             <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
             <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
             <li onClick={()=>tabChange('draws')} className={tabItem==='draws'?'selectedTabItem':''}>Draws</li>
+            <li onClick={()=>tabChange('results')} className={tabItem==='results'?'selectedTabItem':''}>Results</li>
           </ul>
           </nav>
         </div>
         {menuOpen&& <div className="aoe" onClick={()=>setMenuOpen(false)}></div>}
         {
-        tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():''
+        tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():tabItem==='results'? results():''
         }
     </>:!pageLoad.loading && access==='public'?
     <SpellingBeePublicTab tab={tab} event={event}/>:<Loading/>
