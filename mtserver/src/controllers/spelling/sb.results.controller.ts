@@ -1,10 +1,88 @@
 import { Request, Response } from 'express';
 import { db } from '../../db/db';
-import { resultsSB, standingsSB, drawSpellers, drawsSB, roundsSB, spellers, tabsSB } from '../../db/schema';
-import { eq, and, sql, desc, inArray } from 'drizzle-orm';
+import { resultsSB, standingsSB, drawSpellers, drawsSB, spellers } from '../../db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 
 const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
 type ResultStatus = (typeof allowedStatuses)[number];
+
+type StandingRoundScore = {
+  roundId: number;
+  score: number | null;
+  status: ResultStatus | null;
+};
+
+async function rebuildStandingsForTab(tabId: string) {
+  const allSpellers = await db
+    .select({
+      spellerId: spellers.spellerId,
+    })
+    .from(spellers)
+    .where(eq(spellers.tabId, tabId));
+
+  const resultRows = await db
+    .select({
+      spellerId: drawSpellers.spellerId,
+      roundId: drawsSB.roundId,
+      score: resultsSB.score,
+      status: resultsSB.status,
+    })
+    .from(resultsSB)
+    .innerJoin(drawSpellers, eq(resultsSB.drawSpellerId, drawSpellers.id))
+    .innerJoin(drawsSB, eq(drawSpellers.drawId, drawsSB.drawId))
+    .where(eq(drawSpellers.tabId, tabId));
+
+  const standingMap = new Map<number, { totalScore: number; roundScores: StandingRoundScore[] }>();
+
+  for (const speller of allSpellers) {
+    standingMap.set(speller.spellerId, { totalScore: 0, roundScores: [] });
+  }
+
+  for (const row of resultRows) {
+    const existing = standingMap.get(row.spellerId) ?? { totalScore: 0, roundScores: [] };
+
+    existing.roundScores.push({
+      roundId: row.roundId,
+      score: row.score,
+      status: row.status,
+    });
+    existing.totalScore += row.score ?? 0;
+
+    standingMap.set(row.spellerId, existing);
+  }
+
+  const ranked = [...standingMap.entries()]
+    .map(([spellerId, data]) => ({
+      spellerId,
+      totalScore: data.totalScore,
+      roundScores: data.roundScores.sort((a, b) => a.roundId - b.roundId),
+    }))
+    .sort((a, b) => {
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+      return a.spellerId - b.spellerId;
+    });
+
+  await db.delete(standingsSB).where(eq(standingsSB.tabId, tabId));
+
+  if (!ranked.length) return;
+
+  let currentRank = 1;
+  const standingsValues = ranked.map((entry, index) => {
+    if (index > 0 && entry.totalScore < ranked[index - 1].totalScore) {
+      currentRank = index + 1;
+    }
+
+    return {
+      tabId,
+      spellerId: entry.spellerId,
+      totalScore: entry.totalScore,
+      roundScores: JSON.stringify(entry.roundScores),
+      rank: currentRank,
+    };
+  });
+
+  await db.insert(standingsSB).values(standingsValues);
+}
 
 export async function ballot(req: Request,res: Response){
   try {
@@ -13,7 +91,7 @@ export async function ballot(req: Request,res: Response){
       roomId: number;
       roundId: number;
       spellerId: number;
-      status?:string;
+      status?: ResultStatus;
       score?: number;
     }
     if(!tabId || !roomId || !roundId || !spellerId)
@@ -21,8 +99,7 @@ export async function ballot(req: Request,res: Response){
     if (status === undefined && score === undefined)
       return res.status(400).json({ message: "Provide either status or score" });
 
-    const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
-    if (status !== undefined && !allowedStatuses.includes(status as (typeof allowedStatuses)[number])) {
+    if (status !== undefined && !allowedStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid result status" });
     }
 
@@ -54,7 +131,7 @@ export async function ballot(req: Request,res: Response){
         .values({
           drawSpellerId: drawSpellerId[0].id,
           score: score,
-          status: status
+          status: status ?? null
         })
         .returning({
           resultId: resultsSB.resultId,
@@ -65,13 +142,15 @@ export async function ballot(req: Request,res: Response){
           updatedAt: resultsSB.updatedAt,
         })
 
+        await rebuildStandingsForTab(tabId);
+
         return res.status(200).json(
           {message:'Result added',
           data: newResult[0],
           });
     }
     else{
-      const updates:{score?: number; status?: string}={};
+      const updates:{score?: number; status?: ResultStatus | null}={};
         if(score!==undefined) updates.score=score;
         if(status!==undefined) updates.status=status;
         // console.log(updates);
@@ -87,6 +166,7 @@ export async function ballot(req: Request,res: Response){
           createdAt: resultsSB.createdAt,
           updatedAt: resultsSB.updatedAt,
         });
+      await rebuildStandingsForTab(tabId);
         // console.log(updatedResult);
       return res.status(200).json({ 
         message: "Result updated", 
@@ -109,7 +189,7 @@ export async function batchBallot(req: Request, res: Response) {
       updates: Array<{
         spellerId: number;
         score?: number;
-        status?: string;
+        status?: ResultStatus;
       }>;
     };
 
@@ -124,6 +204,10 @@ export async function batchBallot(req: Request, res: Response) {
 
       if (item.score === undefined && item.status === undefined) {
         return res.status(400).json({ message: "Each update must include score or status" });
+      }
+
+      if (item.status !== undefined && !allowedStatuses.includes(item.status)) {
+        return res.status(400).json({ message: `Invalid result status for speller ${item.spellerId}` });
       }
     }
     const drawRow = await db
@@ -228,6 +312,8 @@ export async function batchBallot(req: Request, res: Response) {
       return rows;
     });
 
+    await rebuildStandingsForTab(tabId);
+
     return res.status(200).json({
       message: "Batch results saved",
       data: savedResults,
@@ -256,8 +342,11 @@ export async function deleteBallot(req: Request,res: Response){
       .where(and(eq(drawsSB.tabId, tabId),eq(drawsSB.roundId, roundId), eq(drawsSB.roomId, roomId)))
       .limit(1);
     
-      const drawId=drawRow[0].drawId;
-      // console.log(drawId);
+    if (!drawRow.length) {
+      return res.status(404).json({ message: 'draw not found' });
+    }
+    const drawId=drawRow[0].drawId;
+    // console.log(drawId);
     if(!drawId) 
       return res.status(404).json({message:'draw not found'});
 
@@ -277,9 +366,9 @@ export async function deleteBallot(req: Request,res: Response){
       .from(resultsSB)
       .where(eq(resultsSB.drawSpellerId, drawSpellerId))
     
-    if(!result.length) res.status(404).json({message:'Speller result not submitted yet'});
-
-    const resultId= result[0].resultId;
+    if(!result.length) {
+      return res.status(404).json({message:'Speller result not submitted yet'});
+    }
     
     //delete result
     const deleted= await db
@@ -292,6 +381,8 @@ export async function deleteBallot(req: Request,res: Response){
           if (!deleted.length) {
             return res.status(404).json({ message: "Result not deleted" });
           }
+
+          await rebuildStandingsForTab(tabId);
       
           return res.status(200).json({
             message: "result deleted successfully",

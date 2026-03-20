@@ -57,6 +57,20 @@
       "when": 1773831302577,
       "tag": "0007_slow_lenny_balinger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774022238619,
+      "tag": "0008_nosy_puppet_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774023437853,
+      "tag": "0009_needy_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

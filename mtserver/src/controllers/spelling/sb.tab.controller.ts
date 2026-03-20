@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB} from "../../db/schema";
+import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -62,7 +62,7 @@ export async function getFullTab(req: Request, res: Response) {
 
     const tab = tabRow[0];
 
-    const [institutionsRow, spellingBees, judges, tabMasters, rooms, rounds, words, draws] =
+    const [institutionsRow, spellingBees, judges, tabMasters, rooms, rounds, words, draws, standingsRows] =
       await Promise.all([
         db
           .select({
@@ -137,6 +137,17 @@ export async function getFullTab(req: Request, res: Response) {
           })
           .from(drawsSB)
           .where(eq(drawsSB.tabId, tab.tabId)),
+        db
+          .select({
+            standingId: standingsSB.standingId,
+            spellerId: standingsSB.spellerId,
+            totalScore: standingsSB.totalScore,
+            roundScores: standingsSB.roundScores,
+            rank: standingsSB.rank,
+            updatedAt: standingsSB.updatedAt,
+          })
+          .from(standingsSB)
+          .where(eq(standingsSB.tabId, tab.tabId)),
 
       ]);
       const institutions= institutionsRow.map((i)=>({
@@ -223,6 +234,37 @@ export async function getFullTab(req: Request, res: Response) {
         .filter(Boolean),
     }));
 
+    const standings = standingsRows
+      .map((standing) => {
+        const speller = spellerById.get(standing.spellerId);
+        if (!speller) return null;
+
+        let roundScores: unknown[] = [];
+        if (standing.roundScores) {
+          try {
+            const parsed = JSON.parse(standing.roundScores);
+            roundScores = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            roundScores = [];
+          }
+        }
+
+        return {
+          standingId: standing.standingId,
+          rank: standing.rank,
+          totalScore: standing.totalScore,
+          roundScores,
+          updatedAt: standing.updatedAt,
+          speller: {
+            id: speller.id,
+            name: speller.name,
+            email: speller.email,
+            institutionId: speller.institutionId,
+          },
+        };
+      })
+      .filter(Boolean);
+
 
     return res.status(200).json({
       message: "Tab fetched successfully",
@@ -240,6 +282,7 @@ export async function getFullTab(req: Request, res: Response) {
         rounds,
         words,
         draws: drawsDetailed,
+        standings,
       },
     });
   } catch (error) {

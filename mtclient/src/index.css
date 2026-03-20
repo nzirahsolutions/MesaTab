@@ -581,7 +581,7 @@ select{
     li{
       list-style: none;
       display: grid;
-      grid-template-columns: 3fr repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
       border-bottom: 1px solid var(--background-color);
       text-align: start;
       gap: 0.3rem;
@@ -604,10 +604,10 @@ select{
   }
 }
 table{
-  overflow-x:hidden;
   border-radius: 1rem;
   min-width: 90%;
   justify-self: center;
+  width: max-content;
   display: flex;
   flex-direction: column;
   tr{
@@ -625,6 +625,12 @@ table{
       border-bottom: 1px solid var(--background-color);
     }
   }
+}
+.tableScroll{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 #speller-standings{
   overflow-x: auto;

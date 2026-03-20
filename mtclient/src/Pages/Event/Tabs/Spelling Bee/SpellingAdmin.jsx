@@ -20,6 +20,15 @@ export default function SpellingAdmin({tab, event}) {
   const [pageLoad, setPageLoad]=useState({loading: true, authorized:false});
   const [fullTab, setFulltab]=useState(null);
 
+  async function getFullTab() {
+    try {
+      const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
+      setFulltab(res.data?.data ?? null);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   const [navState, setNavState]=useState({institution:'review',tabMaster:'review',speller:'review',judge:'review',room:'review',round:'review',word:'review', draw:'review', result:'review'});
 
   const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
@@ -54,33 +63,36 @@ export default function SpellingAdmin({tab, event}) {
 
   const roundTypes=['Timed','Word Limit','Eliminator'];
 
-  async function getFullTab() {
-    try {
-        const res=await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
-        // console.log(res.data.data);
-        setFulltab({...res.data.data});    
-    } 
-    catch (error) {
-        console.log(error);        
-    }    
-  }
   useEffect(() => {
+    let mounted = true;
+
     async function loadPage() {
+      setPageLoad((prev) => ({ ...prev, loading: true }));
       try {
-        await getFullTab();
-      } finally {
-        const isOwner = !!user && user.id === event.ownerId;
+        const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
+        const fetchedTab = res.data?.data ?? null;
+        if (!mounted) return;
+        setFulltab(fetchedTab);
+
+        const isOwner = !!user && user.id === event?.ownerId;
         const isTabMaster =
           !!user &&
-          Array.isArray(fullTab?.tabMasters) &&
-          fullTab.tabMasters.some((e) => e.email === user.email);
+          Array.isArray(fetchedTab?.tabMasters) &&
+          fetchedTab.tabMasters.some((e) => e.email === user.email);
 
         setPageLoad({ loading: false, authorized: isOwner || isTabMaster });
+      } catch (error) {
+        console.error(error);
+        if (!mounted) return;
+        setPageLoad({ loading: false, authorized: false });
       }
     }
 
     loadPage();
-  }, [fullTab, user]);
+    return () => {
+      mounted = false;
+    };
+  }, [tab.tabId, event?.ownerId, user]);
   
   //tab-level navigation
   useEffect(() => {
@@ -971,19 +983,22 @@ useEffect(() => {
     {navState.judge==='review'&&
     <section id="judgeReview">
         <h2>Registered Judges</h2>
-        {fullTab.judges?.length>0?<table>
+        {fullTab.judges?.length>0?
+        <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <th>Name</th>
               <th>Institution</th>
+              <th>Email</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.judges.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
+              <td>{p.email}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, judge:{...p}});
                 setNavState({...navState, judge:'update'});
@@ -992,7 +1007,7 @@ useEffect(() => {
                 setNavState({...navState, judge:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Judges</p>}
+        </table></div>:<p>No Registered Judges</p>}
     </section>}
     {navState.judge==='add'&&
     <section id="judgeAdd">

@@ -24,26 +24,35 @@ export default function SpellingBeePublicTab({tab, event}) {
   // console.log(access);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function getFullTab() {
       try {
         const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
-        setFullTab({ ...res.data.data });
+        if (!isMounted) return;
 
-        const isOwner = !!user && user.id === event.ownerId;
+        const fetchedTab = res.data?.data || null;
+        setFullTab(fetchedTab);
+
+        const isOwner = !!user && user.id === event?.ownerId;
         const isTabMaster =
           !!user &&
-          Array.isArray(fullTab?.tabMasters) &&
-          fullTab.tabMasters.some((e) => e.email === user.email);
+          Array.isArray(fetchedTab?.tabMasters) &&
+          fetchedTab.tabMasters.some((e) => e.email === user.email);
 
         setPageLoad({ loading: false, authorized: isOwner || isTabMaster });
       } catch (error) {
-        console.log(error);
-        setPageLoad((prev) => ({ ...prev, loading: false }));
+        console.error(error);
+        if (!isMounted) return;
+        setPageLoad({ loading: false, authorized: false });
       }
     }
 
     getFullTab();
-  }, [tab.tabId, fullTab, event.ownerId, user]);
+    return () => {
+      isMounted = false;
+    };
+  }, [tab.tabId, event?.ownerId, user]);
 
    //tab-level navigation
     useEffect(() => {
@@ -90,89 +99,114 @@ export default function SpellingBeePublicTab({tab, event}) {
     )
   }
   function rounds(){
+    const roundsList = fullTab?.rounds ?? [];
     return(
       <>
-      {/* {console.log(tab.rounds)} */}
-      {fullTab.rounds.length===0?
+      {roundsList.length===0?
       <p>No Rounds Have Been Added</p>:
       <div className="results">
-      {fullTab.rounds.map((r,i)=>
-      <li key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</li>)}
+      {roundsList.map((r,i)=><li key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</li>)}
       </div>}
       </>
     )
   }
   function round(){
-    return(
+    const roundsList = fullTab?.rounds ?? [];
+    const currentRound = viewRound || roundsList[0];
+    if (!currentRound) {
+      return <p>No round selected. Please choose a round.</p>;
+    }
+
+    const roundDraws = (fullTab?.draws ?? []).filter((d) => d.roundId === currentRound.roundId);
+
+    return (
       <>
       <section id="other-rounds">
-        {fullTab.rounds.length<0?
-      <p>No Rounds Were Completed</p>:
+      {roundsList.length === 0 ? (
+        <p>No Rounds Were Completed</p>
+      ) : (
       <div className="round-buttons">
-      {fullTab.rounds.map((r,i)=>
-      <button className={r.name===viewRound.name? 'darkButton':'lightButton'} key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</button>)}
-      </div>}
+        {roundsList.map((r,i)=>(
+        <button className={r.name===currentRound.name? 'darkButton':'lightButton'} key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</button>))}
+      </div>) }
       </section>
       <section id="intro-section">
-      <h2 style={{margin:0}}>Results for {viewRound.name}</h2>
-      <p style={{margin:'0.5rem'}}>Type of round: <strong>{viewRound.type}</strong></p>
-      {viewRound.timeLimit && <p style={{margin:'0.5rem'}}>Time Limit: <strong>{viewRound.timeLimit}</strong></p>}
-      {viewRound.wordLimit && <p style={{margin:'0.5rem'}}>Word Limit: <strong>{viewRound.wordLimit}</strong></p>}
+      <h2 style={{margin:0}}>Results for {currentRound.name}</h2>
+      <p style={{margin:'0.5rem'}}>Type of round: <strong>{currentRound.type}</strong></p>
+      {currentRound.timeLimit && <p style={{margin:'0.5rem'}}>Time Limit: <strong>{currentRound.timeLimit}</strong></p>}
+      {currentRound.wordLimit && <p style={{margin:'0.5rem'}}>Word Limit: <strong>{currentRound.wordLimit}</strong></p>}
       </section>
       <section id="result-section">
-        {viewRound.matches.map((m,i)=>
-        <div key={i} className="roomCard">
-          <div className="roomHeader">
-            <h2 style={{margin:'0.1rem'}}>{fullTab.rooms.filter((r)=>r.id===m.roomID)[0].name}</h2>
-            <p style={{margin:'0.5rem'}}>Adjudicator: <strong>{fullTab.judges.filter((r)=>r.id===m.judgeID)[0].name}</strong></p>
-          </div>
-          <div className="roomBody">
-            <li><strong>Participant Name</strong> <strong>School Code</strong> <strong>Score</strong></li>
-            {m.result.map((r,index)=>
-            <li key={index}><span>{fullTab.participants.filter((p)=>p.id===r.participantID)[0].name}</span><span>{tab.participants.filter((p)=>p.id===r.participantID)[0].schoolCode}</span>
-            {!viewRound.breaks?<span>{r.score}</span>:<span style={r.status==='won'?{color:'green'}:{color:'red'}}>{r.status}</span>}</li>
-            )}
-          </div>
-        </div>)}
+        {roundDraws.length === 0 ? (
+          <p>No draw results for this round yet.</p>
+        ) : (
+          roundDraws.map((draw, i) => (
+          <div key={i} className="roomCard">
+            <div className="roomHeader">
+              <h2 style={{margin:'0.1rem'}}>{draw.room?.name ?? 'Room unknown'}</h2>
+              <p style={{margin:'0.5rem'}}>Adjudicators: <strong>{(draw.judges ?? []).map((j) => j?.name).filter(Boolean).join(', ') || 'None'}</strong></p>
+            </div>
+            <div className="roomBody">
+              <li><strong>Speller</strong><strong>Institution</strong> {currentRound.breaks?<strong>Status</strong>:<strong>Score</strong>} </li>
+              {(draw.spellers ?? []).map((sp, index) => (
+                <li key={index}>
+                  <span>{sp?.name ?? 'Unknown'}</span>
+                  <span>{fullTab.institutions.find((inst)=>inst.id===sp.institutionId)?.name || '-'}</span>
+                  {currentRound.breaks?<span>{sp?.result?.status ?? '-'}</span>:<span>{sp?.result?.score ?? '-'}</span>}
+                  
+                  
+                </li>
+              ))}
+            </div>
+          </div>)))
+        }
       </section>
       </>
     )
   }
   function spellerTab(){
-    return(
-      fullTab.standings && fullTab.standings.length>0?
-      <>      
+    const standings = fullTab?.standings ?? [];
+    const prelimRounds = (fullTab?.rounds ?? []).filter((round) => !round.breaks);
+    return (
+      <>
       <section id="intro">
         <h1>Speller Tab</h1>
-        <p>This is a summary of points accrued during the preliminary rounds of the tournament.</p>
+        <p>This shows perfomances during the preliminary rounds</p>
       </section>
-      {/* <button onClick={()=>console.log(tab.standings)}>Test</button> */}
+      {standings.length > 0 ? (
       <section id="speller-standings">
-        {/* Rank | speller name | school code  | R1  | R2  | R3  |R4  | R5..  | Total */}
         <table>
           <thead>
-            <tr>
+            <tr style={{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}}>
               <th>Rank</th>
-              <th>Speller</th>
-              <th>School</th>
-              {fullTab.rounds.filter((r)=>!r.breaks).map((r,i)=><th key={i}>{r.name}</th>)}
+              <th>Name</th>
+              <th>Institution</th>
+              {prelimRounds.map((round) => (
+                <th key={round.roundId}>{round.name}</th>
+              ))}
               <th>Total</th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.standings.map((s,i)=>
-            <tr key={i}>
-              <td>{s.rank}</td>
-              <td>{s.speller}</td>
-              <td>{s.school}</td>
-              {s.scores.map((s,i)=><td key={i}>{s? s:'-'}</td>)}
-              <td>{s.total}</td>
-            </tr>)}
+            {standings.map((standing, i) => (
+              <tr key={standing.standingId ?? i} style={{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}}>
+                <td>{standing.rank ?? '-'}</td>
+                <td>{standing.speller?.name ?? '-'}</td>
+                <td>{fullTab?.institutions?.find((i2)=>i2.id===standing.speller?.institutionId)?.name ?? '-'}</td>
+                {prelimRounds.map((round) => {
+                  const roundScore = standing.roundScores?.find((entry) => entry?.roundId === round.roundId);
+                  return <td key={round.roundId}>{roundScore?.score ?? '-'}</td>;
+                })}
+                <td>{standing.totalScore ?? 0}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </section>
+      ) : (
+        <p>No results have been submitted yet.</p>
+      )}
       </>
-      :<p>No Rounds Compeleted Yet</p>
     )
   }
   function participants(){
@@ -186,7 +220,7 @@ export default function SpellingBeePublicTab({tab, event}) {
       {participant==='spellers'?
       <section id="spellers">
         <h2>Spellers</h2>
-        {fullTab.spellingBees.length>0?<table>
+        {fullTab?.spellingBees?.length > 0 ? <table>
           <thead>
             <tr style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <th>Name</th>
@@ -194,33 +228,33 @@ export default function SpellingBeePublicTab({tab, event}) {
             </tr>
           </thead>
           <tbody>
-            {fullTab.spellingBees.map((p,i)=>
+            {fullTab?.spellingBees?.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <td>{p.name}</td>
-              <td>{fullTab.institutions.find((s)=>s.id===p.institutionId).name}</td>
-            </tr>)}
+              <td>{fullTab?.institutions?.find((s)=>s.id===p.institutionId)?.name ?? '-'}</td>
+            </tr>))}
           </tbody>
-        </table>:<p>No Registered Spellers</p>}
+        </table> : <p>No Registered Spellers</p>}
       </section>:participant==='judges'?
       <section id="judges">
         <h2>Judges</h2>
-        {fullTab.judges.length>0?<table>
+        {fullTab?.judges?.length > 0 ? <table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr'}}>
               <th>Name</th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.judges.map((p,i)=>
+            {fullTab?.judges?.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'1fr'}}>
               <td>{p.name}</td>
-            </tr>)}
+            </tr>))}
           </tbody>
         </table>:<p>No Registered Judges</p>}
       </section>:
       <section id="institutions">
         <h2>Institutions</h2>
-        {fullTab.institutions.length>0?<table>
+        {fullTab?.institutions?.length > 0 ? <table>
           <thead>
             <tr style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <th>Name</th>
@@ -229,12 +263,12 @@ export default function SpellingBeePublicTab({tab, event}) {
             </tr>
           </thead>
           <tbody>
-            {fullTab.institutions.map((p,i)=>
+            {fullTab?.institutions?.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{p.code}</td>
               <td>{p.spellers}</td>
-            </tr>)}
+            </tr>))}
           </tbody>
         </table>:<p>No Registered Institutions</p>}
       </section>}
@@ -245,8 +279,8 @@ export default function SpellingBeePublicTab({tab, event}) {
       <>
       <h2>Words</h2>
       <section className="words">
-        {fullTab.words.map((w,i)=><div className="word" key={i}>{w.word || w}</div>)}
-        {fullTab.words.length===0 && <p>No Words Added</p>}
+        {fullTab?.words?.map((w,i)=><div className="word" key={i}>{w.word || w}</div>)}
+        {!fullTab?.words?.length && <p>No Words Added</p>}
       </section>
       </>
     )
