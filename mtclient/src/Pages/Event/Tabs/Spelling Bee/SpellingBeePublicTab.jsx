@@ -4,6 +4,7 @@ import {IoClose} from 'react-icons/io5';
 import {AuthContext} from '../../../../Context/AuthContext';
 import Dropdown from "../../../../Components/Dropdown";
 import SpellingAdmin from "./SpellingAdmin";
+import SpellingJudgeTab from "./SpellingJudgeTab";
 import { useEffect, useRef } from "react";
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
@@ -18,7 +19,7 @@ export default function SpellingBeePublicTab({tab, event}) {
   const [viewRound, setViewRound]=useState(null);
   const {user}= useContext(AuthContext);
   const [access, setAccess]=useState('public');
-  const [pageLoad, setPageLoad]=useState({loading: true, authorized:false});
+  const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFullTab]=useState(null);
   // console.log(tab, event);
   // console.log(access);
@@ -39,12 +40,20 @@ export default function SpellingBeePublicTab({tab, event}) {
           !!user &&
           Array.isArray(fetchedTab?.tabMasters) &&
           fetchedTab.tabMasters.some((e) => e.email === user.email);
+        const isJudge =
+          !!user &&
+          Array.isArray(fetchedTab?.judges) &&
+          fetchedTab.judges.some((e) => e.email === user.email);
 
-        setPageLoad({ loading: false, authorized: isOwner || isTabMaster });
+        setPageLoad({
+          loading: false,
+          adminAuthorized: isOwner || isTabMaster,
+          judgeAuthorized: isJudge,
+        });
       } catch (error) {
         console.error(error);
         if (!isMounted) return;
-        setPageLoad({ loading: false, authorized: false });
+        setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
       }
     }
 
@@ -174,7 +183,7 @@ export default function SpellingBeePublicTab({tab, event}) {
         <p>This shows perfomances during the preliminary rounds</p>
       </section>
       {standings.length > 0 ? (
-      <section id="speller-standings">
+      <section id="speller-standings" className="tableScroll">
         <table>
           <thead>
             <tr style={{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}}>
@@ -285,12 +294,18 @@ export default function SpellingBeePublicTab({tab, event}) {
       </>
     )
   }
+  const accessOptions = [
+    {option:`${tab.title}`, value:'public'},
+    ...(pageLoad.judgeAuthorized ? [{option:`${tab.title} (Judge)`, value:'judge'}] : []),
+    ...(pageLoad.adminAuthorized ? [{option:`${tab.title} (Admin)`, value:'admin'}] : []),
+  ];
+
   return (
     !pageLoad.loading && access==='public'?
     <>
     <nav className="tabMenu">
       <ul>
-        {pageLoad.authorized? <Dropdown selectedIdx={0} options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+        {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess}/>:
         <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
         <li onClick={()=>tabChange('spellerTab')} className={tabItem==='spellerTab'?'selectedTabItem':''}>Speller Tab</li>
@@ -300,7 +315,7 @@ export default function SpellingBeePublicTab({tab, event}) {
     </nav>
     <div className="tabSideMenu">
       <nav className="tTitle">
-          {pageLoad.authorized? <Dropdown selectedIdx={0} options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>:
+          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess}/>:
         <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
         <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? <IoClose/>:'☰'}</span>
       </nav>
@@ -318,6 +333,6 @@ export default function SpellingBeePublicTab({tab, event}) {
     {
       tabItem==='home'? home():tabItem==='rounds'? rounds():tabItem==='round'? round():tabItem==='spellerTab'? spellerTab():tabItem==='participants'? participants():tabItem==='words'? words():''
     }
-    </>:!pageLoad.loading && access==='admin'?<SpellingAdmin tab={tab} event={event}/>:<Loading/>
+    </>:!pageLoad.loading && access==='judge'?<SpellingJudgeTab tab={tab} event={event} accessOptions={accessOptions} onAccessChange={setAccess}/>:!pageLoad.loading && access==='admin'?<SpellingAdmin tab={tab} event={event}/>:<Loading/>
   )
 }

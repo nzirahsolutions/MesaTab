@@ -6,6 +6,7 @@ import {FaAngleDoubleUp } from 'react-icons/fa';
 import {AuthContext} from '../../../../Context/AuthContext';
 import Dropdown from "../../../../Components/Dropdown";
 import SpellingBeePublicTab from "./SpellingBeePublicTab";
+import SpellingJudgeTab from "./SpellingJudgeTab";
 import axios from 'axios';
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
@@ -17,7 +18,7 @@ export default function SpellingAdmin({tab, event}) {
   const [menuOpen, setMenuOpen]=useState(false);
   const {user}= useContext(AuthContext);
   const [access, setAccess]=useState('admin');
-  const [pageLoad, setPageLoad]=useState({loading: true, authorized:false});
+  const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFulltab]=useState(null);
 
   async function getFullTab() {
@@ -79,12 +80,20 @@ export default function SpellingAdmin({tab, event}) {
           !!user &&
           Array.isArray(fetchedTab?.tabMasters) &&
           fetchedTab.tabMasters.some((e) => e.email === user.email);
+        const isJudge =
+          !!user &&
+          Array.isArray(fetchedTab?.judges) &&
+          fetchedTab.judges.some((e) => e.email === user.email);
 
-        setPageLoad({ loading: false, authorized: isOwner || isTabMaster });
+        setPageLoad({
+          loading: false,
+          adminAuthorized: isOwner || isTabMaster,
+          judgeAuthorized: isJudge,
+        });
       } catch (error) {
         console.error(error);
         if (!mounted) return;
-        setPageLoad({ loading: false, authorized: false });
+        setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
       }
     }
 
@@ -808,7 +817,9 @@ useEffect(() => {
     {navState.institution==='review'&&
     <section id="institutionReview">
         <h2>Registered Institutions</h2>
-        {fullTab.institutions?.length>0?<table>
+        {fullTab.institutions?.length>0?
+        <div className="tableScroll">
+        <table>
           <thead>
             <tr style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
               <th>Name</th>
@@ -831,7 +842,7 @@ useEffect(() => {
                 setNavState({...navState, institution:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Institutions</p>}
+        </table></div>:<p>No Registered Institutions</p>}
     </section>}
     {navState.institution==='add'&&
     <section id="institutionAdd">
@@ -896,7 +907,9 @@ useEffect(() => {
     {navState.speller==='review'&&
     <section id="spellerReview">
         <h2>Registered Spellers ({fullTab.spellingBees?.length})</h2>
-        {fullTab.spellingBees?.length>0?<table>
+        {fullTab.spellingBees?.length>0?
+        <div className="tableScroll">
+        <table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
               <th>Name</th>
@@ -917,7 +930,7 @@ useEffect(() => {
                 setNavState({...navState, speller:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Spellers</p>}
+        </table></div>:<p>No Registered Spellers</p>}
     </section>}
     {navState.speller==='add'&&
     <section id="spellerAdd">
@@ -1077,20 +1090,24 @@ useEffect(() => {
     {navState.tabMaster==='review'&&
     <section id="tabMasterReview">
         <h2>Registered Tab Masters</h2>
-        {fullTab.tabMasters?.length>0?<table>
+        {fullTab.tabMasters?.length>0?
+        <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <th>Name</th>
               <th>Institution</th>
+              <th>Email</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.tabMasters.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
+              <td>{p.email}</td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}>
+                <FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, tabMaster:{...p}});
                 setNavState({...navState, tabMaster:'update'});
               }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
@@ -1098,7 +1115,7 @@ useEffect(() => {
                 setNavState({...navState, tabMaster:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Tab Masters</p>}
+        </table></div>:<p>No Registered Tab Masters</p>}
     </section>}
     {navState.tabMaster==='add'&&
     <section id="tabMasterAdd">
@@ -1168,7 +1185,8 @@ useEffect(() => {
     {navState.room==='review'&&
     <section id="roomReview">
         <h2>Registered Rooms</h2>
-        {fullTab.rooms?.length>0?<table>
+        {fullTab.rooms?.length>0?
+        <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr'}}>
               <th>Name</th>
@@ -1187,7 +1205,7 @@ useEffect(() => {
                 setNavState({...navState, room:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Rooms</p>}
+        </table></div>:<p>No Registered Rooms</p>}
     </section>}
     {navState.room==='add'&&
     <section id="roomAdd">
@@ -1247,7 +1265,8 @@ useEffect(() => {
     {navState.round==='review'&&
     <section id="roundReview">
         <h2>Registered Rounds</h2>
-        {fullTab.rounds?.length>0?<table>
+        {fullTab.rounds?.length>0?
+        <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
               <th>Name</th>
@@ -1272,7 +1291,7 @@ useEffect(() => {
                 setNavState({...navState, round:'delete'});}}/></td>
             </tr>)}
           </tbody>
-        </table>:<p>No Registered Rounds</p>}
+        </table></div>:<p>No Registered Rounds</p>}
     </section>}
     {navState.round==='add'&&
     <section id="roundAdd">
@@ -1453,7 +1472,7 @@ useEffect(() => {
                 <option value={defaultItems.draw.roundId}>Select Round</option>
                 {fullTab.rounds?.filter((d)=>!d.breaks).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
-            <label>Power Pair? <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/></label>            
+            <label>Power Pair (sliding)? <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/></label>            
             <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
             {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
             {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
@@ -1711,12 +1730,20 @@ useEffect(() => {
     </section>}
     </>);
   }
+  const accessOptions = [
+    {option:`${tab.title}`, value:'public'},
+    ...(pageLoad.judgeAuthorized ? [{option:`${tab.title} (Judge)`, value:'judge'}] : []),
+    ...(pageLoad.adminAuthorized ? [{option:`${tab.title} (Admin)`, value:'admin'}] : []),
+  ];
+
+  const adminSelectedIdx = Math.max(0, accessOptions.findIndex((option) => option.value === 'admin'));
+
   return (
     !pageLoad.loading && access==='admin'?
     <>
     <nav className="tabMenu">
           <ul>
-            <Dropdown options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess} selectedIdx={1}/>
+            <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={adminSelectedIdx}/>
             <li onClick={()=>tabChange('institutions')} className={tabItem==='institutions'?'selectedTabItem':''}>Institutions</li>
             <li onClick={()=>tabChange('tabMasters')} className={tabItem==='tabMasters'?'selectedTabItem':''}>Tab Masters</li>
             <li onClick={()=>tabChange('spellers')} className={tabItem==='spellers'?'selectedTabItem':''}>Spellers</li>
@@ -1730,7 +1757,7 @@ useEffect(() => {
         </nav>
         <div className="tabSideMenu">
           <nav className="tTitle">
-            <Dropdown selectedIdx={1} options={[{option:`${tab.title}`, value:'public'}, {option:`${tab.title} (Admin)`, value:'admin'}]} setValue={setAccess}/>
+            <Dropdown selectedIdx={adminSelectedIdx} options={accessOptions} setValue={setAccess}/>
             <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? <IoClose/>:'☰'}</span>
           </nav>
           <nav className={`tSideMenu ${menuOpen? 'Open':'Closed'}`}>
@@ -1752,7 +1779,8 @@ useEffect(() => {
         {
         tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():tabItem==='results'? results():''
         }
-    </>:!pageLoad.loading && access==='public'?
+    </>:!pageLoad.loading && access==='judge'?
+    <SpellingJudgeTab tab={tab} event={event} accessOptions={accessOptions} onAccessChange={setAccess}/>:!pageLoad.loading && access==='public'?
     <SpellingBeePublicTab tab={tab} event={event}/>:<Loading/>
   )
 }

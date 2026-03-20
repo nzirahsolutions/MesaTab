@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB} from "../../db/schema";
+import { drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB, standingsSB} from "../../db/schema";
 
 function shuffle<T>(array: T[]): T[] {
   const arr = [...array]; // avoid mutating original
@@ -10,6 +10,52 @@ function shuffle<T>(array: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function allocateSlidingPowerPair<T>(
+  rooms: Array<{ roomId: number }>,
+  rankedItems: T[]
+): Array<{ roomId: number; allocatedBees: T[] }> {
+  const basePerRoom = Math.floor(rankedItems.length / rooms.length);
+  const extra = rankedItems.length % rooms.length;
+  const capacities = rooms.map((_, i) => basePerRoom + (i < extra ? 1 : 0));
+  const allocated = rooms.map((room) => ({ roomId: room.roomId, allocatedBees: [] as T[] }));
+
+  let direction = 1;
+  let roomIndex = 0;
+
+  for (const item of rankedItems) {
+    while (capacities[roomIndex] === 0) {
+      if (direction === 1) {
+        if (roomIndex === rooms.length - 1) {
+          direction = -1;
+        } else {
+          roomIndex++;
+        }
+      } else if (roomIndex === 0) {
+        direction = 1;
+      } else {
+        roomIndex--;
+      }
+    }
+
+    allocated[roomIndex].allocatedBees.push(item);
+    capacities[roomIndex]--;
+
+    if (direction === 1) {
+      if (roomIndex === rooms.length - 1) {
+        direction = -1;
+      } else {
+        roomIndex++;
+      }
+    } else if (roomIndex === 0) {
+      direction = 1;
+    } else {
+      roomIndex--;
+    }
+  }
+
+  return allocated.filter((room) => room.allocatedBees.length > 0);
 }
 
 export async function generateDraw(req: Request, res: Response){
@@ -70,26 +116,55 @@ export async function generateDraw(req: Request, res: Response){
     if (!bees.length) return res.status(400).json({ message: "No spellers found for this tab" });
     if (!judges.length) return res.status(400).json({ message: "No judges found in this tab" });
 
-    //if power-paired
-    if(powerPair){
-        console.log('powerPaired');
+    let shuffledBees = shuffle(bees);
+    if (powerPair) {
+      console.log('powerPaired');
+      const standings = await db
+        .select({
+          spellerId: standingsSB.spellerId,
+          rank: standingsSB.rank,
+        })
+        .from(standingsSB)
+        .where(eq(standingsSB.tabId, tabId))
+        .orderBy(asc(standingsSB.rank), asc(standingsSB.spellerId));
+
+      if (standings.length) {
+        const beeById = new Map(bees.map((bee) => [bee.spellerId, bee] as const));
+        const rankedBees: typeof bees = [];
+        const rankedIds = new Set<number>();
+
+        for (const standing of standings) {
+          const bee = beeById.get(standing.spellerId);
+          if (bee) {
+            rankedBees.push(bee);
+            rankedIds.add(bee.spellerId);
+          }
+        }
+
+        for (const bee of bees) {
+          if (!rankedIds.has(bee.spellerId)) rankedBees.push(bee);
+        }
+
+        shuffledBees = rankedBees;
+      }
     }
-    // TODO: plug in standings-based ordering if powerPair is true.
-    const shuffledBees = powerPair ? [...bees] : shuffle(bees);
 
-    // Allocate spellers across rooms (first rooms receive extras)
-    const basePerRoom = Math.floor(shuffledBees.length / rooms.length);
-    const extra = shuffledBees.length % rooms.length;
+    const roomAllocations = powerPair
+      ? allocateSlidingPowerPair(rooms, shuffledBees)
+      : (() => {
+          const basePerRoom = Math.floor(shuffledBees.length / rooms.length);
+          const extra = shuffledBees.length % rooms.length;
 
-    let beeCursor = 0;
-    const roomAllocations = rooms
-      .map((room, i) => {
-        const size = basePerRoom + (i < extra ? 1 : 0);
-        const allocatedBees = shuffledBees.slice(beeCursor, beeCursor + size);
-        beeCursor += size;
-        return { roomId: room.roomId, allocatedBees };
-      })
-      .filter((a) => a.allocatedBees.length > 0);
+          let beeCursor = 0;
+          return rooms
+            .map((room, i) => {
+              const size = basePerRoom + (i < extra ? 1 : 0);
+              const allocatedBees = shuffledBees.slice(beeCursor, beeCursor + size);
+              beeCursor += size;
+              return { roomId: room.roomId, allocatedBees };
+            })
+            .filter((a) => a.allocatedBees.length > 0);
+        })();
 
     if (!roomAllocations.length) {
       return res.status(400).json({ message: "Could not allocate any spellers to rooms" });

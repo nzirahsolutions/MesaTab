@@ -585,8 +585,10 @@ select{
       border-bottom: 1px solid var(--background-color);
       text-align: start;
       gap: 0.3rem;
+      padding-right: 0.5rem;
       span, strong{
         margin-left: 0.5rem;
+        width: max-content;
       }
     }
   span{
@@ -606,7 +608,7 @@ select{
 table{
   border-radius: 1rem;
   min-width: 90%;
-  justify-self: center;
+  /* justify-self: center; */
   width: max-content;
   display: flex;
   flex-direction: column;
@@ -618,9 +620,13 @@ table{
     background-color: var(--brandcolor);
     color: var(--accentcolor);
     padding: 0.5rem;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
   }
   tbody{
     background-color: var(--white-color);
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
     tr{
       border-bottom: 1px solid var(--background-color);
     }
@@ -630,29 +636,8 @@ table{
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-}
-#speller-standings{
-  overflow-x: auto;
-  scrollbar-width: none;
-  table{
-    margin-left: 0.5rem;
-    justify-self: start;
-    text-align: start;
-    thead{
-      padding-left: 0;
-    }
-    th{
-      text-align: start;
-    }
-    tr{
-      grid-template-columns: 3rem repeat(2, minmax(150px, 1fr));
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(70px, 1fr);
-      gap: 1rem;
-      padding-left: 0.5rem;
-    }
-  }
+  justify-content: center;
+  display:block;
 }
 
 .words{
