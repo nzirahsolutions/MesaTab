@@ -309,7 +309,7 @@ form{
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 0.5rem;
   input, select{
     outline: none;
     padding: 0.5rem;
@@ -324,6 +324,9 @@ form{
     color: var(--accentcolor);
     font-weight: bold;
     cursor: pointer;
+  }
+  .roomCard{
+    width: 100%;
   }
 }
 select{
@@ -585,7 +588,19 @@ select{
       span, strong{
         margin-left: 0.5rem;
       }
-    } 
+    }
+  span{
+    color: black;
+    font-weight: normal;
+    cursor: pointer;
+  }
+  .cell{
+    background-color: transparent;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    font-size: 1rem;
+  } 
   }
 }
 table{

@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers} from "../../db/schema";
-import { MySqlColumnWithAutoIncrement } from "drizzle-orm/mysql-core";
+import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB} from "../../db/schema";
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -152,6 +151,7 @@ export async function getFullTab(req: Request, res: Response) {
       await Promise.all([
           db
             .select({
+              drawSpellerId: drawSpellers.id,
               drawId: drawSpellers.drawId,
               spellerId: drawSpellers.spellerId,
             })
@@ -168,15 +168,32 @@ export async function getFullTab(req: Request, res: Response) {
         ])
       : [[], []];
     
-      //build maps and shape nested draws (help return all info by either participant id or draw id)
+    //fetch results per speller draw
+    const drawSpellerIds = drawSpellerRows.map((r) => r.drawSpellerId);
+    const resultsRows = drawSpellerIds.length
+    ? await db
+        .select({
+          drawSpellerId: resultsSB.drawSpellerId,
+          resultId: resultsSB.resultId,
+          score: resultsSB.score,
+          status: resultsSB.status,
+          createdAt: resultsSB.createdAt,
+          updatedAt: resultsSB.updatedAt,
+        })
+        .from(resultsSB)
+        .where(inArray(resultsSB.drawSpellerId, drawSpellerIds))
+    : [];
+    
+      //build maps and shape nested draws (help return all info by either participant id or draw id, results by drawspeller id)
     const spellerById = new Map(spellingBees.map((s) => [s.id, s]));
     const judgeById = new Map(judges.map((j) => [j.id, j]));
     const roomById = new Map(rooms.map((r) => [r.id, r]));
+    const resultByDrawSpellerId = new Map( resultsRows.map((r) => [r.drawSpellerId, r]));
 
-    const spellersByDraw = new Map<number, number[]>();
+    const spellersByDraw = new Map<number, { drawSpellerId: number; spellerId: number }[]>();
     for (const r of drawSpellerRows) {
       const list = spellersByDraw.get(r.drawId) ?? [];
-      list.push(r.spellerId);
+      list.push({ drawSpellerId: r.drawSpellerId, spellerId: r.spellerId });
       spellersByDraw.set(r.drawId, list);
     }
 
@@ -194,7 +211,15 @@ export async function getFullTab(req: Request, res: Response) {
         .map((id) => judgeById.get(id))
         .filter(Boolean),
       spellers: (spellersByDraw.get(d.drawId) ?? [])
-        .map((id) => spellerById.get(id))
+      .map(({ drawSpellerId, spellerId }) => {
+        const speller = spellerById.get(spellerId);
+        if (!speller) return null;
+        return {
+          ...speller,
+          drawSpellerId,
+          result: resultByDrawSpellerId.get(drawSpellerId) ?? null,
+        };
+      })
         .filter(Boolean),
     }));
 

@@ -9,6 +9,7 @@ import SpellingBeePublicTab from "./SpellingBeePublicTab";
 import axios from 'axios';
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
+import Cell from "../../../../Components/Cell";
 
 export default function SpellingAdmin({tab, event}) {
   const [tabItem, setTabItem]=useState('home');
@@ -19,17 +20,17 @@ export default function SpellingAdmin({tab, event}) {
   const [pageLoad, setPageLoad]=useState({loading: true, authorized:false});
   const [fullTab, setFulltab]=useState(null);
 
-  const [navState, setNavState]=useState({institution:'review',tabMaster:'review',speller:'review',judge:'review',room:'review',round:'review',word:'review', draw:'review'});
+  const [navState, setNavState]=useState({institution:'review',tabMaster:'review',speller:'review',judge:'review',room:'review',round:'review',word:'review', draw:'review', result:'review'});
 
-  const [reviewItems, setReviewItems]=useState({draw:{roundId:0}});
+  const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
   
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}});
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}});
 
-  const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}});
+  const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
 
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}};
+  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
 
   const [institutionStates, setInstitutionStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Institution Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Institution Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Institution Updated'});
 
@@ -46,6 +47,10 @@ export default function SpellingAdmin({tab, event}) {
   const [wordStates, setWordStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Word Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Word Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Word Updated'});
   
   const [drawStates, setDrawSates]=useState({generateSuccess:false, generateError:false, generateLoading:false, generateErrorMessage:'Something went wrong', generateSuccessMessage:'Draw Generated',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Draw Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Draw Updated'});
+  
+  const [resultStates, setResultStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Ballot Submitted',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Ballot Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
+
+  const [batchStates, setBatchStates]=useState({ updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
 
   const roundTypes=['Timed','Word Limit','Eliminator'];
 
@@ -249,6 +254,59 @@ useEffect(() => {
         default: console.log('No Change');
     }
   }
+  function resultOnChange(e){
+    setResultStates({...resultStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
+
+    switch(navState.result){
+        case'review':
+            setReviewItems({...reviewItems, result:{...reviewItems.result,[e.target.name]:parseInt(e.target.value)}});
+            break;
+        case 'update':{
+            fullTab.draws.find((d)=>d.room.id===updateItems.result.roomId && d.roundId===updateItems.result.roundId)?.spellers?.find(b=> b.id==updateItems.result.spellerId)?.result?.score
+            const value =e.target.name === 'status'? e.target.value
+            : parseInt(e.target.value);
+            setUpdateItems({...updateItems, result:{...updateItems.result,[e.target.name]:value}});
+            break;}
+        case 'batch': {
+            const value =
+                e.target.name === 'status'
+                ? e.target.value
+                : parseInt(e.target.value, 10);
+
+            //to prevent using previous stale state in updates that lags them one update behind
+            const nextBatch = {
+                ...updateItems.batch,
+                [e.target.name]: value,
+            };
+            if (e.target.name === 'roundId') {
+                nextBatch.roomId = 0;
+                nextBatch.updates = null;
+            }
+            if (e.target.name === 'roomId') {
+                nextBatch.updates =
+                fullTab.draws.find(
+                    (d) => d.room.id === value && d.roundId === nextBatch.roundId
+                ) ?? null;
+            }
+            setUpdateItems({
+                ...updateItems,
+                batch: nextBatch,
+            });
+            break;
+            }
+
+        case 'delete':
+            // console.log(e.target);
+            if(e.target.type==='checkbox')
+                setDeleteItems({...deleteItems, result:{...deleteItems.result,[e.target.name]:e.target.checked}});
+            else{
+            setDeleteItems({...deleteItems, result:{...deleteItems.result,[e.target.name]:parseInt(e.target.value)}});
+            }
+            break;
+        default: console.log('No Change');
+    }
+  }
+  
   async function submitInstitution(e){
     e.preventDefault();
     switch(navState.institution){
@@ -582,7 +640,7 @@ useEffect(() => {
                 const res=await axios.post(`${currentServer}/sb/draw/generate`,{...addItems.draw, roundId:parseInt(addItems.draw.roundId), tabId: tab.tabId});
                 setAddItems({...addItems, draw:{...defaultItems.draw}});
                 getFullTab();
-                setDrawSates({...wordStates, generateErrorError: false, generateSuccess: true, generateLoading:false, generateSuccessMessage:res.data.message});
+                setDrawSates({...drawStates, generateError: false, generateSuccess: true, generateLoading:false, generateSuccessMessage:res.data.message});
             } 
             catch (err) {
                 const message= err?.response?.data?.message || "Something went wrong";
@@ -618,6 +676,95 @@ useEffect(() => {
         default: console.log('check submitDraw');
     }
   }
+  async function submitResult(e){
+    e.preventDefault();
+    switch(navState.result){
+        case 'update':
+            setResultStates({...resultStates, updateLoading: true});
+            try {
+                const res=await axios.post(`${currentServer}/sb/result/ballot`,{...updateItems.result, tabId: tab.tabId});
+                getFullTab();
+                setUpdateItems({...updateItems, result:{...defaultItems.result}});
+                setResultStates({...resultStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setResultStates({...resultStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
+            }
+            break;
+        case 'batch':
+            setBatchStates({...batchStates, updateLoading: true});
+            try {
+                const payload = {
+                    tabId: tab.tabId,
+                    roundId: updateItems.batch.roundId,
+                    roomId: updateItems.batch.roomId,
+                    updates: updateItems.batch.updates.spellers.map((speller) => ({
+                        spellerId: speller.id,
+                        score: speller.result?.score,
+                        status: speller.result?.status,
+                    })),
+                    };
+                const res=await axios.post(`${currentServer}/sb/result/batch`,payload);
+                getFullTab();
+                setUpdateItems({...updateItems, batch:{...defaultItems.batch}});
+                setBatchStates({...batchStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setBatchStates({...resultStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
+            }
+            break;
+        case 'delete':
+            setResultStates({...resultStates, deleteLoading: true});
+            try {
+                const payload={
+                    tabId: tab.tabId,
+                    roundId: deleteItems.result.roundId,
+                    roomId: deleteItems.result.roomId,
+                    spellerId: deleteItems.result.spellerId
+                }
+                const res=await axios.delete(`${currentServer}/sb/result/ballot`,{data:{...payload}});
+                setDeleteItems({...deleteItems, result:{...defaultItems.result, delete: false}});
+                getFullTab();
+                setResultStates({...resultStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
+            } 
+            catch (err) {
+                const message= err?.response?.data?.message || "Something went wrong";
+                setResultStates({...resultStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
+            }
+            break;
+        default: console.log('check submitResult');
+    }
+  }
+  function updateBatchScore(spellerId, score) {
+    setBatchStates({...batchStates, updateSuccess: false, updateError: false, updateLoading: false});
+    setUpdateItems((prev) => {
+        if (!prev.batch.updates) return prev;
+
+        return {
+        ...prev,
+        batch: {
+            ...prev.batch,
+            updates: {
+            ...prev.batch.updates,
+            spellers: prev.batch.updates.spellers.map((speller) =>
+                speller.id === spellerId
+                ? {
+                    ...speller,
+                    result: {
+                        ...(speller.result ?? {}),
+                        score,
+                    },
+                    }
+                : speller
+            ),
+            },
+        },
+        };
+    });
+}
+
 
   //return functions
   function home(){
@@ -632,6 +779,7 @@ useEffect(() => {
         <li onClick={()=>tabChange('rounds')}>Rounds</li>
         <li onClick={()=>tabChange('words')}>Words</li>
         <li onClick={()=>tabChange('draws')}>Draws</li>
+        <li onClick={()=>tabChange('results')}>Results</li>
       </div>
       </>
     )
@@ -1271,8 +1419,9 @@ useEffect(() => {
         <div className="roomCard" key={n}>
             <div className="roomHeader">
                 <h2 style={{margin:0}}>{r.room.name}</h2>
-                <div style={{margin:0}}><strong>Judge(s): </strong><p style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
-                }</p></div>
+                
+                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
+                }</span><p style={{display:'grid',gridTemplateColumns:'2fr 1fr', textAlign:'center', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span></p></div>
             </div>
             <div className="roomBody">
                 {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'2fr 1fr', textAlign:'center'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span></li>)}
@@ -1398,6 +1547,154 @@ useEffect(() => {
     </>);
   }
   function results(){
+    return(
+    <>
+    <div className="buttonStack">
+        <button className={navState.result==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'review'})}>Review</button>
+        <button className={navState.result==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'update'})}>Update</button>
+        <button className={navState.result==='batch'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'batch'})}>Batch</button>
+        <button className={navState.result==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'delete'})}>Delete</button>
+    </div>
+    {navState.result==='review'&&
+    <section id="resultReview">
+        <h2>Results</h2>
+        {fullTab.draws?.length>0? 
+        <>
+        <select name="roundId" value={reviewItems.result.roundId} onChange={resultOnChange}>
+            <option value={0}>Select Round</option>
+            {fullTab.rounds.map((r,i)=><option key={i} value={r.roundId}>{r.name}</option>)}
+        </select>
+        {fullTab.draws.find((a)=>a.roundId===reviewItems.result.roundId)?fullTab.draws.filter((a)=>a.roundId===reviewItems.result.roundId).map((r,n)=>
+        <div className="roomCard" key={n}>
+            <div className="roomHeader">
+                <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{
+                setUpdateItems({...updateItems, batch:{roundId: reviewItems.result.roundId, roomId: r.room.id, updates: r}});
+                setNavState({...navState, result:'batch'});
+              }}/></h2>
+                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
+                }</span><p style={{display:'grid',gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
+            </div>
+            <div className="roomBody">
+                {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span><span>{s.result?.score?? '-'}</span>
+                <span><FaAngleDoubleUp fill="teal" onClick={()=>{
+                setUpdateItems({...updateItems, result:{...s,spellerId: s.id ,roundId: reviewItems.result.roundId, roomId: r.room.id, score: s.result?.score}});
+                setNavState({...navState, result:'update'});
+              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
+                setDeleteItems({...deleteItems, result:{...s, confirm:false, roomId: r.room.id, roundId: reviewItems.result.roundId, spellerId: s.id}});
+                setNavState({...navState, result:'delete'});}}/></span></li>)}
+            </div>
+        </div>):<p>Draw for this round is not out yet</p>}
+        </>
+          :<p>No Draws Made</p>}
+    </section>}
+    {navState.result==='update' &&
+    <section id="resultUpdate">
+        <form onSubmit={submitResult}>
+            <p><strong>Add/Update Result</strong></p>
+            <select name="roundId" value={updateItems.result.roundId} onChange={resultOnChange}>
+                <option value={defaultItems.result.roundId}>Select Round</option>
+                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+            </select>
+            {!fullTab.draws.find((a)=>a.roundId===updateItems.result.roundId)?
+            <p>Draw for this round is not out yet</p>
+            :            
+            <>
+            <select name="roomId" value={updateItems.result.roomId} onChange={resultOnChange}>
+                <option value={0}>Select Room</option>
+                {fullTab.draws
+                    .filter((d) => d.roundId === updateItems.result.roundId)
+                    .map((d, i) => (
+                        <option key={i} value={d.room.id}>{d.room.name}</option>
+                    ))}
+            </select>
+            <select name="spellerId" value={updateItems.result.spellerId} onChange={resultOnChange}>
+                    <option value={0}>Select Speller</option>
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.result.roomId && d.roundId===updateItems.result.roundId)?.spellers?.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+            </select>
+            {!fullTab.rounds.find(r=>r.roundId==updateItems.result.roundId).breaks?
+                <input type="number" name="score" value={updateItems.result.score} min={0} max={20} onChange={resultOnChange} required/>
+                :
+                <select value={updateItems.result.status} name="status" onChange={resultOnChange}>
+                    <option value="Incomplete">Incomplete</option>
+                    <option value="Eliminated">Eliminated</option>
+                    <option value="Pass">Pass</option>
+                </select>
+                }
+            </>}
+            <button className="darkButton" disabled={resultStates.updateLoading}>{resultStates.updateLoading? 'Updating':'Update Result'}</button>
+            {resultStates.updateError &&<p style={{color:'red'}}>{resultStates.updateErrorMessage}</p>}
+            {resultStates.updateSuccess &&<p style={{color:'green'}}>{resultStates.updateSuccessMessage}</p>}
+        </form>
+    </section>}
+    {navState.result==='batch' &&
+    <section id="batchUpdate">
+        <form onSubmit={submitResult}>
+            <p><strong>Add/Update Room Results</strong></p>
+            <select name="roundId" value={updateItems.batch.roundId} onChange={resultOnChange}>
+                <option value={0}>Select Round</option>
+                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+            </select>
+            {!fullTab.draws.find((a)=>a.roundId===updateItems.batch.roundId)?
+            <p>Draw for this round is not out yet</p>
+            :            
+            <>
+            <select name="roomId" value={updateItems.batch.roomId} onChange={resultOnChange}>
+                <option value={0}>Select Room</option>
+                {fullTab.draws
+                    .filter((d) => d.roundId === updateItems.batch.roundId)
+                    .map((d, i) => (
+                        <option key={i} value={d.room.id}>{d.room.name}</option>
+                    ))}
+            </select>
+            {updateItems.batch.updates && <>
+            <div className="roomCard">
+            <div className="roomHeader">
+                <h2 style={{margin:0}}>{fullTab.rounds.find(r=> r.roundId===updateItems.batch.roundId).name} {updateItems.batch.updates.room.name}</h2>
+                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{updateItems.batch.updates.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
+                }</span><p style={{display:'grid',gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
+            </div>
+            <div className="roomBody">
+                {updateItems.batch.updates.spellers?.map((s,y)=>
+                <li style={{gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span><Cell value={s.result?.score?? 0} onChange={(score) => updateBatchScore(s.id, score)}
+                    />
+                </li>)}
+            </div>
+        </div>
+        {/* <button type="button" onClick={()=>console.log(updateItems.batch.updates)}>Test</button> */}
+        </>}
+        </>}
+            <button className="darkButton" disabled={batchStates.updateLoading}>{batchStates.updateLoading? 'Updating':'Update Room Results'}</button>
+            {batchStates.updateError &&<p style={{color:'red'}}>{batchStates.updateErrorMessage}</p>}
+            {batchStates.updateSuccess &&<p style={{color:'green'}}>{batchStates.updateSuccessMessage}</p>}
+        </form>
+    </section>}
+    {navState.result==='delete' &&
+    <section id="resultDelete">
+        <form onSubmit={submitResult}>
+            <p><strong>Delete result?</strong></p>
+            <select name="roundId" value={deleteItems.result.roundId} onChange={resultOnChange}>
+                <option value={0}>Select Round</option>
+                {fullTab.rounds.map((r, i)=><option key={i} value={r.roundId}>{r.name}</option>)}
+            </select>
+            <select name="roomId" value={deleteItems.result.roomId} onChange={resultOnChange}>
+                <option value={0}>Select Room</option>
+                {fullTab.draws
+                    .filter((d) => d.roundId === deleteItems.result.roundId)
+                    .map((d, i) => (
+                        <option key={i} value={d.room.id}>{d.room.name}</option>
+                    ))}
+            </select>
+            <select name="spellerId" value={deleteItems.result.spellerId} onChange={resultOnChange}>
+                    <option value={0}>Select Speller</option>
+                    {fullTab.draws.find((d)=>d.room.id===deleteItems.result.roomId && d.roundId===deleteItems.result.roundId)?.spellers?.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+            </select>
+            <label>Are you sure?<input type="checkbox" name="confirm" checked={deleteItems.result.confirm} onChange={resultOnChange} /></label>
+            <button className="darkButton" disabled={resultStates.deleteLoading || !deleteItems.result.confirm}>{resultStates.deleteLoading? 'Deleting':'Delete Result'}</button>
+            {resultStates.deleteError &&<p style={{color:'red'}}>{resultStates.deleteErrorMessage}</p>}
+            {resultStates.deleteSuccess &&<p style={{color:'green'}}>{resultStates.deleteSuccessMessage}</p>}
+        </form>
+    </section>}
+    </>);
   }
   return (
     !pageLoad.loading && access==='admin'?

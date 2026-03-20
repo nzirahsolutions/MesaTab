@@ -50,6 +50,13 @@
       "when": 1772572692086,
       "tag": "0006_whole_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773831302577,
+      "tag": "0007_slow_lenny_balinger",
+      "breakpoints": true
     }
   ]
 }

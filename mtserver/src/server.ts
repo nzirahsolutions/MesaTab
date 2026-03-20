@@ -5,7 +5,7 @@ import userRoutes from './routes/users.route';
 import eventRoutes from './routes/events.route';
 import sbTabRoutes from './routes/spelling/sb.tab.route';
 import sbDrawRoutes from './routes/spelling/sb.draw.route';
-import sbResultRoutes from './routes/spelling/sb.results.route';
+import sbResultRoutes from './routes/spelling/sb.result.route';
 
 const app = express();
 
@@ -20,7 +20,7 @@ app.use('/event',eventRoutes);
 /*Spelling Bee */
 app.use('/sb',sbTabRoutes);
 app.use('/sb/draw',sbDrawRoutes);
-app.use('/sb/results',sbResultRoutes);
+app.use('/sb/result',sbResultRoutes);
 
 //run server
 app.listen(process.env.PORT ?? 3500, () => {

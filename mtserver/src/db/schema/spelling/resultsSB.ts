@@ -2,7 +2,7 @@ import { serial, integer, pgTable, pgEnum, timestamp } from "drizzle-orm/pg-core
 import { relations } from "drizzle-orm";
 import { drawSpellers } from "./drawSpellers";
 
-export const resultStatusSBEnum= pgEnum('result_status_sb_enum',['Eliminated','Won']);
+export const resultStatusSBEnum= pgEnum('result_status_sb_enum',['Eliminated','Pass','Incomplete']);
 
 export const resultsSB=pgTable('results_sb',{
     resultId: serial('result_id').primaryKey(),

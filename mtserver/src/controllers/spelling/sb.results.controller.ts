@@ -1,115 +1,306 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { db } from '../../db/db';
-import { resultsSB, standingsSB } from '../../db/schema';
-import { eq } from 'drizzle-orm';
-import { updateStandingsForSpeller, getStandingsForTab,} from '../../services/standings.service';
+import { resultsSB, standingsSB, drawSpellers, drawsSB, roundsSB, spellers, tabsSB } from '../../db/schema';
+import { eq, and, sql, desc, inArray } from 'drizzle-orm';
 
-const router = Router();
+const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
+type ResultStatus = (typeof allowedStatuses)[number];
 
-/**
- * POST /api/results
- * Create a new result and update standings
- */
-router.post('/results', async (req: Request, res: Response) => {
+export async function ballot(req: Request,res: Response){
   try {
-    const { drawSpellerId, score, status } = req.body;
+    const {tabId, roomId, roundId, spellerId, status, score}=req.body as {
+      tabId: string;
+      roomId: number;
+      roundId: number;
+      spellerId: number;
+      status?:string;
+      score?: number;
+    }
+    if(!tabId || !roomId || !roundId || !spellerId)
+      return res.status(400).json({message: 'Specify room, round and speller'});
+    if (status === undefined && score === undefined)
+      return res.status(400).json({ message: "Provide either status or score" });
 
-    // Validate input
-    if (!drawSpellerId || (score === undefined && !status)) {
-      return res.status(400).json({
-        error: 'drawSpellerId and either score or status are required',
-      });
+    const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
+    if (status !== undefined && !allowedStatuses.includes(status as (typeof allowedStatuses)[number])) {
+      return res.status(400).json({ message: "Invalid result status" });
     }
 
-    // Insert result
-    const result = await db
-      .insert(resultsSB)
-      .values({
-        drawSpellerId,
-        score: score ?? null,
-        status: status ?? null,
-      })
-      .returning();
+    //find drawId from room and round ids
+    const drawId=await db.select({drawId: drawsSB.drawId})
+      .from(drawsSB)
+      .where(and(eq(drawsSB.roomId, roomId), eq(drawsSB.roundId, roundId), eq(drawsSB.tabId, tabId)))
+      .limit(1);
+    if (!drawId.length) return res.status(400).json({message:"This draw doesn't exist"});
 
-    // Update standings (only if score, not for elimination rounds)
-    if (score !== undefined && score !== null) {
-      await updateStandingsForSpeller(drawSpellerId);
-    }
+    //find drawSpeller
+    const drawSpellerId=await db
+      .select({id: drawSpellers.id})
+      .from(drawSpellers)
+      .where(and (eq(drawSpellers.drawId, drawId[0].drawId), eq(drawSpellers.spellerId, spellerId )))
+      .limit(1);
+    if (!drawSpellerId.length) return res.status(400).json({message:"This speller wasn't in draw"});
 
-    return res.status(201).json(result[0]);
-  } catch (error) {
-    console.error('Error creating result:', error);
-    return res.status(500).json({ error: 'Failed to create result' });
-  }
-});
-
-/**
- * PUT /api/results/:resultId
- * Update a result and recalculate standings
- */
-router.put('/results/:resultId', async (req: Request, res: Response) => {
-  try {
-    const { resultId } = req.params;
-    const { score, status } = req.body;
-
-    if (!resultId) {
-      return res.status(400).json({ error: 'resultId is required' });
-    }
-
-    // Get the existing result to find the drawSpellerId
-    const existingResult = await db
-      .select()
+    //find result if it exists
+    const result= await db
+      .select({resultId: resultsSB.resultId, score: resultsSB.score, status: resultsSB.status, drawSpellerId: resultsSB.drawSpellerId})
       .from(resultsSB)
-      .where(eq(resultsSB.resultId, parseInt(resultId)))
+      .where(eq(resultsSB.drawSpellerId, drawSpellerId[0].id))
       .limit(1);
 
-    if (!existingResult.length) {
-      return res.status(404).json({ error: 'Result not found' });
+    if (!result.length){
+      const newResult= await db
+        .insert(resultsSB)
+        .values({
+          drawSpellerId: drawSpellerId[0].id,
+          score: score,
+          status: status
+        })
+        .returning({
+          resultId: resultsSB.resultId,
+          drawSpellerId: resultsSB.drawSpellerId,
+          score: resultsSB.score,
+          status: resultsSB.status,
+          createdAt: resultsSB.createdAt,
+          updatedAt: resultsSB.updatedAt,
+        })
+
+        return res.status(200).json(
+          {message:'Result added',
+          data: newResult[0],
+          });
+    }
+    else{
+      const updates:{score?: number; status?: string}={};
+        if(score!==undefined) updates.score=score;
+        if(status!==undefined) updates.status=status;
+        // console.log(updates);
+      const updatedResult= await db
+        .update(resultsSB)
+        .set({...updates})
+        .where(eq(resultsSB.resultId, result[0].resultId))
+        .returning({
+          resultId: resultsSB.resultId,
+          drawSpellerId: resultsSB.drawSpellerId,
+          score: resultsSB.score,
+          status: resultsSB.status,
+          createdAt: resultsSB.createdAt,
+          updatedAt: resultsSB.updatedAt,
+        });
+        // console.log(updatedResult);
+      return res.status(200).json({ 
+        message: "Result updated", 
+        data: updatedResult[0] 
+      });
+    }
+  } 
+  catch (error){
+    console.error("updateBallot error:", error);
+    return res.status(500).json({ message: "failed to update result" });
+  }
+}
+
+export async function batchBallot(req: Request, res: Response) {
+  try{
+    const { tabId, roundId, roomId, updates } = req.body as {
+      tabId: string;
+      roundId: number;
+      roomId: number;
+      updates: Array<{
+        spellerId: number;
+        score?: number;
+        status?: string;
+      }>;
+    };
+
+    if (!tabId || !roundId || !roomId || !Array.isArray(updates) || !updates.length) {
+      return res.status(400).json({ message: "tabId, roundId, roomId and updates are required" });
     }
 
-    const drawSpellerId = existingResult[0].drawSpellerId;
+    for (const item of updates) {
+      if (!item.spellerId) {
+        return res.status(400).json({ message: "Each update must include spellerId" });
+      }
 
-    // Update result
-    const updated = await db
-      .update(resultsSB)
-      .set({
-        score: score !== undefined ? score : existingResult[0].score,
-        status: status !== undefined ? status : existingResult[0].status,
+      if (item.score === undefined && item.status === undefined) {
+        return res.status(400).json({ message: "Each update must include score or status" });
+      }
+    }
+    const drawRow = await db
+      .select({ drawId: drawsSB.drawId })
+      .from(drawsSB)
+      .where(
+        and(
+          eq(drawsSB.tabId, tabId),
+          eq(drawsSB.roundId, roundId),
+          eq(drawsSB.roomId, roomId)
+        )
+      )
+      .limit(1);
+
+    if (!drawRow.length) {
+      return res.status(404).json({ message: "Draw not found for this room and round" });
+    }
+    const drawId = drawRow[0].drawId;
+    const requestedSpellerIds = updates.map((u) => u.spellerId);
+
+    const drawSpellerRows = await db
+      .select({
+        drawSpellerId: drawSpellers.id,
+        spellerId: drawSpellers.spellerId,
       })
-      .where(eq(resultsSB.resultId, parseInt(resultId)))
-      .returning();
+      .from(drawSpellers)
+      .where(
+        and(
+          eq(drawSpellers.tabId, tabId),
+          eq(drawSpellers.drawId, drawId),
+          inArray(drawSpellers.spellerId, requestedSpellerIds)
+        )
+      );
 
-    // Recalculate standings
-    if (score !== undefined) {
-      await updateStandingsForSpeller(drawSpellerId);
+    if (drawSpellerRows.length !== requestedSpellerIds.length) {
+      return res.status(400).json({ message: "One or more spellers are not in this draw" });
     }
 
-    return res.json(updated[0]);
-  } catch (error) {
-    console.error('Error updating result:', error);
-    return res.status(500).json({ error: 'Failed to update result' });
-  }
-});
+  const drawSpellerIdBySpellerId = new Map(
+      drawSpellerRows.map((row) => [row.spellerId, row.drawSpellerId])
+    );
 
-/**
- * GET /api/standings/:tabId
- * Get standings for a specific tab
- */
-router.get('/standings/:tabId', async (req: Request, res: Response) => {
+    const drawSpellerIds = drawSpellerRows.map((row) => row.drawSpellerId);
+
+    const existingResults = await db
+      .select({
+        resultId: resultsSB.resultId,
+        drawSpellerId: resultsSB.drawSpellerId,
+      })
+      .from(resultsSB)
+      .where(inArray(resultsSB.drawSpellerId, drawSpellerIds));
+
+    const resultIdByDrawSpellerId = new Map(
+      existingResults.map((row) => [row.drawSpellerId, row.resultId])
+    );
+
+    const savedResults = await db.transaction(async (tx) => {
+      const rows = [];
+
+      for (const item of updates) {
+        const drawSpellerId = drawSpellerIdBySpellerId.get(item.spellerId)!;
+        const existingResultId = resultIdByDrawSpellerId.get(drawSpellerId);
+
+        const values: { score?: number; status?: ResultStatus } = {};
+        if (item.score !== undefined) values.score = item.score;
+        if (item.status !== undefined) values.status = item.status as ResultStatus;
+
+        if (existingResultId) {
+          const updated = await tx
+            .update(resultsSB)
+            .set(values)
+            .where(eq(resultsSB.resultId, existingResultId))
+            .returning({
+              resultId: resultsSB.resultId,
+              drawSpellerId: resultsSB.drawSpellerId,
+              score: resultsSB.score,
+              status: resultsSB.status,
+              updatedAt: resultsSB.updatedAt,
+            });
+
+          rows.push(updated[0]);
+        } else {
+          const inserted = await tx
+            .insert(resultsSB)
+            .values({
+              drawSpellerId,
+              ...values,
+            })
+            .returning({
+              resultId: resultsSB.resultId,
+              drawSpellerId: resultsSB.drawSpellerId,
+              score: resultsSB.score,
+              status: resultsSB.status,
+              createdAt: resultsSB.createdAt,
+              updatedAt: resultsSB.updatedAt,
+            });
+
+          rows.push(inserted[0]);
+        }
+      }
+
+      return rows;
+    });
+
+    return res.status(200).json({
+      message: "Batch results saved",
+      data: savedResults,
+    });
+  }
+  catch (error) {
+    console.error("batchBallot error:", error);
+    return res.status(500).json({ message: "Failed to save batch results" });
+  }
+}
+export async function deleteBallot(req: Request,res: Response){
   try {
-    const { tabId } = req.params;
-
-    if (!tabId) {
-      return res.status(400).json({ error: 'tabId is required' });
+    const {tabId, roundId, roomId, spellerId}= req.body as {
+      tabId: string;
+      roundId: number;
+      roomId: number;
+      spellerId: number;
     }
+    if (!tabId || !roundId || !roomId || !spellerId)
+      return res.status(400).json({message:'specify tab, round, room and speller'})
+    
+    //find draw
+    const drawRow= await db
+      .select({drawId: drawsSB.drawId})
+      .from(drawsSB)
+      .where(and(eq(drawsSB.tabId, tabId),eq(drawsSB.roundId, roundId), eq(drawsSB.roomId, roomId)))
+      .limit(1);
+    
+      const drawId=drawRow[0].drawId;
+      // console.log(drawId);
+    if(!drawId) 
+      return res.status(404).json({message:'draw not found'});
 
-    const standings = await getStandingsForTab(tabId);
+    //find drawSpeller and id
+    const drawSpellerRow= await db
+      .select({drawSpellerId: drawSpellers.id})
+      .from(drawSpellers)
+      .where(and(eq(drawSpellers.drawId, drawId), eq(drawSpellers.spellerId, spellerId), eq(drawSpellers.tabId, tabId)))
+      .limit(1);
+      // console.log(drawSpellerRow[0].drawSpellerId);
+    const drawSpellerId=drawSpellerRow[0].drawSpellerId;
+    if(!drawSpellerId) return res.status(404).json({message:"speller wasn't in draw"});
 
-    return res.json(standings);
-  } catch (error) {
-    console.error('Error fetching standings:', error);
-    return res.status(500).json({ error: 'Failed to fetch standings' });
+    //find result
+    const result= await db
+      .select({resultId: resultsSB.resultId})
+      .from(resultsSB)
+      .where(eq(resultsSB.drawSpellerId, drawSpellerId))
+    
+    if(!result.length) res.status(404).json({message:'Speller result not submitted yet'});
+
+    const resultId= result[0].resultId;
+    
+    //delete result
+    const deleted= await db
+      .delete(resultsSB)
+      .where(eq(resultsSB.drawSpellerId, drawSpellerId))
+      .returning({
+              resultId: resultsSB.resultId,
+            });
+      
+          if (!deleted.length) {
+            return res.status(404).json({ message: "Result not deleted" });
+          }
+      
+          return res.status(200).json({
+            message: "result deleted successfully",
+            data: deleted[0],
+          });
+      
+  } 
+  catch (error){
+    console.error("deleteBallot error:", error);
+    return res.status(500).json({ message: "failed to delete result" });
   }
-});
-
-export default router;
+}
