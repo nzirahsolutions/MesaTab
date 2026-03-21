@@ -229,7 +229,8 @@ export default function SpellingBeePublicTab({tab, event}) {
       {participant==='spellers'?
       <section id="spellers">
         <h2>Spellers</h2>
-        {fullTab?.spellingBees?.length > 0 ? <table>
+        {fullTab?.spellingBees?.length > 0 ? 
+        <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <th>Name</th>
@@ -243,11 +244,12 @@ export default function SpellingBeePublicTab({tab, event}) {
               <td>{fullTab?.institutions?.find((s)=>s.id===p.institutionId)?.name ?? '-'}</td>
             </tr>))}
           </tbody>
-        </table> : <p>No Registered Spellers</p>}
+        </table>
+        </div> : <p>No Registered Spellers</p>}
       </section>:participant==='judges'?
       <section id="judges">
         <h2>Judges</h2>
-        {fullTab?.judges?.length > 0 ? <table>
+        {fullTab?.judges?.length > 0 ? <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr'}}>
               <th>Name</th>
@@ -259,11 +261,11 @@ export default function SpellingBeePublicTab({tab, event}) {
               <td>{p.name}</td>
             </tr>))}
           </tbody>
-        </table>:<p>No Registered Judges</p>}
+        </table></div>:<p>No Registered Judges</p>}
       </section>:
       <section id="institutions">
         <h2>Institutions</h2>
-        {fullTab?.institutions?.length > 0 ? <table>
+        {fullTab?.institutions?.length > 0 ? <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <th>Name</th>
@@ -279,7 +281,7 @@ export default function SpellingBeePublicTab({tab, event}) {
               <td>{p.spellers}</td>
             </tr>))}
           </tbody>
-        </table>:<p>No Registered Institutions</p>}
+        </table></div>:<p>No Registered Institutions</p>}
       </section>}
     </div>)
   }

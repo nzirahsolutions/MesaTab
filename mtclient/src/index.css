@@ -566,8 +566,11 @@ select{
   border-radius: 1rem;
   margin-bottom: 1rem;
   width: 90%;
-  display: grid;
   justify-self: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: grid;
+  flex-direction: column;
   
   .roomHeader{
     background-color: var(--brandcolor);
@@ -577,18 +580,18 @@ select{
     color: var(--accentcolor);
   }
   .roomBody{
-  padding-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    min-width: max-content;
     li{
       list-style: none;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+      grid-template-columns: 1fr 1fr 1fr;
       border-bottom: 1px solid var(--background-color);
       text-align: start;
       gap: 0.3rem;
       padding-right: 0.5rem;
       span, strong{
         margin-left: 0.5rem;
-        width: max-content;
       }
     }
   span{
