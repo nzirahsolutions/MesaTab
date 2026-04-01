@@ -58,6 +58,52 @@ function allocateSlidingPowerPair<T>(
   return allocated.filter((room) => room.allocatedBees.length > 0);
 }
 
+function allocateJudgesToRooms(
+  judges: Array<{ judgeId: number; institutionId: number }>,
+  roomAllocations: Array<{ roomId: number; allocatedBees: Array<{ institutionId: number }> }>
+) {
+  const availableJudges = shuffle(judges);
+  const baseJudgesPerRoom = Math.floor(availableJudges.length / roomAllocations.length);
+  const extraJudges = availableJudges.length % roomAllocations.length;
+
+  let judgeCursor = 0;
+
+  const judgeAllocations = roomAllocations.map((alloc, i) => {
+    const size = baseJudgesPerRoom + (i < extraJudges ? 1 : 0);
+    const spellerInst = new Set(alloc.allocatedBees.map((b) => b.institutionId));
+    const chunk = availableJudges.slice(judgeCursor, judgeCursor + size);
+    judgeCursor += size;
+
+    const noConflict = chunk.filter((j) => !spellerInst.has(j.institutionId));
+    const conflict = chunk.filter((j) => spellerInst.has(j.institutionId));
+
+    return {
+      roomId: alloc.roomId,
+      judgeIds: [...noConflict, ...conflict].map((j) => j.judgeId),
+    };
+  });
+
+  return new Map(judgeAllocations.map((j) => [j.roomId, j.judgeIds]));
+}
+
+async function replaceExistingDrawsForRound(
+  tx: any,
+  tabId: string,
+  roundId: number
+) {
+  const existingDraws = await tx
+    .select({ drawId: drawsSB.drawId })
+    .from(drawsSB)
+    .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundId)));
+
+  const drawIds = existingDraws.map((d) => d.drawId);
+  if (drawIds.length) {
+    await tx.delete(drawSpellers).where(inArray(drawSpellers.drawId, drawIds));
+    await tx.delete(drawJudgesSB).where(inArray(drawJudgesSB.drawId, drawIds));
+    await tx.delete(drawsSB).where(inArray(drawsSB.drawId, drawIds));
+  }
+}
+
 export async function generateDraw(req: Request, res: Response){
     // console.log(req.body);
     try {
@@ -176,46 +222,12 @@ export async function generateDraw(req: Request, res: Response){
     //   });
     // }
 
-    // Judge allocation: avoid same institution conflict where possible
-    const availableJudges = shuffle(judges);
-    const baseJudgesPerRoom = Math.floor(availableJudges.length / roomAllocations.length);
-    const extraJudges = availableJudges.length % roomAllocations.length;
-
-    let judgeCursor = 0;
-
-    const judgeAllocations = roomAllocations.map((alloc, i) => {
-    const size = baseJudgesPerRoom + (i < extraJudges ? 1 : 0);
-    const spellerInst = new Set(alloc.allocatedBees.map((b) => b.institutionId));
-
-    // candidate pool for this room slice
-    const chunk = availableJudges.slice(judgeCursor, judgeCursor + size);
-    judgeCursor += size;
-
-    // optional: conflict-safe first
-    const noConflict = chunk.filter((j) => !spellerInst.has(j.institutionId));
-    const conflict = chunk.filter((j) => spellerInst.has(j.institutionId));
-
-    return {
-        roomId: alloc.roomId,
-        judgeIds: [...noConflict, ...conflict].map((j) => j.judgeId), // keep all, prioritize no-conflict
-    };
-    });
-    const judgeByRoom = new Map(judgeAllocations.map((j) => [j.roomId, j.judgeIds]));
+    const judgeByRoom = allocateJudgesToRooms(judges, roomAllocations);
     // console.log(judgeByRoom);
 
     const created = await db.transaction(async (tx) => {
       if (replaceExisting) {
-        const existingDraws = await tx
-          .select({ drawId: drawsSB.drawId })
-          .from(drawsSB)
-          .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundId)));
-
-        const drawIds = existingDraws.map((d) => d.drawId);
-        if (drawIds.length) {
-          await tx.delete(drawSpellers).where(inArray(drawSpellers.drawId, drawIds));
-          await tx.delete(drawJudgesSB).where(inArray(drawJudgesSB.drawId, drawIds));
-          await tx.delete(drawsSB).where(inArray(drawsSB.drawId, drawIds));
-        }
+        await replaceExistingDrawsForRound(tx, tabId, roundId);
       }
 
       const results: Array<{
@@ -287,7 +299,6 @@ export async function generateDraw(req: Request, res: Response){
 }
 export async function generateBreaks(req: Request, res: Response){
     try {
-        
     } 
     catch (error){
         console.error("generateBreaks error:", error);

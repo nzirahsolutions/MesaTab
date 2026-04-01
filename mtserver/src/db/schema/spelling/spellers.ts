@@ -4,8 +4,7 @@ import { tabsSB } from './tabsSB';
 import { institutionsSB } from './institutionsSB';
 import { drawSpellers } from './drawSpellers';
 
-export const spellers = pgTable(
-  'spellers',
+export const spellers = pgTable('spellers',
   {
     spellerId: serial('speller_id').primaryKey(),
     tabId: uuid('tab_id').notNull().references(() => tabsSB.tabId, { onDelete: 'cascade' }),

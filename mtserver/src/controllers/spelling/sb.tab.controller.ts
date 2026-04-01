@@ -1,7 +1,19 @@
 import { Request, Response } from "express";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { tabsSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
+import { events,tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
+
+type cup={
+  id?: number | string | null;
+  cupCategory: string;
+  order: number | string;
+}
+
+type normalizedCup = {
+  id: number | null;
+  cupCategory: string;
+  order: number;
+}
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -62,7 +74,7 @@ export async function getFullTab(req: Request, res: Response) {
 
     const tab = tabRow[0];
 
-    const [institutionsRow, spellingBees, judges, tabMasters, rooms, rounds, words, draws, standingsRows] =
+    const [institutionsRow, cups,spellingBees, judges, tabMasters, rooms, rounds, words, draws, standingsRows] =
       await Promise.all([
         db
           .select({
@@ -72,6 +84,16 @@ export async function getFullTab(req: Request, res: Response) {
           })
           .from(institutionsSB)
           .where(eq(institutionsSB.tabId, tab.tabId)),
+
+        db
+          .select({
+            id: cupCategoriesSB.cupCategoryId,
+            cupCategory: cupCategoriesSB.cupCategory,
+            order:cupCategoriesSB.order,
+          })
+          .from(cupCategoriesSB)
+          .where(eq(cupCategoriesSB.tabId, tab.tabId))
+          .orderBy(asc(cupCategoriesSB.order), asc(cupCategoriesSB.cupCategoryId)),
 
         db
           .select({
@@ -114,6 +136,7 @@ export async function getFullTab(req: Request, res: Response) {
           .select({
             roundId: roundsSB.roundId,
             name: roundsSB.name,
+            number: roundsSB.number,
             breaks: roundsSB.breaks,
             completed: roundsSB.completed,
             type: roundsSB.type,
@@ -121,7 +144,8 @@ export async function getFullTab(req: Request, res: Response) {
             wordLimit: roundsSB.wordLimit,
           })
           .from(roundsSB)
-          .where(eq(roundsSB.tabId, tab.tabId)),
+          .where(eq(roundsSB.tabId, tab.tabId))
+          .orderBy(asc(roundsSB.number), asc(roundsSB.roundId)),
         db
           .select({
             id: wordsSB.wordId,
@@ -275,6 +299,7 @@ export async function getFullTab(req: Request, res: Response) {
         title: tab.title,
         slug: tab.slug,
         institutions,
+        cups,
         spellingBees,
         judges,
         tabMasters,
@@ -290,7 +315,218 @@ export async function getFullTab(req: Request, res: Response) {
     return res.status(500).json({ message: "failed to fetch tab" });
   }
 }
+export async function updateTab(req:Request, res: Response){
+  try {
+    const {title, slug, tabId, cups}=req.body as{
+      title: string;
+      slug: string;
+      tabId: string;
+      cups: cup[];
+    }
+    const normalizedTitle = title?.trim();
+    const normalizedSlug = slug?.toLocaleLowerCase().trim();
+    if(!normalizedTitle || !normalizedSlug || !Array.isArray(cups) || cups.length===0)
+      return res.status(400).json({message:'title and slug must not be empty. Add at least one cup'});
 
+    const normalizedCupCandidates = cups.map((cup) => {
+      const parsedOrder = parseIntOrNull(cup.order);
+      const parsedId =
+        cup.id === undefined || cup.id === null || cup.id === ""
+          ? null
+          : Number(cup.id);
+
+      return {
+        id: parsedId,
+        cupCategory: String(cup.cupCategory ?? "").trim(),
+        order: parsedOrder,
+      };
+    });
+
+    if (
+      normalizedCupCandidates.some(
+        (cup) =>
+          !cup.cupCategory ||
+          cup.order === null ||
+          Number.isNaN(cup.order) ||
+          cup.id !== null && (!Number.isInteger(cup.id) || cup.id < 1)
+      )
+    ) {
+      return res.status(400).json({message:'Cup names must not be empty and cup ids/orders must be positive integers'});
+    }
+
+    const normalizedCups: normalizedCup[] = normalizedCupCandidates.map((cup) => ({
+      id: cup.id,
+      cupCategory: cup.cupCategory,
+      order: cup.order as number,
+    }));
+
+    const seenCupNames = new Set<string>();
+    for (const cup of normalizedCups) {
+      const key = cup.cupCategory.toLocaleLowerCase();
+      if (seenCupNames.has(key)) {
+        return res.status(409).json({message:'Cup names must be unique in a tab'});
+      }
+      seenCupNames.add(key);
+    }
+
+    //check if tab exists
+    const exists= await db
+        .select({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, eventId: tabsSB.eventId})
+        .from(tabsSB)
+        .where(eq(tabsSB.tabId, tabId))
+        .limit(1);
+    if(!exists.length) return res.status(404).json({message:'Tab not found'});
+
+    //ensure slug is unique in event
+    if(exists[0].slug!==normalizedSlug){
+      const tabTables = [tabsBP, tabsWSDC, tabsPS, tabsSB, tabsChess] as const;
+        const existingTabChecks = await Promise.all(
+          tabTables.map((table) =>
+            db
+              .select({ slug: table.slug })
+              .from(table)
+              .where(and(eq(table.slug, normalizedSlug), eq(table.eventId, exists[0].eventId)))
+              .limit(1)
+          )
+        );
+        if (existingTabChecks.some((rows) => rows.length > 0)) {
+          return res.status(409).json({ message: "You already have a tab with that slug in this event" });
+        }
+    }
+
+    const updatedData = await db.transaction(async (tx) => {
+      const [updatedTab] = await tx
+        .update(tabsSB)
+        .set({
+          title: normalizedTitle,
+          slug: normalizedSlug,
+        })
+        .where(eq(tabsSB.tabId, tabId))
+        .returning({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug});
+
+      if(!updatedTab) throw new Error('Tab update failed');
+
+      const existingCups = await tx
+        .select({
+          id: cupCategoriesSB.cupCategoryId,
+          cupCategory: cupCategoriesSB.cupCategory,
+          order: cupCategoriesSB.order,
+        })
+        .from(cupCategoriesSB)
+        .where(eq(cupCategoriesSB.tabId, tabId))
+        .orderBy(asc(cupCategoriesSB.order), asc(cupCategoriesSB.cupCategoryId));
+
+      const existingCupIds = new Set(existingCups.map((cup) => cup.id));
+      const incomingCupIds = new Set<number>();
+
+      for (const cup of normalizedCups) {
+        if (cup.id === null) continue;
+        if (!existingCupIds.has(cup.id)) {
+          throw new Error('One or more cups do not belong to this tab');
+        }
+        incomingCupIds.add(cup.id);
+      }
+
+      const cupsToDelete = existingCups.filter((cup) => !incomingCupIds.has(cup.id));
+      if (cupsToDelete.length) {
+        const referencedRounds = await tx
+          .select({
+            roundId: roundsSB.roundId,
+            roundName: roundsSB.name,
+            cupCategoryId: roundsSB.cupCategoryId,
+          })
+          .from(roundsSB)
+          .where(
+            and(
+              eq(roundsSB.tabId, tabId),
+              inArray(roundsSB.cupCategoryId, cupsToDelete.map((cup) => cup.id))
+            )
+          );
+
+        if (referencedRounds.length) {
+          const blockedCupIds = new Set(referencedRounds.map((round) => round.cupCategoryId));
+          const blockedCups = cupsToDelete
+            .filter((cup) => blockedCupIds.has(cup.id))
+            .map((cup) => cup.cupCategory)
+            .filter(Boolean);
+          throw new Error(`Cannot delete cups still used by rounds: ${blockedCups.join(', ')}`);
+        }
+
+        await tx
+          .delete(cupCategoriesSB)
+          .where(inArray(cupCategoriesSB.cupCategoryId, cupsToDelete.map((cup) => cup.id)));
+      }
+
+      for (const cup of normalizedCups) {
+        if (cup.id === null) continue;
+        await tx
+          .update(cupCategoriesSB)
+          .set({
+            cupCategory: `__tmp__${cup.id}__${Date.now()}`,
+            order: cup.order,
+          })
+          .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, cup.id)));
+      }
+
+      const savedCups: Array<{ id: number; cupCategory: string | null; order: number }> = [];
+      for (const cup of normalizedCups) {
+        if (cup.id !== null) {
+          const [updatedCup] = await tx
+            .update(cupCategoriesSB)
+            .set({
+              cupCategory: cup.cupCategory,
+              order: cup.order,
+            })
+            .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, cup.id)))
+            .returning({
+              id: cupCategoriesSB.cupCategoryId,
+              cupCategory: cupCategoriesSB.cupCategory,
+              order: cupCategoriesSB.order,
+            });
+          savedCups.push(updatedCup);
+          continue;
+        }
+
+        const [newCup] = await tx
+          .insert(cupCategoriesSB)
+          .values({
+            tabId,
+            cupCategory: cup.cupCategory,
+            order: cup.order,
+          })
+          .returning({
+            id: cupCategoriesSB.cupCategoryId,
+            cupCategory: cupCategoriesSB.cupCategory,
+            order: cupCategoriesSB.order,
+          });
+        savedCups.push(newCup);
+      }
+
+      savedCups.sort((a, b) => a.order - b.order || a.id - b.id);
+
+      return {
+        tab: updatedTab,
+        cups: savedCups,
+      };
+    });
+
+    return res.status(200).json({
+      message:'tab updated successfully',
+      data: updatedData,
+    });    
+  } 
+  catch (error) {
+        console.error("updateTab error:", error);
+        const message = error instanceof Error ? error.message : "failed to update Tab";
+        if (
+          message === 'One or more cups do not belong to this tab' ||
+          message.startsWith('Cannot delete cups still used by rounds:')
+        ) {
+          return res.status(409).json({ message });
+        }
+        return res.status(500).json({ message: "failed to update Tab"});
+    }
+}
 //institution
 export async function addInstitution(req: Request, res: Response) {
     // console.log('Add institution');
@@ -358,7 +594,7 @@ export async function updateInstitution(req: Request, res: Response) {
         if(name) updates.name=name;
         if(code) updates.code=code.trim().toUpperCase();
 
-        //ensure code is unique in the ssame tab
+        //ensure code is unique in the same tab
         if(updates.code){
           const existing=await db
             .select({id: institutionsSB.institutionId})
@@ -991,9 +1227,18 @@ export async function deleteRoom(req: Request, res: Response) {
 //round
 export async function addRound(req: Request, res: Response) {
     try {
-        const {name, tabId, type, breaks, timeLimit, wordLimit}=req.body as {
+        const {
+          name,
+          tabId,
+          number,
+          type,
+          breaks,
+          timeLimit,
+          wordLimit,
+        }=req.body as {
             name?: string;
             tabId?: string;
+            number?: number | string | null;
             type?: string;
             breaks?: boolean | string;
             timeLimit?: number | string | null;
@@ -1004,22 +1249,37 @@ export async function addRound(req: Request, res: Response) {
             return res.status(400).json({ message: "Round name, tabId and type are required" });
         }
 
+        const parsedNumber = parseIntOrNull(number);
         const parsedTime = parseIntOrNull(timeLimit);
         const parsedWord = parseIntOrNull(wordLimit);
-        if (Number.isNaN(parsedTime) || Number.isNaN(parsedWord)) {
-          return res.status(400).json({ message: "timeLimit/wordLimit must be positive integers" });
+        if (
+          Number.isNaN(parsedNumber) ||
+          Number.isNaN(parsedTime) ||
+          Number.isNaN(parsedWord)
+        ) {
+          return res.status(400).json({ message: "Round numeric fields must be positive integers" });
         }
 
         const validated = validateRoundShape(type, parsedTime, parsedWord);
         if (!validated.ok) return res.status(400).json({ message: validated.message });
-
         const parsedBreaks = parseBooleanInput(breaks) ?? false;
+
+        let targetNumber = parsedNumber;
+        if (targetNumber === null) {
+          const existingRounds = await db
+            .select({ number: roundsSB.number })
+            .from(roundsSB)
+            .where(eq(roundsSB.tabId, tabId))
+            .orderBy(asc(roundsSB.number));
+          targetNumber = existingRounds.length ? existingRounds[existingRounds.length - 1].number + 1 : 1;
+        }
 
         const added = await db
           .insert(roundsSB)
           .values({
             name: normalizedName,
             tabId,
+            number: targetNumber,
             breaks: parsedBreaks,
             type: type as "Timed" | "Word Limit" | "Eliminator",
             timeLimit: validated.timeLimit,
@@ -1029,6 +1289,7 @@ export async function addRound(req: Request, res: Response) {
             roundId: roundsSB.roundId,
             name: roundsSB.name,
             tabId: roundsSB.tabId,
+            number: roundsSB.number,
             breaks: roundsSB.breaks,
             completed: roundsSB.completed,
             type: roundsSB.type,
@@ -1048,11 +1309,23 @@ export async function addRound(req: Request, res: Response) {
 }
 export async function updateRound(req: Request, res: Response) {
     try {
-        const {id, roundId, tabId, name, type, breaks, completed, timeLimit, wordLimit}=req.body as {
+        const {
+          id,
+          roundId,
+          tabId,
+          name,
+          number,
+          type,
+          breaks,
+          completed,
+          timeLimit,
+          wordLimit,
+        }=req.body as {
             id?: number;
             roundId?: number;
             tabId?: string;
             name?: string;
+            number?: number | string | null;
             type?: string;
             breaks?: boolean | string;
             completed?: boolean | string;
@@ -1068,6 +1341,7 @@ export async function updateRound(req: Request, res: Response) {
           .select({
             roundId: roundsSB.roundId,
             name: roundsSB.name,
+            number: roundsSB.number,
             breaks: roundsSB.breaks,
             completed: roundsSB.completed,
             type: roundsSB.type,
@@ -1085,12 +1359,18 @@ export async function updateRound(req: Request, res: Response) {
         const nextCompleted = parseBooleanInput(completed) ?? prev.completed;
         const nextName = name?.trim() || prev.name;
 
+        const parsedNumber = parseIntOrNull(number);
         const parsedTime = parseIntOrNull(timeLimit);
         const parsedWord = parseIntOrNull(wordLimit);
-        if (Number.isNaN(parsedTime) || Number.isNaN(parsedWord)) {
-          return res.status(400).json({ message: "timeLimit/wordLimit must be positive integers" });
+        if (
+          Number.isNaN(parsedNumber) ||
+          Number.isNaN(parsedTime) ||
+          Number.isNaN(parsedWord)
+        ) {
+          return res.status(400).json({ message: "Round numeric fields must be positive integers" });
         }
 
+        const nextNumber = number !== undefined ? parsedNumber ?? prev.number : prev.number;
         const proposedTime = timeLimit !== undefined ? parsedTime ?? null : prev.timeLimit;
         const proposedWord = wordLimit !== undefined ? parsedWord ?? null : prev.wordLimit;
         const validated = validateRoundShape(nextType, proposedTime, proposedWord);
@@ -1100,6 +1380,7 @@ export async function updateRound(req: Request, res: Response) {
         .update(roundsSB)
         .set({
           name: nextName,
+          number: nextNumber,
           breaks: nextBreaks,
           completed: nextCompleted,
           type: nextType as "Timed" | "Word Limit" | "Eliminator",
@@ -1111,6 +1392,7 @@ export async function updateRound(req: Request, res: Response) {
           roundId: roundsSB.roundId,
           name: roundsSB.name,
           tabId: roundsSB.tabId,
+          number: roundsSB.number,
           breaks: roundsSB.breaks,
           completed: roundsSB.completed,
           type: roundsSB.type,
@@ -1289,33 +1571,5 @@ export async function deleteWord(req: Request, res: Response) {
     catch(error){
     console.error("deletWord error:", error);
     return res.status(500).json({ message: "failed to delete word" });
-    }
-}
-//Draw
-export async function generateDraw(req: Request, res: Response) {
-    try {
-        
-    } 
-    catch(error){
-    console.error("generateDraw error:", error);
-    return res.status(500).json({ message: "failed to generate draw" });
-    }
-}
-export async function updateDraw(req: Request, res: Response) {
-    try {
-        
-    } 
-    catch(error){
-    console.error("updateDraw error:", error);
-    return res.status(500).json({ message: "failed to update draw" });
-    }
-}
-export async function deleteDraw(req: Request, res: Response) {
-    try {
-        
-    } 
-    catch(error){
-    console.error("deleteDraw error:", error);
-    return res.status(500).json({ message: "failed to delete draw" });
     }
 }

@@ -357,15 +357,30 @@ select{
     text-align: center;
   }
 }
+
 .buttonStack{
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
   width: 90%;
-  justify-content: space-evenly;
   justify-self: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  background-color: var(--brandcolor);
+  border-radius: 2rem;
+  border: 3px solid var(--brandcolor-light);
+  overflow: hidden;
+  overflow-x: scroll;
+  scrollbar-width: none;
+  margin-bottom: 0.5rem;
   button{
-  flex-grow: 1;}
+  border-radius: 2rem;
+  transition: background-color 0.3s ease;
+}
+  .darkButton{
+    &:hover{
+      background-color: var(--brandcolor);
+      font-weight: bold;
+    }
+  }
+
 }
 .eventList{
   display: flex;

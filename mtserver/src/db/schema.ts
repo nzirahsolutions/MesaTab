@@ -3,6 +3,7 @@ export * from './schema/events';
 //spelling bee
 export * from './schema/spelling/tabsSB';
 export * from './schema/spelling/roundsSB';
+export * from './schema/spelling/cupCategoriesSB';
 export * from './schema/spelling/institutionsSB';
 export * from './schema/spelling/spellers';
 export * from './schema/spelling/judgesSB';

@@ -8,7 +8,7 @@ import Loading from "../../Components/Loading";
 export default function Event() {
   const {user} = useContext(AuthContext);
   const navigate=useNavigate();
-  const {eventSlug}=useParams();
+  const {eventUrl}=useParams();
   const [event, setEvent]=useState(null);
   const [newTab, setNewTab]=useState({title:'', track:'Spelling Bee',slug:''});
   const [newDeleteTab,setNewDeleteTab]=useState({slug:'',track:'Spelling Bee', password:''});
@@ -21,7 +21,7 @@ export default function Event() {
 
   async function findEvent(){
     try{
-    const found=await axios.get(`${currentServer}/event/find/${eventSlug}`);
+    const found=await axios.get(`${currentServer}/event/find/${eventUrl}`);
     // console.log({...found.data.data});
     setEvent({...found.data.data});
     setLoadingPage(false);

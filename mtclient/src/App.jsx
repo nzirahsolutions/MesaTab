@@ -31,8 +31,8 @@ function App() {
           <Route path="/resources" element={<Resources/>}/>
           <Route path="/events" element={<Events/>}/>
           <Route path="/profile" element={<Profile/>}/>
-          <Route path="/:eventSlug" element={<Event/>}/>
-          <Route path="/:event/:tab" element={<Tab/>}/>
+          <Route path="/:eventUrl" element={<Event/>}/>
+          <Route path="/:eventUrl/:tab" element={<Tab/>}/>
         </Routes>
         </main>
         <Footer />

@@ -304,20 +304,25 @@ export async function addEventTab(req: Request, res:Response){
   };
 
   const normalizedSlug= slug?.trim().toLowerCase();
-  if(!normalizedSlug || !title || !track){
-    return res.status(400).json({message: 'Tab url and title are required'});
+  if(!normalizedSlug || !title || !track || !eventId){
+    return res.status(400).json({message: 'Tab url, title, track, and eventId are required'});
   }
-  const tabs= track==='BP Debate'? tabsBP: track==='WSDC Debate'? tabsWSDC: track==='Public Speaking'? tabsPS: track==='Spelling Bee'? tabsSB: track==='Chess'? tabsChess: tabsSB;
   
-  const existing = await db
-      .select({ slug: tabs.slug })
-      .from(tabs)
-      .where(and(eq(tabs.slug, normalizedSlug), eq(tabs.eventId, eventId)))
-      .limit(1);
-  
-  if (existing.length > 0) {
+  const tabTables = [tabsBP, tabsWSDC, tabsPS, tabsSB, tabsChess] as const;
+  const existingTabChecks = await Promise.all(
+    tabTables.map((table) =>
+      db
+        .select({ slug: table.slug })
+        .from(table)
+        .where(and(eq(table.slug, normalizedSlug), eq(table.eventId, eventId)))
+        .limit(1)
+    )
+  );
+  if (existingTabChecks.some((rows) => rows.length > 0)) {
     return res.status(409).json({ message: "You already have a tab with that url" });
   }
+
+  const tabs= track==='BP Debate'? tabsBP: track==='WSDC Debate'? tabsWSDC: track==='Public Speaking'? tabsPS: track==='Spelling Bee'? tabsSB: track==='Chess'? tabsChess: tabsSB;
   const created = await db
     .insert(tabs)
     .values({

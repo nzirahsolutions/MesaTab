@@ -4,6 +4,7 @@ import * as sbController from '../../controllers/spelling/sb.tab.controller';
 const router= Router();
 //tab
 router.get('/tab/:tabId', sbController.getFullTab);
+router.put('/tab/update',sbController.updateTab);
 //institution
 router.post('/institution',sbController.addInstitution);
 router.put('/institution',sbController.updateInstitution);
@@ -32,7 +33,5 @@ router.delete('/round',sbController.deleteRound);
 router.post('/word',sbController.addWord);
 router.put('/word',sbController.updateWord);
 router.delete('/word',sbController.deleteWord);
-//draw
-
 
 export default router;

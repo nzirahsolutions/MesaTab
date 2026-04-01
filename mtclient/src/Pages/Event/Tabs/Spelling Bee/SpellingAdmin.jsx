@@ -15,6 +15,8 @@ import Cell from "../../../../Components/Cell";
 export default function SpellingAdmin({tab, event}) {
   const [tabItem, setTabItem]=useState('home');
   const tabHistoryRef=useRef(false);
+  const newCupRef=useRef(null);
+  const newCupOrderRef=useRef(null);
   const [menuOpen, setMenuOpen]=useState(false);
   const {user}= useContext(AuthContext);
   const [access, setAccess]=useState('admin');
@@ -24,7 +26,9 @@ export default function SpellingAdmin({tab, event}) {
   async function getFullTab() {
     try {
       const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
-      setFulltab(res.data?.data ?? null);
+      const fetchedTab = res.data?.data ?? null;
+      setFulltab(res.data?.data ?? null);        
+      setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups}}));
     } catch (error) {
       console.error(error);
     }
@@ -34,13 +38,15 @@ export default function SpellingAdmin({tab, event}) {
 
   const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
   
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false, type:'Timed', completed:false}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
 
   const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
 
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', breaks:false, type:'Timed', status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
+  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', number:'', breaks:false, type:'Timed', completed:false, status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
+
+  const [configStates, setConfigStates]=useState({updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Tab Updated'});
 
   const [institutionStates, setInstitutionStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Institution Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Institution Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Institution Updated'});
 
@@ -72,8 +78,10 @@ export default function SpellingAdmin({tab, event}) {
       try {
         const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
         const fetchedTab = res.data?.data ?? null;
+        // console.log(res.data.data);
         if (!mounted) return;
         setFulltab(fetchedTab);
+        setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups}}));
 
         const isOwner = !!user && user.id === event?.ownerId;
         const isTabMaster =
@@ -134,6 +142,21 @@ useEffect(() => {
   function tabChange(t){
     setTabItem(t);
     setMenuOpen(false);
+  }
+  function configOnChange(e){
+    setConfigStates({...configStates, updateSuccess: false, updateError: false, updateLoading: false});
+    if(e.target.name==='cups'){
+        let cups=[...updateItems.tabDetails.cups];
+        let idx=Number(e.target.dataset.idx);
+        if(e.target.type=='text')
+            cups[idx].cupCategory=e.target.value;
+        if(e.target.type=='number')
+            cups[idx].order=Number(e.target.value);
+        setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails,[e.target.name]:[...cups]}});
+    }
+    else{
+       setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails,[e.target.name]:e.target.value}}); 
+    }
   }
   function institutionOnChange(e){
     setInstitutionStates({...institutionStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
@@ -327,7 +350,22 @@ useEffect(() => {
         default: console.log('No Change');
     }
   }
-  
+ 
+  async function submitConfig(e){
+    e.preventDefault();
+    setConfigStates({...configStates, updateLoading: true, updateError: false, updateSuccess:false});
+        try {
+            const res=await axios.put(`${currentServer}/sb/tab/update`,{...updateItems.tabDetails, tabId: tab.tabId});
+            // setUpdateItems({...updateItems, tabDetails:{...defaultItems.institution}});
+            getFullTab();
+            setConfigStates({...configStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
+        } 
+        catch (err) {
+            const message= err?.response?.data?.message || "Something went wrong";
+            setConfigStates({...configStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
+        }
+
+  }
   async function submitInstitution(e){
     e.preventDefault();
     switch(navState.institution){
@@ -658,7 +696,7 @@ useEffect(() => {
         case'generate':
             setDrawSates({...drawStates, generateLoading: true});
             try {
-                const res=await axios.post(`${currentServer}/sb/draw/generate`,{...addItems.draw, roundId:parseInt(addItems.draw.roundId), tabId: tab.tabId});
+                const res=await axios.post(`${currentServer}/sb/draw/generate`, {...addItems.draw, roundId: parseInt(addItems.draw.roundId), tabId: tab.tabId});
                 setAddItems({...addItems, draw:{...defaultItems.draw}});
                 getFullTab();
                 setDrawSates({...drawStates, generateError: false, generateSuccess: true, generateLoading:false, generateSuccessMessage:res.data.message});
@@ -786,12 +824,12 @@ useEffect(() => {
     });
 }
 
-
   //return functions
   function home(){
     return(
       <>
       <div className="tabHome">
+        <li onClick={()=>tabChange('configuration')}>Configuration</li>
         <li onClick={()=>tabChange('institutions')}>Institutions</li>
         <li onClick={()=>tabChange('tabMasters')}>Tab Masters</li>
         <li onClick={()=>tabChange('judges')}>Judges</li>
@@ -803,6 +841,43 @@ useEffect(() => {
         <li onClick={()=>tabChange('results')}>Results</li>
       </div>
       </>
+    )
+  }
+  function configuration(){
+    return(
+        <>
+        <form onSubmit={submitConfig}>
+            <h2>{fullTab.title}</h2>
+            <label>Title <input type="text" name="title" value={updateItems.tabDetails.title} onChange={configOnChange}/></label><br />
+            <label>Slug <input type="text" name="slug" value={updateItems.tabDetails.slug} onChange={configOnChange}/></label><br />
+            <strong>Cups</strong><br />
+            {updateItems.tabDetails.cups.length>0? updateItems.tabDetails.cups.map((c,i)=>
+            <div key={c.id ?? `new-cup-${i}`} style={{display: 'grid', gridTemplateColumns:"repeat(auto-fit,minmax(60px, 1fr))", justifySelf:'center', width: '90%'}}>
+                <input  type="text" name="cups" data-idx={i} value={updateItems.tabDetails.cups[i].cupCategory}  onChange={configOnChange}/>
+                <input  type="number" name="cups" data-idx={i} value={updateItems.tabDetails.cups[i].order}  onChange={configOnChange}/>
+                <RiDeleteBin6Fill fill="red" onClick={()=>{                
+                    let cups=[...updateItems.tabDetails.cups];
+                    cups.splice(i,1);
+                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});
+                }}/>
+            </div>): <b>No cups set up</b> }<br />
+            <label style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(50px, 1fr)',justifySelf:'center', gap:'0.5rem', width:'90%'}}>
+                <input type="text" ref={newCupRef} placeholder="Cup Name"/>
+                <input type="number" min={0} max={10} ref={newCupOrderRef} placeholder="Cup Order"/>
+                <button type="button" className="darkButton" onClick={()=>{
+                    let cups=[...updateItems.tabDetails.cups];
+                    if(newCupRef.current.value.trim()!=='' && newCupOrderRef.current.value.trim()!=='' ) cups.push({id: null, cupCategory: newCupRef.current.value, order: Number(newCupOrderRef.current.value)});
+                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});
+                    // console.log(updateItems.tabDetails);
+                    newCupRef.current.value='';
+                    newCupOrderRef.current.value='';
+                }}>Add cup</button>
+            </label>
+            <button className="darkButton" disabled={configStates.updateLoading}>{configStates.updateLoading? 'Updating':'Update Tab'}</button>
+            {configStates.updateError &&<p style={{color:'red'}}>{configStates.updateErrorMessage}</p>}
+            {configStates.updateSuccess &&<p style={{color:'green'}}>{configStates.updateSuccessMessage}</p>}
+        </form>
+        </>
     )
   }
   function institutions(){
@@ -1268,7 +1343,8 @@ useEffect(() => {
         {fullTab.rounds?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr'}}>
+              <th>Order</th>
               <th>Name</th>
               <th>Type</th>
               <th>Limit</th>
@@ -1278,7 +1354,8 @@ useEffect(() => {
           </thead>
           <tbody>
             {fullTab.rounds.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr'}}>
+              <td>{p.number}</td>
               <td>{p.name}</td>
               <td>{p.type}</td>
               <td>{p.timeLimit || p.wordLimit || '-'}</td>
@@ -1303,6 +1380,7 @@ useEffect(() => {
             </select>
             {addItems.round.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={addItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {addItems.round.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={addItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
+            <input type="number" min="1" name="number" placeholder="Round Order" value={addItems.round.number || ''} onChange={roundOnChange}/>
             <label>Break Round?<input type="checkbox" name="breaks" checked={!!addItems.round.breaks} onChange={roundOnChange} /></label>
             <button className="darkButton" disabled={roundStates.addLoading}>{roundStates.addLoading? 'Adding':'Add Round'}</button>
             {roundStates.addError &&<p style={{color:'red'}}>{roundStates.addErrorMessage}</p>}
@@ -1326,6 +1404,7 @@ useEffect(() => {
             </select>
             {updateItems.round.type==='Timed' && <input type="number" min="1" name="timeLimit" placeholder="Time Limit (seconds)" value={updateItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {updateItems.round.type==='Word Limit' && <input type="number" min="1" name="wordLimit" placeholder="Word Limit" value={updateItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
+            <input type="number" min="1" name="number" placeholder="Round Order" value={updateItems.round.number || ''} onChange={roundOnChange}/>
             <label>Break Round?<input type="checkbox" name="breaks" checked={!!updateItems.round.breaks} onChange={roundOnChange} /></label>
             <label>Completed?<input type="checkbox" name="completed" checked={!!updateItems.round.completed} onChange={roundOnChange} /></label>
             <button className="darkButton" disabled={roundStates.updateLoading}>{roundStates.updateLoading? 'Updating':'Update Round'}</button>
@@ -1477,17 +1556,6 @@ useEffect(() => {
             {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
             {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
         </form>
-        {/* <form onSubmit={submitDraw}>
-            <p><strong>Generate Breaks</strong></p>
-            <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
-                <option value={defaultItems.draw.roundId}>Select Round</option>
-                {fullTab.rounds?.filter((d)=>d.breaks).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
-            </select>
-            <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/>
-            <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Breaks'}</button>
-            {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
-            {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
-        </form> */}
     </section>}
     {navState.draw==='update' &&
     <section id="drawUpdate">
@@ -1744,6 +1812,7 @@ useEffect(() => {
     <nav className="tabMenu">
           <ul>
             <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={adminSelectedIdx}/>
+            <li onClick={()=>tabChange('configuration')} className={tabItem==='configuration'?'selectedTabItem':''}>Configuration</li>
             <li onClick={()=>tabChange('institutions')} className={tabItem==='institutions'?'selectedTabItem':''}>Institutions</li>
             <li onClick={()=>tabChange('tabMasters')} className={tabItem==='tabMasters'?'selectedTabItem':''}>Tab Masters</li>
             <li onClick={()=>tabChange('spellers')} className={tabItem==='spellers'?'selectedTabItem':''}>Spellers</li>
@@ -1763,6 +1832,7 @@ useEffect(() => {
           <nav className={`tSideMenu ${menuOpen? 'Open':'Closed'}`}>
             <ul>
             <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>
+            <li onClick={()=>tabChange('configuration')} className={tabItem==='configuration'?'selectedTabItem':''}>Configuration</li>
             <li onClick={()=>tabChange('institutions')} className={tabItem==='institutions'?'selectedTabItem':''}>Institutions</li>
             <li onClick={()=>tabChange('tabMasters')} className={tabItem==='tabMasters'?'selectedTabItem':''}>Tab Masters</li>
             <li onClick={()=>tabChange('spellers')} className={tabItem==='spellers'?'selectedTabItem':''}>Spellers</li>
@@ -1777,7 +1847,7 @@ useEffect(() => {
         </div>
         {menuOpen&& <div className="aoe" onClick={()=>setMenuOpen(false)}></div>}
         {
-        tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():tabItem==='results'? results():''
+        tabItem==='configuration'? configuration():tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():tabItem==='results'? results():''
         }
     </>:!pageLoad.loading && access==='judge'?
     <SpellingJudgeTab tab={tab} event={event} accessOptions={accessOptions} onAccessChange={setAccess}/>:!pageLoad.loading && access==='public'?

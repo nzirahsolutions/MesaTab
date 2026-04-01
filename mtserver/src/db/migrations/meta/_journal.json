@@ -71,6 +71,48 @@
       "when": 1774023437853,
       "tag": "0009_needy_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774860707387,
+      "tag": "0010_cynical_bishop",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1775155200000,
+      "tag": "0011_gentle_break_brackets",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1774879168225,
+      "tag": "0012_nappy_justin_hammer",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1774970929708,
+      "tag": "0013_loose_magneto",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1774971118280,
+      "tag": "0014_rich_swordsman",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1775062800000,
+      "tag": "0015_resolve_cup_category_id_type",
+      "breakpoints": true
     }
   ]
 }

@@ -9,21 +9,24 @@ import { currentServer } from "../../Context/urls";
 import { AuthContext } from "../../Context/AuthContext";
 import { useEffect, useContext, useState } from "react";
 import Loading from "../../Components/Loading";
+import { useNavigate } from "react-router-dom";
 
 export default function Tab() {
-  const {tab, event}= useParams();
+  const {tab, eventUrl}= useParams();
   const {user}=useContext(AuthContext);
-  const [tabDetails, setTabDetails]=useState({event:{}, tab:{}});
+  const [tabDetails, setTabDetails]=useState({event:{}, tab:null});
   const [pageLoad, setPageLoad]= useState(true);
+  const navigate=useNavigate();
 
   async function getTab(){
     try {
-    const res=await axios.get(`${currentServer}/event/${event}/${tab}`);
+    const res=await axios.get(`${currentServer}/event/${eventUrl}/${tab}`);
     setTabDetails({...tabDetails, event: res.data.data.event, tab: res.data.data.tab}); 
-    setPageLoad(false);   
+    setPageLoad(false);  
     }
     catch (error) {
-    console.log(error);  
+    console.log(error);
+    navigate(`/${eventUrl}`);  
     }
     
   }
@@ -40,8 +43,7 @@ export default function Tab() {
     :tabDetails.tab.track==='Spelling Bee'? <SpellingBeePublicTab tab={tabDetails.tab} event={tabDetails.event}/>
     :tabDetails.tab.track==='Chess'?<ChessPublicTab tab={tabDetails.tab}  event={tabDetails.event}/>: ''}
     </>
-    :
-    <Loading/>
+    : <Loading/>
     }    
     </>
   )

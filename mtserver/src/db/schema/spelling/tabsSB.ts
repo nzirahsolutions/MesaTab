@@ -10,7 +10,7 @@ import { roundsSB } from './roundsSB';
 import { drawsSB } from './drawsSB';
 import { drawSpellers } from './drawSpellers';
 import { drawJudgesSB } from './drawJudgesSB';
-import { resultsSB } from './resultsSB';
+import { cupCategoriesSB } from './cupCategoriesSB';
 
 export const tabsSB = pgTable('tabs_sb', {
   tabId: uuid('tab_id').primaryKey().defaultRandom(),
@@ -39,5 +39,5 @@ export const tabSBRelations= relations(tabsSB,({one, many})=>({
     draws: many(drawsSB),
     drawSpellers: many(drawSpellers),
     drawJudges: many(drawJudgesSB),
-    results: many(resultsSB), 
+    cups: many(cupCategoriesSB),
 }));
