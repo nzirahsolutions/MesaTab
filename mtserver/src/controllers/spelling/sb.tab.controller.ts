@@ -1,18 +1,22 @@
 import { Request, Response } from "express";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { events,tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
+import { tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
 
 type cup={
   id?: number | string | null;
   cupCategory: string;
-  order: number | string;
+  cupOrder: number | string;
+  breakNumber: number | string;
+  breakCapacity: number | string;
 }
 
 type normalizedCup = {
   id: number | null;
   cupCategory: string;
-  order: number;
+  cupOrder: number;
+  breakNumber: number;
+  breakCapacity: number;
 }
 
 function parseBooleanInput(value: unknown): boolean | undefined {
@@ -46,6 +50,17 @@ function validateRoundShape(type: unknown, timeLimit: number | null, wordLimit: 
   }
   return { ok: true as const, timeLimit: null, wordLimit: null };
 }
+
+const allowedBreakPhases = new Set(['Triples','Doubles','Octos','Quarters','Semis','Finals']);
+const allBreakPhases = ['Triples','Doubles','Octos','Quarters','Semis','Finals'] as const;
+
+function getBreakPhases(breakNumber: number) {
+  if (breakNumber < 1 || breakNumber > allBreakPhases.length) {
+    throw new Error("breakNumber must be between 1 and 6");
+  }  
+  return allBreakPhases.slice(allBreakPhases.length - breakNumber);
+}
+
 
 //tab
 export async function getFullTab(req: Request, res: Response) {
@@ -89,11 +104,13 @@ export async function getFullTab(req: Request, res: Response) {
           .select({
             id: cupCategoriesSB.cupCategoryId,
             cupCategory: cupCategoriesSB.cupCategory,
-            order:cupCategoriesSB.order,
+            breakCapacity: cupCategoriesSB.breakCapacity,
+            breakNumber: cupCategoriesSB.breakNumber,
+            cupOrder:cupCategoriesSB.cupOrder,
           })
           .from(cupCategoriesSB)
           .where(eq(cupCategoriesSB.tabId, tab.tabId))
-          .orderBy(asc(cupCategoriesSB.order), asc(cupCategoriesSB.cupCategoryId)),
+          .orderBy(asc(cupCategoriesSB.cupOrder), asc(cupCategoriesSB.cupCategoryId)),
 
         db
           .select({
@@ -139,6 +156,9 @@ export async function getFullTab(req: Request, res: Response) {
             number: roundsSB.number,
             breaks: roundsSB.breaks,
             completed: roundsSB.completed,
+            cupCategoryId: roundsSB.cupCategoryId,
+            breakPhase: roundsSB.breakPhase,
+            blind: roundsSB.blind,
             type: roundsSB.type,
             timeLimit: roundsSB.timeLimit,
             wordLimit: roundsSB.wordLimit,
@@ -324,12 +344,14 @@ export async function updateTab(req:Request, res: Response){
       cups: cup[];
     }
     const normalizedTitle = title?.trim();
-    const normalizedSlug = slug?.toLocaleLowerCase().trim();
+    const normalizedSlug = slug?.toLowerCase().trim();
     if(!normalizedTitle || !normalizedSlug || !Array.isArray(cups) || cups.length===0)
       return res.status(400).json({message:'title and slug must not be empty. Add at least one cup'});
 
     const normalizedCupCandidates = cups.map((cup) => {
-      const parsedOrder = parseIntOrNull(cup.order);
+      const parsedCupOrder = parseIntOrNull(cup.cupOrder);
+      const parsedBreakNumber = parseIntOrNull(cup.breakNumber);
+      const parsedBreakCapacity = parseIntOrNull(cup.breakCapacity);
       const parsedId =
         cup.id === undefined || cup.id === null || cup.id === ""
           ? null
@@ -338,7 +360,9 @@ export async function updateTab(req:Request, res: Response){
       return {
         id: parsedId,
         cupCategory: String(cup.cupCategory ?? "").trim(),
-        order: parsedOrder,
+        cupOrder: parsedCupOrder,
+        breakNumber: parsedBreakNumber,
+        breakCapacity: parsedBreakCapacity,
       };
     });
 
@@ -346,27 +370,40 @@ export async function updateTab(req:Request, res: Response){
       normalizedCupCandidates.some(
         (cup) =>
           !cup.cupCategory ||
-          cup.order === null ||
-          Number.isNaN(cup.order) ||
+          cup.cupOrder === null ||
+          cup.breakNumber === null ||
+          cup.breakCapacity === null ||
+          Number.isNaN(cup.cupOrder) ||
+          Number.isNaN(cup.breakNumber) ||
+          Number.isNaN(cup.breakCapacity) ||
           cup.id !== null && (!Number.isInteger(cup.id) || cup.id < 1)
       )
     ) {
-      return res.status(400).json({message:'Cup names must not be empty and cup ids/orders must be positive integers'});
+      return res.status(400).json({
+        message:'Cup names must not be empty and cup ids, cupOrder, breakNumber, and breakCapacity must be positive integers',
+      });
     }
 
     const normalizedCups: normalizedCup[] = normalizedCupCandidates.map((cup) => ({
       id: cup.id,
       cupCategory: cup.cupCategory,
-      order: cup.order as number,
+      cupOrder: cup.cupOrder as number,
+      breakNumber: cup.breakNumber as number,
+      breakCapacity: cup.breakCapacity as number,
     }));
 
     const seenCupNames = new Set<string>();
+    const seenCupOrders = new Set<number>();
     for (const cup of normalizedCups) {
-      const key = cup.cupCategory.toLocaleLowerCase();
-      if (seenCupNames.has(key)) {
+      const cupNameKey = cup.cupCategory.toLocaleLowerCase();
+      if (seenCupNames.has(cupNameKey)) {
         return res.status(409).json({message:'Cup names must be unique in a tab'});
       }
-      seenCupNames.add(key);
+      if (seenCupOrders.has(cup.cupOrder)) {
+        return res.status(409).json({message:'Cup orders must be unique in a tab'});
+      }
+      seenCupNames.add(cupNameKey);
+      seenCupOrders.add(cup.cupOrder);
     }
 
     //check if tab exists
@@ -410,11 +447,13 @@ export async function updateTab(req:Request, res: Response){
         .select({
           id: cupCategoriesSB.cupCategoryId,
           cupCategory: cupCategoriesSB.cupCategory,
-          order: cupCategoriesSB.order,
+          cupOrder: cupCategoriesSB.cupOrder,
+          breakNumber: cupCategoriesSB.breakNumber,
+          breakCapacity: cupCategoriesSB.breakCapacity,
         })
         .from(cupCategoriesSB)
         .where(eq(cupCategoriesSB.tabId, tabId))
-        .orderBy(asc(cupCategoriesSB.order), asc(cupCategoriesSB.cupCategoryId));
+        .orderBy(asc(cupCategoriesSB.cupOrder), asc(cupCategoriesSB.cupCategoryId));
 
       const existingCupIds = new Set(existingCups.map((cup) => cup.id));
       const incomingCupIds = new Set<number>();
@@ -457,31 +496,30 @@ export async function updateTab(req:Request, res: Response){
           .where(inArray(cupCategoriesSB.cupCategoryId, cupsToDelete.map((cup) => cup.id)));
       }
 
-      for (const cup of normalizedCups) {
-        if (cup.id === null) continue;
-        await tx
-          .update(cupCategoriesSB)
-          .set({
-            cupCategory: `__tmp__${cup.id}__${Date.now()}`,
-            order: cup.order,
-          })
-          .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, cup.id)));
-      }
-
-      const savedCups: Array<{ id: number; cupCategory: string | null; order: number }> = [];
+      const savedCups: Array<{
+        id: number;
+        cupCategory: string | null;
+        cupOrder: number;
+        breakNumber: number;
+        breakCapacity: number;
+      }> = [];
       for (const cup of normalizedCups) {
         if (cup.id !== null) {
           const [updatedCup] = await tx
             .update(cupCategoriesSB)
             .set({
               cupCategory: cup.cupCategory,
-              order: cup.order,
+              cupOrder: cup.cupOrder,
+              breakNumber: cup.breakNumber,
+              breakCapacity: cup.breakCapacity,
             })
             .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, cup.id)))
             .returning({
               id: cupCategoriesSB.cupCategoryId,
               cupCategory: cupCategoriesSB.cupCategory,
-              order: cupCategoriesSB.order,
+              cupOrder: cupCategoriesSB.cupOrder,
+              breakNumber: cupCategoriesSB.breakNumber,
+              breakCapacity: cupCategoriesSB.breakCapacity,
             });
           savedCups.push(updatedCup);
           continue;
@@ -492,23 +530,144 @@ export async function updateTab(req:Request, res: Response){
           .values({
             tabId,
             cupCategory: cup.cupCategory,
-            order: cup.order,
+            cupOrder: cup.cupOrder,
+            breakNumber: cup.breakNumber,
+            breakCapacity: cup.breakCapacity,
           })
           .returning({
             id: cupCategoriesSB.cupCategoryId,
             cupCategory: cupCategoriesSB.cupCategory,
-            order: cupCategoriesSB.order,
+            cupOrder: cupCategoriesSB.cupOrder,
+            breakNumber: cupCategoriesSB.breakNumber,
+            breakCapacity: cupCategoriesSB.breakCapacity,
           });
         savedCups.push(newCup);
       }
 
-      savedCups.sort((a, b) => a.order - b.order || a.id - b.id);
+      savedCups.sort((a, b) => a.cupOrder - b.cupOrder || a.id - b.id);
+
+    //automatically add break rounds
+    const existingBreakRounds = await tx
+      .select({
+        roundId: roundsSB.roundId,
+        cupCategoryId: roundsSB.cupCategoryId,
+        breakPhase: roundsSB.breakPhase,
+        name: roundsSB.name,
+        number: roundsSB.number,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, true)))
+      .orderBy(asc(roundsSB.number), asc(roundsSB.roundId));
+
+    const existingPrelimRounds = await tx
+      .select({
+        roundId: roundsSB.roundId,
+        number: roundsSB.number,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, false)))
+      .orderBy(asc(roundsSB.number), asc(roundsSB.roundId));
+
+    let nextBreakRoundNumber = existingPrelimRounds.length
+      ? existingPrelimRounds[existingPrelimRounds.length - 1].number + 1
+      : 1;
+
+    //return the an array of the new break rounds with cupCategory id, breakPhase, name, number  
+    const expectedBreakRounds = savedCups.flatMap((cup) => {
+      const phases = getBreakPhases(cup.breakNumber);
+
+      return phases.map((phase) => ({
+        cupCategoryId: cup.id,
+        breakPhase: phase,
+        name: `${cup.cupCategory} ${phase}`,
+        number: nextBreakRoundNumber++,
+      }));
+    });
+
+    const existingBreakRoundByKey = new Map(
+      existingBreakRounds
+        .filter((round) => round.cupCategoryId && round.breakPhase)
+        .map((round) => [
+          `${round.cupCategoryId}:${round.breakPhase}`,
+          round,
+        ])
+    );
+
+    const expectedBreakRoundKeys = new Set<string>();
+    for (const round of expectedBreakRounds) {
+      const key = `${round.cupCategoryId}:${round.breakPhase}`;
+      if (expectedBreakRoundKeys.has(key)) {
+        throw new Error(`Duplicate expected break round for cupCategoryId ${round.cupCategoryId} and phase ${round.breakPhase}`);
+      }
+      expectedBreakRoundKeys.add(key);
+    }
+
+    const existingBreakRoundNumbers = new Set(existingBreakRounds.map((round) => round.number));
+    let tempBreakNumber = nextBreakRoundNumber;
+
+    for (const expectedRound of expectedBreakRounds) {
+      const key = `${expectedRound.cupCategoryId}:${expectedRound.breakPhase}`;
+      const existingRound = existingBreakRoundByKey.get(key);
+      if (!existingRound) {
+        if (existingBreakRoundNumbers.has(tempBreakNumber)) {
+          throw new Error(`Break round number collision at ${tempBreakNumber}; existing break rounds must be cleaned before creating new ones`);
+        }
+        tempBreakNumber++;
+      }
+
+      if (!existingRound) {
+        await tx
+          .insert(roundsSB)
+          .values({
+            tabId,
+            name: expectedRound.name,
+            number: expectedRound.number,
+            breaks: true,
+            cupCategoryId: expectedRound.cupCategoryId,
+            breakPhase: expectedRound.breakPhase,
+            completed: false,
+            type: "Eliminator",
+            timeLimit: null,
+            wordLimit: null,
+            blind: false,
+          });
+        continue;
+      }
+
+      await tx
+        .update(roundsSB)
+        .set({
+          name: expectedRound.name,
+          number: existingRound.number,
+          breaks: true,
+          cupCategoryId: expectedRound.cupCategoryId,
+          breakPhase: expectedRound.breakPhase,
+          type: "Eliminator",
+          timeLimit: null,
+          wordLimit: null,
+          blind: false,
+        })
+        .where(eq(roundsSB.roundId, existingRound.roundId));
+    }
+    //to remove break rounds that are no longer needed when a cup’s breakNumber decreases
+    for (const existingRound of existingBreakRounds) {
+        if (!existingRound.cupCategoryId || !existingRound.breakPhase) continue;
+
+        const key = `${existingRound.cupCategoryId}:${existingRound.breakPhase}`;
+        if (expectedBreakRoundKeys.has(key)) continue;
+
+        await tx
+          .delete(roundsSB)
+          .where(eq(roundsSB.roundId, existingRound.roundId));
+      }
 
       return {
         tab: updatedTab,
         cups: savedCups,
       };
     });
+
+    
 
     return res.status(200).json({
       message:'tab updated successfully',
@@ -520,11 +679,24 @@ export async function updateTab(req:Request, res: Response){
         const message = error instanceof Error ? error.message : "failed to update Tab";
         if (
           message === 'One or more cups do not belong to this tab' ||
-          message.startsWith('Cannot delete cups still used by rounds:')
+          message.startsWith('Cannot delete cups still used by rounds:') ||
+          message === 'Cup orders must be unique in a tab' ||
+          message.startsWith('Duplicate expected break round') ||
+          message.startsWith('Break round number collision')
         ) {
           return res.status(409).json({ message });
         }
-        return res.status(500).json({ message: "failed to update Tab"});
+        if (
+          message.includes('cupTabUnique') ||
+          message.includes('cup_categories_sb_tab_id_cup_category') ||
+          message.includes('cup_categories_sb_tab_id_cup_order')
+        ) {
+          return res.status(409).json({ message: 'Cup names and cup orders must be unique in a tab' });
+        }
+        if (message.includes('breakNumber must be between')) {
+          return res.status(400).json({ message });
+        }
+        return res.status(500).json({ message: "failed to update"});
     }
 }
 //institution
@@ -1235,34 +1407,66 @@ export async function addRound(req: Request, res: Response) {
           breaks,
           timeLimit,
           wordLimit,
+          blind,
+          breakPhase,
+          breakCategory,
         }=req.body as {
             name?: string;
             tabId?: string;
             number?: number | string | null;
             type?: string;
             breaks?: boolean | string;
+            blind?: boolean | string;
             timeLimit?: number | string | null;
             wordLimit?: number | string | null;
+            breakPhase?: string;
+            breakCategory?: number | string | null;
         }
         const normalizedName=name?.trim();
         if (!normalizedName || !tabId || !type) {
             return res.status(400).json({ message: "Round name, tabId and type are required" });
         }
+        const parsedBreaks = parseBooleanInput(breaks) ?? false;
+        const parsedBlind = parseBooleanInput(blind) ?? false;
+        const normalizedBreakPhase = breakPhase?.trim() || null;
+        const parsedBreakCategory = parseIntOrNull(breakCategory);
 
         const parsedNumber = parseIntOrNull(number);
         const parsedTime = parseIntOrNull(timeLimit);
         const parsedWord = parseIntOrNull(wordLimit);
         if (
           Number.isNaN(parsedNumber) ||
+          Number.isNaN(parsedBreakCategory) ||
           Number.isNaN(parsedTime) ||
           Number.isNaN(parsedWord)
         ) {
           return res.status(400).json({ message: "Round numeric fields must be positive integers" });
         }
 
+        if (parsedBreaks) {
+          if (!normalizedBreakPhase || parsedBreakCategory === null) {
+            return res.status(400).json({ message: "choose break phase and break category" });
+          }
+
+          if (!allowedBreakPhases.has(normalizedBreakPhase)) {
+            return res.status(400).json({ message: "Invalid break phase" });
+          }
+        }
+
         const validated = validateRoundShape(type, parsedTime, parsedWord);
         if (!validated.ok) return res.status(400).json({ message: validated.message });
-        const parsedBreaks = parseBooleanInput(breaks) ?? false;
+
+        if (parsedBreakCategory !== null) {
+          const existingBreakCategory = await db
+            .select({ id: cupCategoriesSB.cupCategoryId })
+            .from(cupCategoriesSB)
+            .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, parsedBreakCategory)))
+            .limit(1);
+
+          if (!existingBreakCategory.length) {
+            return res.status(404).json({ message: "Break category not found in this tab" });
+          }
+        }
 
         let targetNumber = parsedNumber;
         if (targetNumber === null) {
@@ -1273,6 +1477,14 @@ export async function addRound(req: Request, res: Response) {
             .orderBy(asc(roundsSB.number));
           targetNumber = existingRounds.length ? existingRounds[existingRounds.length - 1].number + 1 : 1;
         }
+        //keep round number unique
+        const existingRoundNumber=await db
+          .select({ number: roundsSB.number })
+            .from(roundsSB)
+            .where(and(eq(roundsSB.tabId, tabId),eq(roundsSB.number, targetNumber)));
+
+        if(existingRoundNumber.length)
+          return res.status(409).json({ message: "Round number already exists in this tab" });
 
         const added = await db
           .insert(roundsSB)
@@ -1281,6 +1493,11 @@ export async function addRound(req: Request, res: Response) {
             tabId,
             number: targetNumber,
             breaks: parsedBreaks,
+            blind: parsedBlind,
+            cupCategoryId: parsedBreaks ? parsedBreakCategory : null,
+            breakPhase: parsedBreaks
+              ? normalizedBreakPhase as "Octo-Finals" | "Quarter-Finals" | "Semi-Finals" | "Finals"
+              : null,
             type: type as "Timed" | "Word Limit" | "Eliminator",
             timeLimit: validated.timeLimit,
             wordLimit: validated.wordLimit,
@@ -1291,6 +1508,9 @@ export async function addRound(req: Request, res: Response) {
             tabId: roundsSB.tabId,
             number: roundsSB.number,
             breaks: roundsSB.breaks,
+            blind: roundsSB.blind,
+            cupCategoryId: roundsSB.cupCategoryId,
+            breakPhase: roundsSB.breakPhase,
             completed: roundsSB.completed,
             type: roundsSB.type,
             timeLimit: roundsSB.timeLimit,
@@ -1304,6 +1524,19 @@ export async function addRound(req: Request, res: Response) {
     } 
     catch(error){
     console.error("addRound error:", error);
+    const message = error instanceof Error ? error.message : "failed to add round";
+    if (
+      message.includes("tab_round_number_unique") ||
+      message.includes("rounds_sb_tab_id_number")
+    ) {
+      return res.status(409).json({ message: "Round number already exists in this tab" });
+    }
+    if (
+      message.includes("tabCupBreakPhaseUnique") ||
+      message.includes("rounds_sb_tab_id_break_phase_cup_category_id")
+    ) {
+      return res.status(409).json({ message: "That break phase already exists for the selected cup in this tab" });
+    }
     return res.status(500).json({ message: "failed to add round" });
     }
 }
@@ -1318,8 +1551,11 @@ export async function updateRound(req: Request, res: Response) {
           type,
           breaks,
           completed,
+          blind,
           timeLimit,
           wordLimit,
+          breakPhase,
+          breakCategory,
         }=req.body as {
             id?: number;
             roundId?: number;
@@ -1329,8 +1565,11 @@ export async function updateRound(req: Request, res: Response) {
             type?: string;
             breaks?: boolean | string;
             completed?: boolean | string;
+            blind?: boolean | string;
             timeLimit?: number | string | null;
             wordLimit?: number | string | null;
+            breakPhase?: string;
+            breakCategory?: number | string | null;
         }
         const targetRoundId = roundId ?? id;
         if(!tabId || !targetRoundId){
@@ -1344,6 +1583,9 @@ export async function updateRound(req: Request, res: Response) {
             number: roundsSB.number,
             breaks: roundsSB.breaks,
             completed: roundsSB.completed,
+            blind: roundsSB.blind,
+            cupCategoryId: roundsSB.cupCategoryId,
+            breakPhase: roundsSB.breakPhase,
             type: roundsSB.type,
             timeLimit: roundsSB.timeLimit,
             wordLimit: roundsSB.wordLimit,
@@ -1357,13 +1599,17 @@ export async function updateRound(req: Request, res: Response) {
         const nextType = type ?? prev.type;
         const nextBreaks = parseBooleanInput(breaks) ?? prev.breaks;
         const nextCompleted = parseBooleanInput(completed) ?? prev.completed;
+        const nextBlind = parseBooleanInput(blind) ?? prev.blind;
         const nextName = name?.trim() || prev.name;
+        const normalizedBreakPhase = breakPhase?.trim() || null;
+        const parsedBreakCategory = parseIntOrNull(breakCategory);
 
         const parsedNumber = parseIntOrNull(number);
         const parsedTime = parseIntOrNull(timeLimit);
         const parsedWord = parseIntOrNull(wordLimit);
         if (
           Number.isNaN(parsedNumber) ||
+          Number.isNaN(parsedBreakCategory) ||
           Number.isNaN(parsedTime) ||
           Number.isNaN(parsedWord)
         ) {
@@ -1373,8 +1619,41 @@ export async function updateRound(req: Request, res: Response) {
         const nextNumber = number !== undefined ? parsedNumber ?? prev.number : prev.number;
         const proposedTime = timeLimit !== undefined ? parsedTime ?? null : prev.timeLimit;
         const proposedWord = wordLimit !== undefined ? parsedWord ?? null : prev.wordLimit;
+        const nextBreakPhase = nextBreaks
+          ? breakPhase !== undefined
+            ? normalizedBreakPhase
+            : prev.breakPhase
+          : null;
+        const nextBreakCategory = nextBreaks
+          ? breakCategory !== undefined
+            ? parsedBreakCategory
+            : prev.cupCategoryId
+          : null;
+
+        if (nextBreaks) {
+          if (!nextBreakPhase || nextBreakCategory === null) {
+            return res.status(400).json({ message: "choose break phase and break category" });
+          }
+
+          if (!allowedBreakPhases.has(nextBreakPhase)) {
+            return res.status(400).json({ message: "Invalid break phase" });
+          }
+        }
+
         const validated = validateRoundShape(nextType, proposedTime, proposedWord);
         if (!validated.ok) return res.status(400).json({ message: validated.message });
+
+        if (nextBreakCategory !== null) {
+          const existingBreakCategory = await db
+            .select({ id: cupCategoriesSB.cupCategoryId })
+            .from(cupCategoriesSB)
+            .where(and(eq(cupCategoriesSB.tabId, tabId), eq(cupCategoriesSB.cupCategoryId, nextBreakCategory)))
+            .limit(1);
+
+          if (!existingBreakCategory.length) {
+            return res.status(404).json({ message: "Break category not found in this tab" });
+          }
+        }
 
         const updated= await db
         .update(roundsSB)
@@ -1383,6 +1662,9 @@ export async function updateRound(req: Request, res: Response) {
           number: nextNumber,
           breaks: nextBreaks,
           completed: nextCompleted,
+          blind: nextBlind,
+          cupCategoryId: nextBreakCategory,
+          breakPhase: nextBreakPhase as "Octo-Finals" | "Quarter-Finals" | "Semi-Finals" | "Finals" | null,
           type: nextType as "Timed" | "Word Limit" | "Eliminator",
           timeLimit: validated.timeLimit,
           wordLimit: validated.wordLimit,
@@ -1395,6 +1677,9 @@ export async function updateRound(req: Request, res: Response) {
           number: roundsSB.number,
           breaks: roundsSB.breaks,
           completed: roundsSB.completed,
+          blind: roundsSB.blind,
+          cupCategoryId: roundsSB.cupCategoryId,
+          breakPhase: roundsSB.breakPhase,
           type: roundsSB.type,
           timeLimit: roundsSB.timeLimit,
           wordLimit: roundsSB.wordLimit,
@@ -1407,6 +1692,19 @@ export async function updateRound(req: Request, res: Response) {
     } 
     catch(error){
     console.error("updateRound error:", error);
+    const message = error instanceof Error ? error.message : "failed to update round";
+    if (
+      message.includes("tab_round_number_unique") ||
+      message.includes("rounds_sb_tab_id_number")
+    ) {
+      return res.status(409).json({ message: "Round number already exists in this tab" });
+    }
+    if (
+      message.includes("tabCupBreakPhaseUnique") ||
+      message.includes("rounds_sb_tab_id_break_phase_cup_category_id")
+    ) {
+      return res.status(409).json({ message: "That break phase already exists for the selected cup in this tab" });
+    }
     return res.status(500).json({ message: "failed to update round" });
     }
 }

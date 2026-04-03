@@ -299,6 +299,7 @@ export async function generateDraw(req: Request, res: Response){
 }
 export async function generateBreaks(req: Request, res: Response){
     try {
+      const {}=req.body as {}
     } 
     catch (error){
         console.error("generateBreaks error:", error);

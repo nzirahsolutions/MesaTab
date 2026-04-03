@@ -1,0 +1,1 @@
+ALTER TABLE "rounds_sb" ADD CONSTRAINT "rounds_sb_tab_id_break_phase_cup_category_id_unique" UNIQUE("tab_id","break_phase","cup_category_id");

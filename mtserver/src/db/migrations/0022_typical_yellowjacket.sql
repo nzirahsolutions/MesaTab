@@ -1,0 +1,1 @@
+ALTER TABLE "cup_categories_sb" ADD CONSTRAINT "cup_categories_sb_tab_id_cup_order_unique" UNIQUE("tab_id","cup_order");

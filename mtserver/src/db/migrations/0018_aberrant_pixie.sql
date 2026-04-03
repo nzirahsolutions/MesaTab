@@ -1,0 +1,1 @@
+ALTER TABLE "rounds_sb" DROP COLUMN "break_capacity";

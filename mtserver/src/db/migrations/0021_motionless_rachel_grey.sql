@@ -1,0 +1,1 @@
+ALTER TABLE "cup_categories_sb" ADD COLUMN "cup_order" integer DEFAULT 1 NOT NULL;

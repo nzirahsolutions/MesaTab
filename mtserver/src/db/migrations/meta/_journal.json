@@ -113,6 +113,62 @@
       "when": 1775062800000,
       "tag": "0015_resolve_cup_category_id_type",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1775146204899,
+      "tag": "0016_sudden_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1775150774628,
+      "tag": "0017_uneven_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775151242677,
+      "tag": "0018_aberrant_pixie",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775153352046,
+      "tag": "0019_open_excalibur",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775212503950,
+      "tag": "0020_tricky_tattoo",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775212699752,
+      "tag": "0021_motionless_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1775214601752,
+      "tag": "0022_typical_yellowjacket",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1775220089889,
+      "tag": "0023_melted_stature",
+      "breakpoints": true
     }
   ]
 }

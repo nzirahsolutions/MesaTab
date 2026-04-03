@@ -1,0 +1,2 @@
+ALTER TABLE "rounds_sb" DROP CONSTRAINT "rounds_sb_tab_id_number_unique";--> statement-breakpoint
+ALTER TABLE "rounds_sb" ADD CONSTRAINT "rounds_sb_tab_id_cup_category_id_number_unique" UNIQUE("tab_id","cup_category_id","number");

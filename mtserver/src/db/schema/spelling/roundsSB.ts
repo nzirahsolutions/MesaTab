@@ -5,7 +5,7 @@ import { drawsSB } from './drawsSB';
 import { relations, sql } from 'drizzle-orm';
 
 export const roundTypeSBEnum= pgEnum('round_type_sb',['Timed','Word Limit','Eliminator']);
-export const breakPhaseSBEnum= pgEnum('break_phase_sb',['Octo-Finals','Quarter-Finals','Semi-Finals','Finals']);
+export const breakPhaseSBEnum= pgEnum('break_phase_sb',['Triples','Doubles','Octos','Quarters','Semis','Finals']);
 
 export const roundsSB=pgTable('rounds_sb',{
     roundId: serial('round_id').primaryKey(),
@@ -26,7 +26,8 @@ export const roundsSB=pgTable('rounds_sb',{
     tabNumberIdx: index('rounds_tab_number_idx').on(r.tabId, r.number),
 
     tabRoundUnique: unique().on(r.tabId, r.roundId),
-    tabRoundNumberUnique: unique().on(r.tabId, r.number),
+    tabRoundNumberUnique: unique().on(r.tabId, r.cupCategoryId,r.number),
+    tabCupBreakPhaseUnique: unique().on(r.tabId, r.breakPhase, r.cupCategoryId),
 
     // Exactly one valid shape by type
     typeLimitsCheck: check(

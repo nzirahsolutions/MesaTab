@@ -1,0 +1,1 @@
+ALTER TABLE "rounds_sb" ADD COLUMN "break_capacity" integer DEFAULT 32 NOT NULL;

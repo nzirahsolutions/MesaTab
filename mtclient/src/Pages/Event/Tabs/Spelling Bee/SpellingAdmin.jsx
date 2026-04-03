@@ -17,16 +17,21 @@ export default function SpellingAdmin({tab, event}) {
   const tabHistoryRef=useRef(false);
   const newCupRef=useRef(null);
   const newCupOrderRef=useRef(null);
+  const newBreakCapacityRef=useRef(null);
+  const newBreakNumberRef=useRef(null);
   const [menuOpen, setMenuOpen]=useState(false);
   const {user}= useContext(AuthContext);
   const [access, setAccess]=useState('admin');
   const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFulltab]=useState(null);
+  const breakPhases=['Triples','Doubles','Octos','Quarters','Semis','Finals'];
+  const roundTypes=['Timed','Word Limit'];
 
   async function getFullTab() {
     try {
       const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
       const fetchedTab = res.data?.data ?? null;
+    //   console.log(fetchedTab);
       setFulltab(res.data?.data ?? null);        
       setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups}}));
     } catch (error) {
@@ -38,9 +43,9 @@ export default function SpellingAdmin({tab, event}) {
 
   const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
   
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false, type:'Timed'}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', blind: false, breaks:false, type:'', breakCategory:'', breakPhase:''}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false, type:'Timed', completed:false}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
 
   const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
 
@@ -67,8 +72,6 @@ export default function SpellingAdmin({tab, event}) {
   const [resultStates, setResultStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Ballot Submitted',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Ballot Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
 
   const [batchStates, setBatchStates]=useState({ updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
-
-  const roundTypes=['Timed','Word Limit','Eliminator'];
 
   useEffect(() => {
     let mounted = true;
@@ -148,10 +151,15 @@ useEffect(() => {
     if(e.target.name==='cups'){
         let cups=[...updateItems.tabDetails.cups];
         let idx=Number(e.target.dataset.idx);
+        let v=e.target.dataset.v;
         if(e.target.type=='text')
             cups[idx].cupCategory=e.target.value;
-        if(e.target.type=='number')
-            cups[idx].order=Number(e.target.value);
+        if(e.target.type=='number'){
+            // console.log(e.target);
+            if(v==='number') cups[idx].breakNumber=Number(e.target.value);
+            if(v==='capacity') cups[idx].breakCapacity=Number(e.target.value);
+            if(v==='order') cups[idx].cupOrder=Number(e.target.value);
+        }
         setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails,[e.target.name]:[...cups]}});
     }
     else{
@@ -241,7 +249,7 @@ useEffect(() => {
   }
   function roundOnChange(e){
     setRoundStates({...roundStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-    const value = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+    const value = e.target.type==='checkbox' ? e.target.checked :e.target.name=='breakCategory'? parseInt(e.target.value): e.target.value;
 
     switch(navState.round){
         case'add':
@@ -854,23 +862,30 @@ useEffect(() => {
             {updateItems.tabDetails.cups.length>0? updateItems.tabDetails.cups.map((c,i)=>
             <div key={c.id ?? `new-cup-${i}`} style={{display: 'grid', gridTemplateColumns:"repeat(auto-fit,minmax(60px, 1fr))", justifySelf:'center', width: '90%'}}>
                 <input  type="text" name="cups" data-idx={i} value={updateItems.tabDetails.cups[i].cupCategory}  onChange={configOnChange}/>
-                <input  type="number" name="cups" data-idx={i} value={updateItems.tabDetails.cups[i].order}  onChange={configOnChange}/>
-                <RiDeleteBin6Fill fill="red" onClick={()=>{                
+                <input  type="number" name="cups" data-idx={i} data-v='order' value={updateItems.tabDetails.cups[i].cupOrder}  onChange={configOnChange} placeholder="cup order"/>
+                <input  type="number" name="cups" data-idx={i} data-v='number' value={updateItems.tabDetails.cups[i].breakNumber} max={6} min={1} onChange={configOnChange} placeholder="break rounds"/>
+                <input  type="number" name="cups" data-idx={i} data-v='capacity' min={2} placeholder="spellers per break room" value={updateItems.tabDetails.cups[i].breakCapacity}  onChange={configOnChange}/>
+                <RiDeleteBin6Fill fill="red" onClick={()=>{
                     let cups=[...updateItems.tabDetails.cups];
                     cups.splice(i,1);
-                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});
+                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});  
+                    setConfigStates({...configStates, updateSuccess: false, updateError: false, updateLoading: false});              
                 }}/>
             </div>): <b>No cups set up</b> }<br />
-            <label style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(50px, 1fr)',justifySelf:'center', gap:'0.5rem', width:'90%'}}>
+            <label style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(90px, 1fr)',justifySelf:'center', gap:'0.5rem', width:'90%'}}>
                 <input type="text" ref={newCupRef} placeholder="Cup Name"/>
-                <input type="number" min={0} max={10} ref={newCupOrderRef} placeholder="Cup Order"/>
+                <input type="number" min={1} max={10} ref={newCupOrderRef} placeholder="Cup Order"/>
+                <input type="number" min={1} max={6} ref={newBreakNumberRef} placeholder="No of break rounds"/>
+                <input type="number" min={2} ref={newBreakCapacityRef} placeholder="spellers per break room"/>
                 <button type="button" className="darkButton" onClick={()=>{
                     let cups=[...updateItems.tabDetails.cups];
-                    if(newCupRef.current.value.trim()!=='' && newCupOrderRef.current.value.trim()!=='' ) cups.push({id: null, cupCategory: newCupRef.current.value, order: Number(newCupOrderRef.current.value)});
+                    if(newCupRef.current.value.trim()!=='' && newCupOrderRef.current.value.trim()!=='' && newBreakCapacityRef.current.value.trim()!=='' && newBreakNumberRef.current.value.trim()!=='') cups.push({id: null, cupCategory: newCupRef.current.value, cupOrder: Number(newCupOrderRef.current.value), breakNumber: Number(newBreakNumberRef.current.value),breakCapacity: Number(newBreakCapacityRef.current.value)});
                     setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});
                     // console.log(updateItems.tabDetails);
                     newCupRef.current.value='';
                     newCupOrderRef.current.value='';
+                    newBreakCapacityRef.current.value='';
+                    newBreakNumberRef.current.value='';
                 }}>Add cup</button>
             </label>
             <button className="darkButton" disabled={configStates.updateLoading}>{configStates.updateLoading? 'Updating':'Update Tab'}</button>
@@ -1356,7 +1371,7 @@ useEffect(() => {
             {fullTab.rounds.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr'}}>
               <td>{p.number}</td>
-              <td>{p.name}</td>
+              <td>{ p.name}</td>
               <td>{p.type}</td>
               <td>{p.timeLimit || p.wordLimit || '-'}</td>
               <td>{p.breaks ? 'Yes' : 'No'}</td>
@@ -1373,15 +1388,16 @@ useEffect(() => {
     {navState.round==='add'&&
     <section id="roundAdd">
         <form onSubmit={submitRound}>
-            <p><strong>Add round</strong></p>
+            <p><strong>Add preliminary round</strong></p>
             <input type="text" placeholder="Round Name" required name="name" value={addItems.round.name} onChange={roundOnChange}/>
             <select required name="type" value={addItems.round.type} onChange={roundOnChange}>
+                <option value="">Select round type</option>
               {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
             </select>
             {addItems.round.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={addItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {addItems.round.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={addItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
             <input type="number" min="1" name="number" placeholder="Round Order" value={addItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Break Round?<input type="checkbox" name="breaks" checked={!!addItems.round.breaks} onChange={roundOnChange} /></label>
+            <label>Blind Round?<input type="checkbox" name="blind" checked={!!addItems.round.blind} onChange={roundOnChange} /></label>
             <button className="darkButton" disabled={roundStates.addLoading}>{roundStates.addLoading? 'Adding':'Add Round'}</button>
             {roundStates.addError &&<p style={{color:'red'}}>{roundStates.addErrorMessage}</p>}
             {roundStates.addSuccess &&<p style={{color:'green'}}>{roundStates.addSuccessMessage}</p>}
@@ -1400,12 +1416,13 @@ useEffect(() => {
             </select>
             <input type="text" placeholder="Round Name" required name="name" value={updateItems.round.name} onChange={roundOnChange}/>
             <select required name="type" value={updateItems.round.type} onChange={roundOnChange}>
-              {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
+                <option value="">Select round type</option>
+              {!updateItems.round.breaks? roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>):<option value='Eliminator'>Eliminator</option>}
             </select>
             {updateItems.round.type==='Timed' && <input type="number" min="1" name="timeLimit" placeholder="Time Limit (seconds)" value={updateItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {updateItems.round.type==='Word Limit' && <input type="number" min="1" name="wordLimit" placeholder="Word Limit" value={updateItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
-            <input type="number" min="1" name="number" placeholder="Round Order" value={updateItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Break Round?<input type="checkbox" name="breaks" checked={!!updateItems.round.breaks} onChange={roundOnChange} /></label>
+            <input type="number" min={1} name="number" placeholder="Round Order" value={updateItems.round.number || ''} onChange={roundOnChange}/>
+            <label>Blind Round?<input type="checkbox" name="blind" checked={!!updateItems.round.blind} onChange={roundOnChange} /></label>
             <label>Completed?<input type="checkbox" name="completed" checked={!!updateItems.round.completed} onChange={roundOnChange} /></label>
             <button className="darkButton" disabled={roundStates.updateLoading}>{roundStates.updateLoading? 'Updating':'Update Round'}</button>
             {roundStates.updateError &&<p style={{color:'red'}}>{roundStates.updateErrorMessage}</p>}
@@ -1421,7 +1438,7 @@ useEffect(() => {
                 e.target.value==='' && setDeleteItems({...deleteItems, round:{id:'',name:'',status:false}});
                 }} value={deleteItems.round.roundId || ''}>
                 <option value="">Select Round</option>
-                {fullTab.rounds.map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
+                {fullTab.rounds.filter(r=>r.breaks===false).map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
             </select>
             <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.round.status} onChange={roundOnChange} /></label>
             <button className="darkButton" disabled={roundStates.deleteLoading || !deleteItems.round.status}>{roundStates.deleteLoading? 'Deleting':'Delete Round'}</button>

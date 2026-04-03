@@ -1,0 +1,1 @@
+ALTER TABLE "cup_categories_sb" ADD COLUMN "cup_capacity" integer DEFAULT 32 NOT NULL;
