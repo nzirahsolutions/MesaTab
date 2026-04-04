@@ -274,6 +274,7 @@ export async function batchBallot(req: Request, res: Response) {
         const values: { score?: number; status?: ResultStatus } = {};
         if (item.score !== undefined) values.score = item.score;
         if (item.status !== undefined) values.status = item.status as ResultStatus;
+        console.log(item);
 
         if (existingResultId) {
           const updated = await tx

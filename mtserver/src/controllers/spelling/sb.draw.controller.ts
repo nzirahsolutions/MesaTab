@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB, standingsSB} from "../../db/schema";
+import { cupCategoriesSB, resultsSB,drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB, standingsSB} from "../../db/schema";
 
 function shuffle<T>(array: T[]): T[] {
   const arr = [...array]; // avoid mutating original
@@ -84,6 +84,30 @@ function allocateJudgesToRooms(
   });
 
   return new Map(judgeAllocations.map((j) => [j.roomId, j.judgeIds]));
+}
+
+function allocateJudgesAcrossRoundRooms(
+  judges: Array<{ judgeId: number; institutionId: number }>,
+  roundAllocations: Array<{
+    roundId: number;
+    roundName: string | null;
+    roundNumber: number;
+    roomAllocations: Array<{ roomId: number; allocatedBees: Array<{ institutionId: number }> }>;
+  }>
+) {
+  const allRooms = roundAllocations.flatMap((round) =>
+    round.roomAllocations.map((room) => ({
+      roundId: round.roundId,
+      roomId: room.roomId,
+      allocatedBees: room.allocatedBees,
+    }))
+  );
+
+  const judgeByRoom = allocateJudgesToRooms(judges, allRooms);
+
+  return new Map(
+    allRooms.map((room) => [`${room.roundId}:${room.roomId}`, judgeByRoom.get(room.roomId) ?? []] as const)
+  );
 }
 
 async function replaceExistingDrawsForRound(
@@ -295,15 +319,6 @@ export async function generateDraw(req: Request, res: Response){
     catch (error){
         console.error("generateDraw error:", error);
         return res.status(500).json({ message: "failed to generate draw" });
-    }
-}
-export async function generateBreaks(req: Request, res: Response){
-    try {
-      const {}=req.body as {}
-    } 
-    catch (error){
-        console.error("generateBreaks error:", error);
-        return res.status(500).json({ message: "failed to generate breaks" });
     }
 }
 export async function updateDraw(req: Request, res: Response){
@@ -765,5 +780,1068 @@ export async function deleteDraw(req: Request, res: Response){
   catch (error){
     console.error("deleteDraw error:", error);
     return res.status(500).json({ message: "failed to delete draw" });
+  }
+}
+
+//breaks
+const breakPhaseOrder = ["Triples", "Doubles", "Octos", "Quarters", "Semis", "Finals"] as const;
+type BreakPhase = (typeof breakPhaseOrder)[number];
+
+type BreakCup = {
+  id: number;
+  cupCategory: string | null;
+  cupOrder: number;
+  breakNumber: number;
+  breakCapacity: number;
+};
+
+type RankedSpeller = {
+  spellerId: number;
+  institutionId: number;
+  rank: number | null;
+  name: string;
+};
+
+type RoomRow = {
+  roomId: number;
+  name: string;
+};
+
+type BreakRoundRow = {
+  roundId: number;
+  name: string;
+  number: number;
+  breakPhase: BreakPhase | null;
+  cupCategoryId: number | null;
+  completed: boolean;
+};
+
+type BreakAllocation = {
+  roomId: number;
+  roomName: string;
+  spellers: RankedSpeller[];
+};
+
+type BreakCupPlan = {
+  cupId: number;
+  cupCategory: string | null;
+  cupOrder: number;
+  breakNumber: number;
+  breakCapacity: number;
+  trueBreakCapacity: number;
+  requestedRooms: number;
+  assignedRooms: number;
+  qualifiersFound: number;
+  warnings: string[];
+  allocations: BreakAllocation[];
+};
+
+function chunkIntoRooms<T>(items: T[], roomCount: number, roomCapacity: number) {
+  const chunks: T[][] = [];
+  let cursor = 0;
+
+  for (let i = 0; i < roomCount; i++) {
+    const chunk = items.slice(cursor, cursor + roomCapacity);
+    if (!chunk.length) break;
+    chunks.push(chunk);
+    cursor += roomCapacity;
+  }
+
+  return chunks;
+}
+
+function buildBreakPlan(params: {
+  cups: BreakCup[];
+  standings: RankedSpeller[];
+  rooms: RoomRow[];
+}) {
+  const { cups, standings, rooms } = params;
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const sortedCups = [...cups].sort((a, b) => a.cupOrder - b.cupOrder || a.id - b.id);
+  const rankedSpellers = standings
+    .filter((s) => s.rank !== null)
+    .sort((a, b) => (a.rank! - b.rank!) || (a.spellerId - b.spellerId));
+
+  if (!sortedCups.length) errors.push("No cups configured");
+  if (!rankedSpellers.length) errors.push("No ranked spellers available");
+  if (!rooms.length) errors.push("No rooms available");
+
+  if (errors.length) {
+    return {
+      ok: false,
+      errors,
+      warnings,
+      summary: {
+        totalCups: sortedCups.length,
+        totalRankedSpellers: rankedSpellers.length,
+        totalRooms: rooms.length,
+      },
+      cups: [] as BreakCupPlan[],
+    };
+  }
+
+  let spellerCursor = 0;
+  let roomCursor = 0;
+
+  const cupPlans: BreakCupPlan[] = sortedCups.map((cup) => {
+    const cupWarnings: string[] = [];
+    const requestedRooms = cup.breakNumber;
+    const roomCapacity = cup.breakCapacity;
+    const trueBreakCapacity = requestedRooms * roomCapacity;
+
+    const qualifiers = rankedSpellers.slice(spellerCursor, spellerCursor + trueBreakCapacity);
+    spellerCursor += qualifiers.length;
+
+    const remainingRooms = rooms.length - roomCursor;
+    const assignedRooms = Math.min(requestedRooms, remainingRooms);
+    const selectedRooms = rooms.slice(roomCursor, roomCursor + assignedRooms);
+    roomCursor += assignedRooms;
+
+    if (assignedRooms < requestedRooms) {
+      cupWarnings.push(`${cup.cupCategory}: requested ${requestedRooms} rooms, found ${assignedRooms}`);
+    }
+
+    if (qualifiers.length < trueBreakCapacity) {
+      cupWarnings.push(`${cup.cupCategory}: expected ${trueBreakCapacity} spellers, found ${qualifiers.length}`);
+    }
+
+    const usableQualifierCount = Math.min(qualifiers.length, assignedRooms * roomCapacity);
+    const usableQualifiers = qualifiers.slice(0, usableQualifierCount);
+    const allocations = allocateSlidingPowerPair(
+      selectedRooms.map((room) => ({ roomId: room.roomId })),
+      usableQualifiers
+    ).map((allocation) => ({
+      roomId: allocation.roomId,
+      roomName: selectedRooms.find((room) => room.roomId === allocation.roomId)?.name ?? `Room ${allocation.roomId}`,
+      spellers: allocation.allocatedBees,
+    }));
+
+    warnings.push(...cupWarnings);
+
+    return {
+      cupId: cup.id,
+      cupCategory: cup.cupCategory,
+      cupOrder: cup.cupOrder,
+      breakNumber: cup.breakNumber,
+      breakCapacity: cup.breakCapacity,
+      trueBreakCapacity,
+      requestedRooms,
+      assignedRooms,
+      qualifiersFound: qualifiers.length,
+      warnings: cupWarnings,
+      allocations,
+    };
+  });
+
+  return {
+    ok: true,
+    errors,
+    warnings,
+    summary: {
+      totalCups: sortedCups.length,
+      totalRankedSpellers: rankedSpellers.length,
+      totalRooms: rooms.length,
+      roomsUsed: roomCursor,
+      roomsRemaining: rooms.length - roomCursor,
+    },
+    cups: cupPlans,
+  };
+}
+
+function groupBreakRoundsByCup(rounds: BreakRoundRow[]) {
+  const grouped = new Map<number, BreakRoundRow[]>();
+  for (const round of rounds) {
+    if (!round.cupCategoryId) continue;
+    const list = grouped.get(round.cupCategoryId) ?? [];
+    list.push(round);
+    grouped.set(round.cupCategoryId, list);
+  }
+  for (const list of grouped.values()) {
+    list.sort((a, b) => a.number - b.number || a.roundId - b.roundId);
+  }
+  return grouped;
+}
+
+//returns cups, rooms, standings (ordered by rank and with speller details fetched from spellers table), prelim rounds and break rounds from db
+async function getBreakContext(tabId: string) {
+  const [cups, rooms, standings, prelimRounds, breakRounds] = await Promise.all([
+    db
+      .select({
+        id: cupCategoriesSB.cupCategoryId,
+        cupCategory: cupCategoriesSB.cupCategory,
+        cupOrder: cupCategoriesSB.cupOrder,
+        breakNumber: cupCategoriesSB.breakNumber,
+        breakCapacity: cupCategoriesSB.breakCapacity,
+      })
+      .from(cupCategoriesSB)
+      .where(eq(cupCategoriesSB.tabId, tabId))
+      .orderBy(asc(cupCategoriesSB.cupOrder), asc(cupCategoriesSB.cupCategoryId)),
+
+    db
+      .select({
+        roomId: roomsSB.roomId,
+        name: roomsSB.name,
+      })
+      .from(roomsSB)
+      .where(eq(roomsSB.tabId, tabId))
+      .orderBy(asc(roomsSB.roomId)),
+
+    db
+      .select({
+        spellerId: standingsSB.spellerId,
+        rank: standingsSB.rank,
+        institutionId: spellers.institutionId,
+        name: spellers.name,
+      })
+      .from(standingsSB)
+      .innerJoin(spellers, eq(spellers.spellerId, standingsSB.spellerId))
+      .where(eq(standingsSB.tabId, tabId))
+      .orderBy(asc(standingsSB.rank), asc(standingsSB.spellerId)),
+
+    db
+      .select({
+        roundId: roundsSB.roundId,
+        name: roundsSB.name,
+        number: roundsSB.number,
+        completed: roundsSB.completed,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, false)))
+      .orderBy(asc(roundsSB.number), asc(roundsSB.roundId)),
+
+    db
+      .select({
+        roundId: roundsSB.roundId,
+        name: roundsSB.name,
+        number: roundsSB.number,
+        breakPhase: roundsSB.breakPhase,
+        cupCategoryId: roundsSB.cupCategoryId,
+        completed: roundsSB.completed,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, true)))
+      .orderBy(asc(roundsSB.number), asc(roundsSB.roundId)),
+  ]);
+
+  return {
+    cups,
+    rooms,
+    standings,
+    prelimRounds,
+    breakRounds: breakRounds as BreakRoundRow[],
+  };
+}
+
+async function getSubsequentBreakRoundReadiness(params: {
+  tabId: string;
+  round: BreakRoundRow;
+  previousRound: BreakRoundRow;
+  roomCapacity: number;
+  availableRooms: number;
+}) {
+  const { tabId, round, previousRound, roomCapacity, availableRooms } = params;
+
+  const participantRows = await db
+    .select({
+      drawSpellerId: drawSpellers.id,
+      spellerId: drawSpellers.spellerId,
+      institutionId: spellers.institutionId,
+      status: resultsSB.status,
+    })
+    .from(drawsSB)
+    .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
+    .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
+    .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
+    .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, previousRound.roundId)))
+    .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
+
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+
+  if (!participantRows.length) {
+    blockers.push(`No draw exists yet for ${previousRound.name}`);
+  } else if (participantRows.some((row) => !row.status || row.status === "Incomplete")) {
+    blockers.push("Previous round incomplete");
+  }
+
+  const passedSpellers = participantRows.filter((row) => row.status === "Pass");
+
+  if (!blockers.length && !passedSpellers.length) {
+    blockers.push("No speller has been marked as passed from previous round");
+  }
+
+  const requestedRooms = passedSpellers.length
+    ? Math.max(1, Math.ceil(passedSpellers.length / roomCapacity))
+    : 0;
+  const assignedRooms = Math.min(requestedRooms, availableRooms);
+
+  if (!blockers.length && assignedRooms < requestedRooms) {
+    warnings.push(`${round.name}: requested ${requestedRooms} rooms, found ${assignedRooms}`);
+  }
+
+  return {
+    roundId: round.roundId,
+    roundName: round.name,
+    cupCategoryId: round.cupCategoryId,
+    breakPhase: round.breakPhase,
+    previousRoundId: previousRound.roundId,
+    previousRoundName: previousRound.name,
+    requestedRooms,
+    assignedRooms,
+    passCount: passedSpellers.length,
+    ready: blockers.length === 0 && assignedRooms > 0,
+    blockers,
+    warnings,
+  };
+}
+
+async function createDrawsForRound(
+  tx: any,
+  params: {
+    tabId: string;
+    roundId: number;
+    roomAllocations: Array<{ roomId: number; allocatedBees: Array<{ spellerId: number; institutionId: number }> }>;
+    roomJudgeAssignments?: Map<string, number[]>;
+    judges?: Array<{ judgeId: number; institutionId: number }>;
+  }
+) {
+  const { tabId, roundId, roomAllocations, roomJudgeAssignments, judges = [] } = params;
+  await replaceExistingDrawsForRound(tx, tabId, roundId);
+
+  const judgeByRoom =
+    roomJudgeAssignments ??
+    new Map(
+      Array.from(
+        allocateJudgesToRooms(judges, roomAllocations).entries(),
+        ([roomId, judgeIds]) => [`${roundId}:${roomId}`, judgeIds] as const
+      )
+    );
+  const results: Array<{
+    drawId: number;
+    roomId: number;
+    spellerIds: number[];
+    judgeIds: number[];
+  }> = [];
+
+  for (const alloc of roomAllocations) {
+    const [newDraw] = await tx
+      .insert(drawsSB)
+      .values({
+        tabId,
+        roundId,
+        roomId: alloc.roomId,
+      })
+      .returning({
+        drawId: drawsSB.drawId,
+        roomId: drawsSB.roomId,
+      });
+
+    await tx.insert(drawSpellers).values(
+      alloc.allocatedBees.map((b) => ({
+        tabId,
+        drawId: newDraw.drawId,
+        roomId: alloc.roomId,
+        spellerId: b.spellerId,
+      }))
+    );
+
+    const roomJudgeIds = judgeByRoom.get(`${roundId}:${alloc.roomId}`) ?? [];
+    if (roomJudgeIds.length) {
+      await tx.insert(drawJudgesSB).values(
+        roomJudgeIds.map((judgeId) => ({
+          tabId,
+          drawId: newDraw.drawId,
+          roomId: alloc.roomId,
+          judgeId,
+        }))
+      );
+    }
+
+    results.push({
+      drawId: newDraw.drawId,
+      roomId: alloc.roomId,
+      spellerIds: alloc.allocatedBees.map((b) => b.spellerId),
+      judgeIds: roomJudgeIds,
+    });
+  }
+
+  return results;
+}
+
+async function getBulkFirstPhaseRoundPlans(tabId: string) {
+  const context = await getBreakContext(tabId);
+  const plan = buildBreakPlan({
+    cups: context.cups,
+    standings: context.standings,
+    rooms: context.rooms,
+  });
+  const breakRoundsByCup = groupBreakRoundsByCup(context.breakRounds);
+  const incompletePrelims = context.prelimRounds.filter((round) => !round.completed);
+
+  const firstPhaseRounds = plan.cups.map((cupPlan) => {
+    const firstRound = breakRoundsByCup.get(cupPlan.cupId)?.[0] ?? null;
+    const blockers: string[] = [];
+    if (!firstRound) {
+      blockers.push(`No break round exists for ${cupPlan.cupCategory}`);
+    }
+    if (incompletePrelims.length) {
+      blockers.push(
+        `Preliminary rounds incomplete: ${incompletePrelims.map((round) => round.name).join(", ")}`
+      );
+    }
+
+    return {
+      ...cupPlan,
+      roundId: firstRound?.roundId ?? null,
+      roundName: firstRound?.name ?? null,
+      breakPhase: firstRound?.breakPhase ?? null,
+      ready: blockers.length === 0 && cupPlan.allocations.length > 0,
+      blockers,
+    };
+  });
+
+  return {
+    ...context,
+    plan,
+    incompletePrelims,
+    firstPhaseRounds,
+  };
+}
+
+export async function generateBreaks(req: Request, res: Response) {
+  try {
+    const { tabId } = req.body as { tabId?: string };
+
+    if (!tabId) {
+      return res.status(400).json({ message: "tabId is required" });
+    }
+
+    const context = await getBreakContext(tabId);
+    const plan = buildBreakPlan({
+      cups: context.cups,
+      standings: context.standings,
+      rooms: context.rooms,
+    });
+    const breakRoundsByCup = groupBreakRoundsByCup(context.breakRounds);
+    const incompletePrelims = context.prelimRounds.filter((round) => !round.completed);
+
+    const firstPhaseRounds = plan.cups.map((cupPlan) => {
+      const firstRound = breakRoundsByCup.get(cupPlan.cupId)?.[0] ?? null;
+      const blockers: string[] = [];
+      if (!firstRound) blockers.push(`No break round exists for ${cupPlan.cupCategory}`);
+      if (incompletePrelims.length) {
+        blockers.push(
+          `Preliminary rounds incomplete: ${incompletePrelims.map((round) => round.name).join(", ")}`
+        );
+      }
+
+      return {
+        ...cupPlan,
+        roundId: firstRound?.roundId ?? null,
+        roundName: firstRound?.name ?? null,
+        breakPhase: firstRound?.breakPhase ?? null,
+        ready: blockers.length === 0 && cupPlan.allocations.length > 0,
+        blockers,
+      };
+    });
+
+    const subsequentRounds = (
+      await Promise.all(
+        Array.from(breakRoundsByCup.entries()).flatMap(([cupCategoryId, rounds]) => {
+          const cup = context.cups.find((item) => item.id === cupCategoryId);
+          if (!cup) return [];
+
+          return rounds.slice(1).map((round, index) =>
+            getSubsequentBreakRoundReadiness({
+              tabId,
+              round,
+              previousRound: rounds[index],
+              roomCapacity: cup.breakCapacity,
+              availableRooms: context.rooms.length,
+            })
+          );
+        })
+      )
+    ).sort((a, b) => {
+      const aRound = context.breakRounds.find((round) => round.roundId === a.roundId);
+      const bRound = context.breakRounds.find((round) => round.roundId === b.roundId);
+      return (aRound?.number ?? 0) - (bRound?.number ?? 0);
+    });
+
+    return res.status(200).json({
+      message: plan.ok ? "Break preview generated successfully" : "Break preview generated with blockers",
+      data: {
+        summary: {
+          ...plan.summary,
+          incompletePrelimRounds: incompletePrelims.map((round) => ({
+            roundId: round.roundId,
+            name: round.name,
+          })),
+        },
+        errors: plan.errors,
+        warnings: plan.warnings,
+        firstPhaseRounds,
+        subsequentRounds,
+      },
+    });
+  } catch (error) {
+    console.error("generateBreaks error:", error);
+    return res.status(500).json({ message: "failed to generate breaks" });
+  }
+}
+
+export async function generateBreakDraw(req: Request, res: Response) {
+  try {
+    const { tabId, roundId } = req.body as {
+      tabId?: string;
+      roundId?: number;
+    };
+
+    if (!tabId) {
+      return res.status(400).json({ message: "tabId is required" });
+    }
+
+    const [rooms, judges] = await Promise.all([
+      db
+        .select({
+          roomId: roomsSB.roomId,
+          name: roomsSB.name,
+        })
+        .from(roomsSB)
+        .where(eq(roomsSB.tabId, tabId))
+        .orderBy(asc(roomsSB.roomId)),
+
+      db
+        .select({
+          judgeId: judgesSB.judgeId,
+          institutionId: judgesSB.institutionId,
+        })
+        .from(judgesSB)
+        .where(eq(judgesSB.tabId, tabId)),
+    ]);
+
+    if (!rooms.length) {
+      return res.status(400).json({ message: "No rooms available for this tab" });
+    }
+
+    if (!judges.length) {
+      return res.status(400).json({ message: "No judges found in this tab" });
+    }
+
+    if (!roundId) {
+      const firstPhaseContext = await getBulkFirstPhaseRoundPlans(tabId);
+      if (firstPhaseContext.incompletePrelims.length) {
+        return res.status(400).json({
+          message: `Preliminary rounds incomplete: ${firstPhaseContext.incompletePrelims.map((round) => round.name).join(", ")}`,
+          data: {
+            incompleteRounds: firstPhaseContext.incompletePrelims.map((round) => ({
+              roundId: round.roundId,
+              name: round.name,
+            })),
+          },
+        });
+      }
+
+      const drawableRounds = firstPhaseContext.firstPhaseRounds.filter(
+        (round) => round.roundId && round.allocations.length
+      );
+
+      if (!drawableRounds.length) {
+        return res.status(400).json({
+          message: "No eligible first-phase break rounds could be generated",
+          data: {
+            errors: firstPhaseContext.plan.errors,
+            firstPhaseRounds: firstPhaseContext.firstPhaseRounds,
+          },
+        });
+      }
+
+      const created = await db.transaction(async (tx) => {
+        const generatedRounds: Array<{
+          roundId: number;
+          roundName: string | null;
+          cupCategory: string | null;
+          warnings: string[];
+          draws: Array<{
+            drawId: number;
+            roomId: number;
+            spellerIds: number[];
+            judgeIds: number[];
+          }>;
+          }> = [];
+
+        const batchedRoundAllocations = drawableRounds.map((round) => ({
+          roundId: round.roundId as number,
+          roundName: round.roundName,
+          roundNumber: context.breakRounds.find((item) => item.roundId === round.roundId)?.number ?? 0,
+          roomAllocations: round.allocations.map((allocation) => ({
+            roomId: allocation.roomId,
+            allocatedBees: allocation.spellers.map((speller) => ({
+              spellerId: speller.spellerId,
+              institutionId: speller.institutionId,
+            })),
+          })),
+        }));
+        const judgeAssignments = allocateJudgesAcrossRoundRooms(judges, batchedRoundAllocations);
+
+        for (const round of drawableRounds) {
+          const roomAllocations = round.allocations.map((allocation) => ({
+            roomId: allocation.roomId,
+            allocatedBees: allocation.spellers.map((speller) => ({
+              spellerId: speller.spellerId,
+              institutionId: speller.institutionId,
+            })),
+          }));
+
+          const draws = await createDrawsForRound(tx, {
+            tabId,
+            roundId: round.roundId as number,
+            roomAllocations,
+            roomJudgeAssignments: judgeAssignments,
+          });
+
+          generatedRounds.push({
+            roundId: round.roundId as number,
+            roundName: round.roundName,
+            cupCategory: round.cupCategory,
+            warnings: [...round.warnings, ...round.blockers].filter(Boolean),
+            draws,
+          });
+        }
+
+        return generatedRounds;
+      });
+
+      return res.status(201).json({
+        message: "First-phase break draws generated successfully",
+        data: {
+          generatedRounds: created,
+          skippedRounds: firstPhaseContext.firstPhaseRounds.filter(
+            (round) => !round.roundId || !round.allocations.length
+          ),
+          warnings: firstPhaseContext.plan.warnings,
+        },
+      });
+    }
+
+    const [targetRound] = await db
+      .select({
+        roundId: roundsSB.roundId,
+        name: roundsSB.name,
+        number: roundsSB.number,
+        breakPhase: roundsSB.breakPhase,
+        cupCategoryId: roundsSB.cupCategoryId,
+        breaks: roundsSB.breaks,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+      .limit(1);
+
+    if (!targetRound) {
+      return res.status(404).json({ message: "Round not found in this tab" });
+    }
+
+    if (!targetRound.breaks || !targetRound.cupCategoryId || !targetRound.breakPhase) {
+      return res.status(400).json({ message: "Selected round is not a valid break round" });
+    }
+
+    const context = await getBulkFirstPhaseRoundPlans(tabId);
+    const breakRoundsByCup = groupBreakRoundsByCup(context.breakRounds);
+    const cupRounds = breakRoundsByCup.get(targetRound.cupCategoryId) ?? [];
+    const firstRound = cupRounds[0];
+
+    if (firstRound && firstRound.roundId === targetRound.roundId) {
+      if (context.incompletePrelims.length) {
+        return res.status(400).json({
+          message: `Preliminary rounds incomplete: ${context.incompletePrelims.map((round) => round.name).join(", ")}`,
+          data: {
+            incompleteRounds: context.incompletePrelims.map((round) => ({
+              roundId: round.roundId,
+              name: round.name,
+            })),
+          },
+        });
+      }
+
+      const drawableRounds = context.firstPhaseRounds.filter((round) => round.roundId && round.allocations.length);
+      const created = await db.transaction(async (tx) => {
+        const generatedRounds: Array<{
+          roundId: number;
+          roundName: string | null;
+          cupCategory: string | null;
+          warnings: string[];
+          draws: Array<{
+            drawId: number;
+            roomId: number;
+            spellerIds: number[];
+            judgeIds: number[];
+          }>;
+          }> = [];
+
+        const batchedRoundAllocations = drawableRounds.map((round) => ({
+          roundId: round.roundId as number,
+          roundName: round.roundName,
+          roundNumber: context.breakRounds.find((item) => item.roundId === round.roundId)?.number ?? 0,
+          roomAllocations: round.allocations.map((allocation) => ({
+            roomId: allocation.roomId,
+            allocatedBees: allocation.spellers.map((speller) => ({
+              spellerId: speller.spellerId,
+              institutionId: speller.institutionId,
+            })),
+          })),
+        }));
+        const judgeAssignments = allocateJudgesAcrossRoundRooms(judges, batchedRoundAllocations);
+
+        for (const round of drawableRounds) {
+          const roomAllocations = round.allocations.map((allocation) => ({
+            roomId: allocation.roomId,
+            allocatedBees: allocation.spellers.map((speller) => ({
+              spellerId: speller.spellerId,
+              institutionId: speller.institutionId,
+            })),
+          }));
+
+          const draws = await createDrawsForRound(tx, {
+            tabId,
+            roundId: round.roundId as number,
+            roomAllocations,
+            roomJudgeAssignments: judgeAssignments,
+          });
+
+          generatedRounds.push({
+            roundId: round.roundId as number,
+            roundName: round.roundName,
+            cupCategory: round.cupCategory,
+            warnings: [...round.warnings, ...round.blockers].filter(Boolean),
+            draws,
+          });
+        }
+
+        return generatedRounds;
+      });
+
+      return res.status(201).json({
+        message: "First-phase break draws generated successfully",
+        data: {
+          generatedRounds: created,
+          skippedRounds: context.firstPhaseRounds.filter((round) => !round.roundId || !round.allocations.length),
+          warnings: context.plan.warnings,
+        },
+      });
+    }
+
+    const cup = context.cups.find((item) => item.id === targetRound.cupCategoryId);
+    if (!cup) {
+      return res.status(404).json({ message: "Cup configuration for this round was not found" });
+    }
+
+    const previousRoundIndex = cupRounds.findIndex((round) => round.roundId === targetRound.roundId) - 1;
+    const previousRound = previousRoundIndex >= 0 ? cupRounds[previousRoundIndex] : null;
+
+    if (!previousRound) {
+      return res.status(400).json({ message: "Previous break round not found for this round" });
+    }
+
+    const previousParticipants = await db
+      .select({
+        spellerId: drawSpellers.spellerId,
+        institutionId: spellers.institutionId,
+        status: resultsSB.status,
+      })
+      .from(drawsSB)
+      .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
+      .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
+      .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
+      .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, previousRound.roundId)))
+      .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
+
+    if (!previousParticipants.length) {
+      return res.status(400).json({ message: `No draw exists yet for ${previousRound.name}` });
+    }
+
+    if (previousParticipants.some((row) => !row.status || row.status === "Incomplete")) {
+      return res.status(400).json({ message: "Previous round incomplete" });
+    }
+
+    const passedSpellers = previousParticipants.filter((row) => row.status === "Pass");
+    if (!passedSpellers.length) {
+      return res.status(400).json({ message: "No speller has been marked as passed from previous round" });
+    }
+
+    const sameNumberEvaluations = context.breakRounds
+      .filter((round) => round.number === targetRound.number)
+      .map((round) => {
+        const candidateCupRounds = breakRoundsByCup.get(round.cupCategoryId as number) ?? [];
+        const candidateRoundIndex = candidateCupRounds.findIndex((item) => item.roundId === round.roundId);
+        const isSubsequent = candidateRoundIndex > 0;
+
+        return {
+          round,
+          candidateRoundIndex,
+          isSubsequent,
+          included: round.roundId === targetRound.roundId || isSubsequent,
+          reason:
+            round.roundId === targetRound.roundId
+              ? "Target round"
+              : isSubsequent
+                ? "Same round number and has a previous break round"
+                : "Skipped because it is a first-phase break round",
+        };
+      });
+
+    const sameNumberRounds = sameNumberEvaluations
+      .filter((entry) => entry.included && entry.round.roundId !== targetRound.roundId)
+      .map((entry) => entry.round);
+
+    const batchMetadata = {
+      roundNumber: targetRound.number,
+      includedRounds: sameNumberEvaluations
+        .filter((entry) => entry.included)
+        .map((entry) => ({
+          roundId: entry.round.roundId,
+          name: entry.round.name,
+          breakPhase: entry.round.breakPhase,
+          cupCategoryId: entry.round.cupCategoryId,
+          reason: entry.reason,
+        })),
+      skippedRounds: sameNumberEvaluations
+        .filter((entry) => !entry.included)
+        .map((entry) => ({
+          roundId: entry.round.roundId,
+          name: entry.round.name,
+          breakPhase: entry.round.breakPhase,
+          cupCategoryId: entry.round.cupCategoryId,
+          reason: entry.reason,
+        })),
+    };
+
+    const sameNumberRoundPlans: Array<{
+      roundId: number;
+      roundName: string;
+      previousRoundId: number;
+      previousRoundName: string;
+      passCount: number;
+      requestedRooms: number;
+      assignedRooms: number;
+      roomAllocations: Array<{ roomId: number; allocatedBees: Array<{ spellerId: number; institutionId: number }> }>;
+      warnings: string[];
+    }> = [];
+
+    const allSameNumberRounds = [targetRound, ...sameNumberRounds]
+      .sort((a, b) => a.number - b.number || a.roundId - b.roundId);
+
+    for (const round of allSameNumberRounds) {
+      const roundCup = context.cups.find((item) => item.id === round.cupCategoryId);
+      if (!roundCup) {
+        return res.status(404).json({
+          message: `Cup configuration for ${round.name} was not found`,
+          data: batchMetadata,
+        });
+      }
+
+      const roundCupRounds = breakRoundsByCup.get(round.cupCategoryId as number) ?? [];
+      const roundPreviousIndex = roundCupRounds.findIndex((item) => item.roundId === round.roundId) - 1;
+      const roundPrevious = roundPreviousIndex >= 0 ? roundCupRounds[roundPreviousIndex] : null;
+
+      if (!roundPrevious) {
+        return res.status(400).json({
+          message: `Previous break round not found for ${round.name}`,
+          data: batchMetadata,
+        });
+      }
+
+      const roundPreviousParticipants = await db
+        .select({
+          spellerId: drawSpellers.spellerId,
+          institutionId: spellers.institutionId,
+          status: resultsSB.status,
+        })
+        .from(drawsSB)
+        .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
+        .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
+        .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
+        .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundPrevious.roundId)))
+        .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
+
+      if (!roundPreviousParticipants.length) {
+        return res.status(400).json({
+          message: `No draw exists yet for ${roundPrevious.name}`,
+          data: batchMetadata,
+        });
+      }
+
+      if (roundPreviousParticipants.some((row) => !row.status || row.status === "Incomplete")) {
+        return res.status(400).json({
+          message: "Previous round incomplete",
+          data: {
+            ...batchMetadata,
+            blockedRound: {
+              roundId: round.roundId,
+              name: round.name,
+              previousRoundId: roundPrevious.roundId,
+              previousRoundName: roundPrevious.name,
+            },
+          },
+        });
+      }
+
+      const roundPassedSpellers = roundPreviousParticipants.filter((row) => row.status === "Pass");
+      if (!roundPassedSpellers.length) {
+        return res.status(400).json({
+          message: "No speller has been marked as passed from previous round",
+          data: {
+            ...batchMetadata,
+            blockedRound: {
+              roundId: round.roundId,
+              name: round.name,
+              previousRoundId: roundPrevious.roundId,
+              previousRoundName: roundPrevious.name,
+            },
+          },
+        });
+      }
+
+      const requestedRooms = Math.max(1, Math.ceil(roundPassedSpellers.length / roundCup.breakCapacity));
+      sameNumberRoundPlans.push({
+        roundId: round.roundId,
+        roundName: round.name,
+        previousRoundId: roundPrevious.roundId,
+        previousRoundName: roundPrevious.name,
+        passCount: roundPassedSpellers.length,
+        requestedRooms,
+        assignedRooms: 0,
+        roomAllocations: [],
+        warnings: [],
+      });
+    }
+
+    let roomCursor = 0;
+    for (const planItem of sameNumberRoundPlans) {
+      const round = allSameNumberRounds.find((item) => item.roundId === planItem.roundId)!;
+      const roundCup = context.cups.find((item) => item.id === round.cupCategoryId)!;
+      const roundCupRounds = breakRoundsByCup.get(round.cupCategoryId as number) ?? [];
+      const roundPrevious = roundCupRounds[roundCupRounds.findIndex((item) => item.roundId === round.roundId) - 1]!;
+
+      const roundPreviousParticipants = await db
+        .select({
+          spellerId: drawSpellers.spellerId,
+          institutionId: spellers.institutionId,
+          status: resultsSB.status,
+        })
+        .from(drawsSB)
+        .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
+        .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
+        .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
+        .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundPrevious.roundId)))
+        .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
+
+      const roundPassedSpellers = roundPreviousParticipants.filter((row) => row.status === "Pass");
+      const assignedRooms = Math.min(planItem.requestedRooms, rooms.length - roomCursor);
+      const selectedRooms = rooms.slice(roomCursor, roomCursor + assignedRooms);
+      roomCursor += assignedRooms;
+
+      planItem.assignedRooms = assignedRooms;
+      if (assignedRooms < planItem.requestedRooms) {
+        planItem.warnings.push(`${planItem.roundName}: requested ${planItem.requestedRooms} rooms, found ${assignedRooms}`);
+      }
+
+      const usableSpellerCount = Math.min(roundPassedSpellers.length, assignedRooms * roundCup.breakCapacity);
+      if (usableSpellerCount < roundPassedSpellers.length) {
+        planItem.warnings.push(
+          `${planItem.roundName}: ${roundPassedSpellers.length - usableSpellerCount} passed spellers could not be placed because only ${assignedRooms} rooms were available`
+        );
+      }
+
+      const roomAllocations = allocateSlidingPowerPair(
+        selectedRooms.map((room) => ({ roomId: room.roomId })),
+        roundPassedSpellers.slice(0, usableSpellerCount)
+      ).map((allocation) => ({
+        roomId: allocation.roomId,
+        allocatedBees: allocation.allocatedBees.map((speller) => ({
+          spellerId: speller.spellerId,
+          institutionId: speller.institutionId,
+        })),
+      }));
+
+      planItem.roomAllocations = roomAllocations;
+    }
+
+    const drawableSameNumberRounds = sameNumberRoundPlans.filter((planItem) => planItem.roomAllocations.length);
+
+    if (!drawableSameNumberRounds.length) {
+      return res.status(400).json({
+        message: "No break draws could be generated for this round number",
+        warnings: sameNumberRoundPlans.flatMap((planItem) => planItem.warnings),
+        data: batchMetadata,
+      });
+    }
+
+    const created = await db.transaction(async (tx) => {
+      const judgeAssignments = allocateJudgesAcrossRoundRooms(
+        judges,
+        drawableSameNumberRounds.map((planItem) => ({
+          roundId: planItem.roundId,
+          roundName: planItem.roundName,
+          roundNumber: targetRound.number,
+          roomAllocations: planItem.roomAllocations,
+        }))
+      );
+
+      const createdRounds: Array<{
+        roundId: number;
+        roundName: string;
+        previousRoundId: number;
+        previousRoundName: string;
+        passCount: number;
+        requestedRooms: number;
+        assignedRooms: number;
+        warnings: string[];
+        draws: Array<{
+          drawId: number;
+          roomId: number;
+          spellerIds: number[];
+          judgeIds: number[];
+        }>;
+      }> = [];
+
+      for (const planItem of drawableSameNumberRounds) {
+        const draws = await createDrawsForRound(tx, {
+          tabId,
+          roundId: planItem.roundId,
+          roomAllocations: planItem.roomAllocations,
+          roomJudgeAssignments: judgeAssignments,
+        });
+
+        createdRounds.push({
+          roundId: planItem.roundId,
+          roundName: planItem.roundName,
+          previousRoundId: planItem.previousRoundId,
+          previousRoundName: planItem.previousRoundName,
+          passCount: planItem.passCount,
+          requestedRooms: planItem.requestedRooms,
+          assignedRooms: planItem.assignedRooms,
+          warnings: planItem.warnings,
+          draws,
+        });
+      }
+
+      return createdRounds;
+    });
+
+    return res.status(201).json({
+      message: "Break draws generated successfully",
+      warnings: sameNumberRoundPlans.flatMap((planItem) => planItem.warnings),
+      data: {
+        roundNumber: targetRound.number,
+        batch: batchMetadata,
+        generatedRounds: created,
+      },
+    });
+  } catch (error) {
+    console.error("generateBreakDraw error:", error);
+    return res.status(500).json({ message: "failed to generate break draw" });
   }
 }

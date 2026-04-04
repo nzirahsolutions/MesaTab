@@ -24,8 +24,8 @@ export default function SpellingAdmin({tab, event}) {
   const [access, setAccess]=useState('admin');
   const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFulltab]=useState(null);
-  const breakPhases=['Triples','Doubles','Octos','Quarters','Semis','Finals'];
   const roundTypes=['Timed','Word Limit'];
+  const resultStatus=['Incomplete','Pass','Eliminated'];
 
   async function getFullTab() {
     try {
@@ -68,6 +68,20 @@ export default function SpellingAdmin({tab, event}) {
   const [wordStates, setWordStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Word Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Word Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Word Updated'});
   
   const [drawStates, setDrawSates]=useState({generateSuccess:false, generateError:false, generateLoading:false, generateErrorMessage:'Something went wrong', generateSuccessMessage:'Draw Generated',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Draw Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Draw Updated'});
+  const [breakStates, setBreakStates]=useState({
+    previewLoading:false,
+    previewError:false,
+    previewSuccess:false,
+    previewErrorMessage:'Something went wrong',
+    previewData:null,
+    lastBatch:null,
+    generateLoading:false,
+    generateError:false,
+    generateSuccess:false,
+    generateErrorMessage:'Something went wrong',
+    generateSuccessMessage:'Break Draws Generated',
+    generatingRoundId:null,
+  });
   
   const [resultStates, setResultStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Ballot Submitted',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Ballot Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
 
@@ -743,6 +757,81 @@ useEffect(() => {
         default: console.log('check submitDraw');
     }
   }
+  async function previewBreaks(){
+    setBreakStates((prev)=>({
+      ...prev,
+      previewLoading:true,
+      previewError:false,
+      previewSuccess:false,
+      generateError:false,
+      generateSuccess:false,
+    }));
+    try {
+      const res = await axios.post(`${currentServer}/sb/draw/breaks`, { tabId: tab.tabId });
+      setBreakStates((prev)=>({
+        ...prev,
+        previewLoading:false,
+        previewError:false,
+        previewSuccess:true,
+        previewData: res.data?.data ?? null,
+        lastBatch: null,
+      }));
+    } catch (err) {
+      const message= err?.response?.data?.message || "Something went wrong";
+      setBreakStates((prev)=>({
+        ...prev,
+        previewLoading:false,
+        previewSuccess:false,
+        previewError:true,
+        previewErrorMessage:message,
+      }));
+    }
+  }
+  async function generateBreakDraws(roundId=null){
+    setBreakStates((prev)=>({
+      ...prev,
+      generateLoading:true,
+      generateError:false,
+      generateSuccess:false,
+      generatingRoundId: roundId,
+    }));
+    try {
+      const payload = roundId ? { tabId: tab.tabId, roundId } : { tabId: tab.tabId };
+      const res = await axios.post(`${currentServer}/sb/draw/break-generate`, payload);
+      await getFullTab();
+      try {
+        const previewRes = await axios.post(`${currentServer}/sb/draw/breaks`, { tabId: tab.tabId });
+        setBreakStates((prev)=>({
+          ...prev,
+          previewData: previewRes.data?.data ?? prev.previewData,
+          previewSuccess:true,
+          previewError:false,
+          lastBatch: res.data?.data?.batch ?? prev.lastBatch,
+        }));
+      } catch (previewErr) {
+        console.error(previewErr);
+      }
+      setBreakStates((prev)=>({
+        ...prev,
+        generateLoading:false,
+        generateError:false,
+        generateSuccess:true,
+        generateSuccessMessage:res.data?.message || 'Break Draws Generated',
+        generatingRoundId:null,
+      }));
+    } catch (err) {
+      const message= err?.response?.data?.message || "Something went wrong";
+      setBreakStates((prev)=>({
+        ...prev,
+        generateLoading:false,
+        generateSuccess:false,
+        generateError:true,
+        generateErrorMessage:message,
+        lastBatch: err?.response?.data?.data?.batch ?? null,
+        generatingRoundId:null,
+      }));
+    }
+  }
   async function submitResult(e){
     e.preventDefault();
     switch(navState.result){
@@ -822,6 +911,35 @@ useEffect(() => {
                     result: {
                         ...(speller.result ?? {}),
                         score,
+                    },
+                    }
+                : speller
+            ),
+            },
+        },
+        };
+    });
+}
+  function updateBatchStatus(spellerId, status) {
+    status=status.target.value;
+    // console.log(status);
+    setBatchStates({...batchStates, updateSuccess: false, updateError: false, updateLoading: false});
+    setUpdateItems((prev) => {
+        if (!prev.batch.updates) return prev;
+
+        return {
+        ...prev,
+        batch: {
+            ...prev.batch,
+            updates: {
+            ...prev.batch.updates,
+            spellers: prev.batch.updates.spellers.map((speller) =>
+                speller.id === spellerId
+                ? {
+                    ...speller,
+                    result: {
+                        ...(speller.result ?? {}),
+                        status,
                     },
                     }
                 : speller
@@ -1528,37 +1646,56 @@ useEffect(() => {
     </>);
   }
   function draws(){
+    const preliminaryRounds = fullTab?.rounds?.filter((round)=>!round.breaks) || [];
+    const breakRounds = fullTab?.rounds?.filter((round)=>round.breaks) || [];
+    const breakPreview = breakStates.previewData;
+    const lastBatch = breakStates.lastBatch;
+
+    function renderDrawCards(rounds, emptyMessage){
+      return rounds.length>0
+      ? rounds.map((round)=> {
+          const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
+          return (
+            <div key={round.roundId} style={{display:'grid', gap:'0.75rem', marginBottom:'1rem'}}>
+              <h3 style={{marginBottom:0}}>{round.name}</h3>
+              {!roundDraws.length
+                ? <p>{emptyMessage}</p>
+                : 
+                <div className="roomCard">
+                    <div className="roomHeader" style={{display:'grid',gridAutoFlow:'column', gridTemplateColumns:'1fr 1fr fr'}}>
+                        <span>Room</span>
+                        <span>Adjudicators</span>
+                        <span>Spellers</span>
+                    </div>
+                    {roundDraws.map((r,n)=>
+                    <div key={n} className="roomBody" style={{display:'flex',flexDirection:'row', width:'100%'}}>
+                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.room.name}</p>
+                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.judges.map((j,i)=><li style={{display: "block"}} key={i}>{j.name}</li>)}</p>
+                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.spellers.map((s,i)=><li style={{display: "block"}} key={i}>{s.name}</li>)}</p>
+                    </div>)}
+                </div>
+                }
+            </div>
+          );
+        })
+      : <p>{emptyMessage}</p>;
+    }
+
     return(
     <>
     <div className="buttonStack">
         <button className={navState.draw==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'review'})}>Review</button>
         <button className={navState.draw==='generate'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'generate'})}>Generate</button>
+        <button className={navState.draw==='breaks'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'breaks'})}>Breaks</button>
         <button className={navState.draw==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'update'})}>Update</button>
         <button className={navState.draw==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'delete'})}>Delete</button>
     </div>
     {navState.draw==='review'&&
     <section id="drawReview">
-        <h2>Draws</h2>
-        {fullTab.draws?.length>0? 
-        <>
-        <select name="roundId" value={reviewItems.draw.roundId} onChange={drawOnChange}>
-            <option value={0}>Select Round</option>
-            {fullTab.rounds.map((r,i)=><option key={i} value={r.roundId}>{r.name}</option>)}
-        </select>
-        {fullTab.draws.find((a)=>a.roundId===reviewItems.draw.roundId)?fullTab.draws.filter((a)=>a.roundId===reviewItems.draw.roundId).map((r,n)=>
-        <div className="roomCard" key={n}>
-            <div className="roomHeader">
-                <h2 style={{margin:0}}>{r.room.name}</h2>
-                
-                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
-                }</span><p style={{display:'grid',gridTemplateColumns:'2fr 1fr', textAlign:'center', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span></p></div>
-            </div>
-            <div className="roomBody">
-                {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'2fr 1fr', textAlign:'center'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span></li>)}
-            </div>
-        </div>):<p>Draw for this round is not out yet</p>}
-        </>
-          :<p>No Draws Made</p>}
+        <h2>Preliminary Draws</h2>
+        {renderDrawCards(preliminaryRounds, 'Draw for this preliminary round is not out yet')}
+        <h2>Out Draws</h2>
+        {renderDrawCards(breakRounds, 'Draw for this out round is not out yet')}
     </section>}
     {navState.draw==='generate'&&
     <section id="drawGenerate">
@@ -1573,6 +1710,126 @@ useEffect(() => {
             {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
             {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
         </form>
+    </section>}
+    {navState.draw==='breaks' &&
+    <section id="drawBreaks" style={{display:'grid', gap:'1rem'}}>
+        <div className="buttonStack">
+          <button type="button" className="darkButton" onClick={previewBreaks} disabled={breakStates.previewLoading}>
+            {breakStates.previewLoading ? 'Previewing' : 'Preview Breaks'}
+          </button>
+          <button
+            type="button"
+            className="darkButton"
+            onClick={()=>generateBreakDraws()}
+            disabled={breakStates.generateLoading}
+          >
+            {breakStates.generateLoading && breakStates.generatingRoundId===null ? 'Generating' : 'Generate First-Phase Break Draws'}
+          </button>
+        </div>
+        {breakStates.previewError && <p style={{color:'red'}}>{breakStates.previewErrorMessage}</p>}
+        {breakStates.generateError && <p style={{color:'red'}}>{breakStates.generateErrorMessage}</p>}
+        {breakStates.generateSuccess && <p style={{color:'green'}}>{breakStates.generateSuccessMessage}</p>}
+        {lastBatch &&
+        <div className="roomCard" style={{padding:'0.75rem', display:'grid', gap:'0.5rem'}}>
+          <h2 style={{marginBottom:0}}>Judge Pool Batch</h2>
+          <p style={{margin:0}}>Shared Round Number: {lastBatch.roundNumber}</p>
+          {lastBatch.blockedRound &&
+            <p style={{margin:0, color:'darkred'}}>
+              Blocked at {lastBatch.blockedRound.name} after {lastBatch.blockedRound.previousRoundName}
+            </p>}
+          <div style={{display:'grid', gap:'0.2rem'}}>
+            <strong>Included Rounds</strong>
+            {lastBatch.includedRounds?.length
+              ? lastBatch.includedRounds.map((round)=>(
+                <span key={`included-${round.roundId}`}>
+                  {round.name} ({round.breakPhase || '-'}) - {round.reason}
+                </span>
+              ))
+              : <span>No included rounds</span>}
+          </div>
+          <div style={{display:'grid', gap:'0.2rem'}}>
+            <strong>Skipped Rounds</strong>
+            {lastBatch.skippedRounds?.length
+              ? lastBatch.skippedRounds.map((round)=>(
+                <span key={`skipped-${round.roundId}`}>
+                  {round.name} ({round.breakPhase || '-'}) - {round.reason}
+                </span>
+              ))
+              : <span>No skipped rounds</span>}
+          </div>
+        </div>}
+        {breakPreview &&
+        <>
+          <div style={{display:'grid', gap:'0.35rem'}}>
+            <h2 style={{marginBottom:0}}>Break Summary</h2>
+            <p style={{margin:0}}>Ranked Spellers: {breakPreview.summary?.totalRankedSpellers ?? 0}</p>
+            <p style={{margin:0}}>Rooms: {breakPreview.summary?.totalRooms ?? 0}</p>
+            {breakPreview.summary?.incompletePrelimRounds?.length>0 &&
+              <p style={{margin:0, color:'darkred'}}>Incomplete prelim rounds: {breakPreview.summary.incompletePrelimRounds.map((round)=>round.name).join(', ')}</p>}
+            {breakPreview.errors?.length>0 && <p style={{margin:0, color:'darkred'}}>{breakPreview.errors.join(' | ')}</p>}
+            {breakPreview.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{breakPreview.warnings.join(' | ')}</p>}
+          </div>
+
+          <div style={{display:'grid', gap:'0.75rem'}}>
+            <h2 style={{marginBottom:0}}>First-Phase Breaks</h2>
+            {breakPreview.firstPhaseRounds?.length>0
+            ? breakPreview.firstPhaseRounds.map((round)=>(
+              <div key={round.cupId} className="roomCard" style={{padding:'0.75rem'}}>
+                <div style={{display:'grid', gap:'0.35rem'}}>
+                  <strong>{round.roundName || `${round.cupCategory} First Phase`}</strong>
+                  <span>Cup: {round.cupCategory || '-'}</span>
+                  <span>Phase: {round.breakPhase || '-'}</span>
+                  <span>Expected qualifiers: {round.trueBreakCapacity}</span>
+                  <span>Qualifiers found: {round.qualifiersFound}</span>
+                  <span>Requested rooms: {round.requestedRooms}</span>
+                  <span>Assigned rooms: {round.assignedRooms}</span>
+                  <span>Status: {round.ready ? 'Ready for bulk generation' : 'Blocked / partial'}</span>
+                  {round.blockers?.length>0 && <p style={{margin:0, color:'darkred'}}>{round.blockers.join(' | ')}</p>}
+                  {round.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{round.warnings.join(' | ')}</p>}
+                  <button
+                    type="button"
+                    className="darkButton"
+                    disabled={!round.ready || breakStates.generateLoading}
+                    onClick={()=>generateBreakDraws(round.roundId)}
+                  >
+                    {breakStates.generateLoading && breakStates.generatingRoundId===round.roundId ? 'Generating' : 'Generate First-Phase Set'}
+                  </button>
+                </div>
+              </div>
+            ))
+            : <p>No first-phase break rounds found</p>}
+          </div>
+
+          <div style={{display:'grid', gap:'0.75rem'}}>
+            <h2 style={{marginBottom:0}}>Subsequent Break Rounds</h2>
+            {breakPreview.subsequentRounds?.length>0
+            ? breakPreview.subsequentRounds.map((round)=>(
+              <div key={round.roundId} className="roomCard" style={{padding:'0.75rem'}}>
+                <div style={{display:'grid', gap:'0.35rem'}}>
+                  <strong>{round.roundName}</strong>
+                  <span>Phase: {round.breakPhase}</span>
+                  <span>Previous round: {round.previousRoundName}</span>
+                  <span>Passed spellers: {round.passCount}</span>
+                  <span>Requested rooms: {round.requestedRooms}</span>
+                  <span>Assigned rooms: {round.assignedRooms}</span>
+                  <span>Status: {round.ready ? 'Ready' : 'Blocked'}</span>
+                  {round.blockers?.length>0 && <p style={{margin:0, color:'darkred'}}>{round.blockers.join(' | ')}</p>}
+                  {round.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{round.warnings.join(' | ')}</p>}
+                  <button
+                    type="button"
+                    className="darkButton"
+                    disabled={!round.ready || breakStates.generateLoading}
+                    onClick={()=>generateBreakDraws(round.roundId)}
+                  >
+                    {breakStates.generateLoading && breakStates.generatingRoundId===round.roundId ? 'Generating' : 'Generate Draw'}
+                  </button>
+                </div>
+              </div>
+            ))
+            : <p>No later break rounds found</p>}
+          </div>
+        </>}
+        {!breakPreview && !breakStates.previewLoading && <p>Preview breaks to inspect first-phase allocations and later-round readiness.</p>}
     </section>}
     {navState.draw==='update' &&
     <section id="drawUpdate">
@@ -1694,13 +1951,20 @@ useEffect(() => {
                 }</span><p style={{display:'grid',gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
             </div>
             <div className="roomBody">
-                {r.spellers.map((s,y)=><li style={{gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span><span>{s.result?.score?? '-'}</span>
-                <span><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, result:{...s,spellerId: s.id ,roundId: reviewItems.result.roundId, roomId: r.room.id, score: s.result?.score}});
-                setNavState({...navState, result:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, result:{...s, confirm:false, roomId: r.room.id, roundId: reviewItems.result.roundId, spellerId: s.id}});
-                setNavState({...navState, result:'delete'});}}/></span></li>)}
+                {r.spellers.map((s,y)=>
+                <li style={{gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}>
+                    <span>{s.name}</span>
+                    <span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
+                    <span>{s.result?.score? s.result.score: s.result?.status? s.result.status : '-'}</span>
+                    <span><FaAngleDoubleUp fill="teal" onClick={()=>{
+                        setUpdateItems({...updateItems, result:{...s,spellerId: s.id ,roundId: reviewItems.result.roundId, roomId: r.room.id, score: s.result?.score}});
+                        setNavState({...navState, result:'update'});
+                        }}/>
+                        <RiDeleteBin6Fill fill="red" onClick={()=>{
+                            setDeleteItems({...deleteItems, result:{...s, confirm:false, roomId: r.room.id, roundId: reviewItems.result.roundId, spellerId: s.id}});
+                            setNavState({...navState, result:'delete'});}}/>
+                    </span>
+                </li>)}
             </div>
         </div>):<p>Draw for this round is not out yet</p>}
         </>
@@ -1773,7 +2037,15 @@ useEffect(() => {
                 }</span><p style={{display:'grid',gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
             </div>
             <div className="roomBody">
-                {updateItems.batch.updates.spellers?.map((s,y)=>
+                {fullTab.rounds.find(r=> r.roundId===updateItems.batch.roundId).breaks?
+                updateItems.batch.updates.spellers?.map((s,y)=>
+                <li style={{gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
+                <select value={s.result?.status?? 'Incomplete'} onChange={(status) => updateBatchStatus(s.id, status)}>
+                    {resultStatus.map((r,i)=><option key={i} value={r}>{r}</option>)}
+                </select>
+                </li>)
+                : 
+                updateItems.batch.updates.spellers?.map((s,y)=>
                 <li style={{gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span><Cell value={s.result?.score?? 0} onChange={(score) => updateBatchScore(s.id, score)}
                     />
                 </li>)}
