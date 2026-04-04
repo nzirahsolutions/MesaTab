@@ -307,6 +307,7 @@ useEffect(() => {
             setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'update':
+            console.log(updateItems.draw)
             setUpdateItems({...updateItems, draw:{...updateItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'delete':
@@ -1681,6 +1682,20 @@ useEffect(() => {
       : <p>{emptyMessage}</p>;
     }
 
+    function getMissing(spellers, spellersInDraw){
+        const arr1=spellers.map(s=>s.id);
+        const arr2=spellersInDraw.map(s=>s.id);
+        const missingIds=[
+        ...arr1.filter(x => !arr2.includes(x)),
+        ...arr2.filter(x => !arr1.includes(x))
+        ]
+        const missingSpellers= missingIds.map((i)=>{
+            return spellers.find(s=> s.id===i)
+        })
+        // console.log(missingSpellers);
+        return missingSpellers; 
+    }
+
     return(
     <>
     <div className="buttonStack">
@@ -1843,60 +1858,111 @@ useEffect(() => {
             <p>Draw for this round is not out yet</p>
             :            
             <>
-            <strong>Swaps/Moves</strong>
-            <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                <option value={0}>Select First Room</option>
-                {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-            </select>
-            <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                <option value={0}>Select Second Room</option>
-                {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-            </select>
+            <strong>Updates</strong>
             <select name="swapState" value={updateItems.draw.swapState} onChange={drawOnChange}>
                 <option value={0}>Select Update</option>
                 <option value={1}>Swap Spellers</option>
                 <option value={2}>Swap Judges</option>
                 <option value={3}>Move Speller</option>
                 <option value={4}>Move Judge</option>
+                <option value={5}>Add Speller</option>
+                <option value={6}>Add Judge</option>
             </select>
             {updateItems.draw.swapState===1 && 
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select First Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select Second Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
                 <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
                     <option value={0}>Select speller in first room</option>
-                    {/* {console.log(fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId))} */}
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
                 <select name="speller2" value={updateItems.draw.speller2} onChange={drawOnChange}>
                     <option value={0}>Select speller in second room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
             </div>
             }
             {updateItems.draw.swapState===2 && 
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select First Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select Second Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
                 <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
                     <option value={0}>Select judge in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
                 <select name="judge2" value={updateItems.draw.judge2} onChange={drawOnChange}>
                     <option value={0}>Select judge in second room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
             </div>
             }
             {updateItems.draw.swapState===3 && 
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select First Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select Second Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
                 <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
                     <option value={0}>Select speller in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
             </div>
             }
             {updateItems.draw.swapState===4 && 
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select First Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select Second Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
                 <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
                     <option value={0}>Select judge in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }            
+            {updateItems.draw.swapState===5 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
+                    <option value={0}>Select speller to add to room</option>
+                    {/* {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)} */}
+                    {getMissing(fullTab.spellingBees,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.spellers).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+                    {/* <button type="button" onClick={()=>console.log(getMissing(fullTab.spellingBees,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.spellers).flat()))}>test</button> */}
+            </div>
+            }            
+            {updateItems.draw.swapState===6 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select Room</option>
+                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
+                    <option value={0}>Select judge to add to room</option>                    
+                    {getMissing(fullTab.judges,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.judges).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
                 </select>
             </div>
             }            

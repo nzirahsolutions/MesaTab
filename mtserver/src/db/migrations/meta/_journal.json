@@ -169,6 +169,13 @@
       "when": 1775220089889,
       "tag": "0023_melted_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1775310859519,
+      "tag": "0024_certain_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

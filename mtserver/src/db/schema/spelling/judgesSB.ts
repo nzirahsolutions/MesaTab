@@ -1,4 +1,4 @@
-import { index, pgTable, text, serial, uuid, uniqueIndex, integer, unique } from 'drizzle-orm/pg-core';
+import { index, pgTable,boolean, text, serial, uuid, uniqueIndex, integer, unique } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { tabsSB } from './tabsSB';
 import { institutionsSB } from './institutionsSB';
@@ -12,6 +12,7 @@ export const judgesSB = pgTable(
     institutionId: integer('institution_id').notNull().references(() => institutionsSB.institutionId, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     email: text('email'),
+    available: boolean('available').notNull().default(true),
   },
   (j) => ({
     tabIdIdx: index('judges_sb_tabId_idx').on(j.tabId),

@@ -1,4 +1,4 @@
-import { index, pgTable, text, serial, uuid, uniqueIndex, integer, unique } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, boolean,serial, uuid, uniqueIndex, integer, unique } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { tabsSB } from './tabsSB';
 import { institutionsSB } from './institutionsSB';
@@ -11,6 +11,7 @@ export const spellers = pgTable('spellers',
     institutionId: integer('institution_id').notNull().references(() => institutionsSB.institutionId, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     email: text('email'),
+    available: boolean('available').notNull().default(true),
   },
   (p) => ({
     tabIdIdx: index('spellers_tabId_idx').on(p.tabId),

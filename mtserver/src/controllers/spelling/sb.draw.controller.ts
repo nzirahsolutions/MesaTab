@@ -334,9 +334,9 @@ export async function updateDraw(req: Request, res: Response){
       speller2: number;
       tabId:string;
     }
-    if(!roundId || room1==0 || room2===0 || swapState===0 || !tabId)
+    if(swapState!==5 && swapState!==6 && (!roundId || room1==0 || room2===0 || swapState===0 || !tabId))
         return res.status(400).json({message:'Must select rounds, rooms and update operation'});
-    if(room1==room2)
+    if(swapState!==5 && swapState!==6 && room1==room2)
         return res.status(400).json({message:'Select different rooms'});
     if(swapState===1 && (!speller1 || !speller2))
         return res.status(400).json({message:'Select two spellers to swap'});
@@ -346,6 +346,10 @@ export async function updateDraw(req: Request, res: Response){
         return res.status(400).json({message:'Select speller to move'});
     if(swapState===4 && !judge1)
         return res.status(400).json({message:'Select judge to move'});
+    if(swapState===5 && (!speller1 || room1==0))
+        return res.status(400).json({message:`Select speller and room to add`});
+    if(swapState===6 && (!judge1 || room1==0))
+        return res.status(400).json({message:'Select judge and room to add'});
     
     //confirm round exists in tab
     const [round] = await db
@@ -723,6 +727,115 @@ export async function updateDraw(req: Request, res: Response){
       });
       return res.status(200).json({
       message: "Judge moved successfully",
+      data: updated,
+      });
+    }
+
+    //add speller
+    if(swapState===5){
+      const updated=await db.transaction(async (tx)=>{
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsSB.drawId,  })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Room had no draw in this round');
+
+        //check if speller already in draw
+        const [spellerInDraw] = await tx
+          .select({ id: drawSpellers.id })
+          .from(drawSpellers)
+          .where(
+            and(
+              eq(drawSpellers.tabId, tabId),
+              eq(drawSpellers.drawId, draw1.drawId),
+              eq(drawSpellers.spellerId, speller1)
+            )
+          )
+          .limit(1);
+
+        if (spellerInDraw) {
+          throw new Error("Speller already in draw for this round");
+        }
+
+        //add new speller draw
+        await tx.insert(drawSpellers).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          spellerId: speller1,
+        });
+
+        return {
+          roundId,
+          room1,
+          speller1,
+          speller1AddedTo: room1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Speller added successfully",
+      data: updated,
+      });
+    }
+    //add judge
+    if(swapState===6){
+      const updated=await db.transaction(async (tx)=>{
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsSB.drawId,  })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Room had no draw in this round');
+
+        //check if judge already in draw
+        const [judgeInDraw] = await tx
+          .select({ id: drawJudgesSB.id })
+          .from(drawJudgesSB)
+          .where(
+            and(
+              eq(drawJudgesSB.tabId, tabId),
+              eq(drawJudgesSB.drawId, draw1.drawId),
+              eq(drawJudgesSB.judgeId, judge1)
+            )
+          )
+          .limit(1);
+
+        if (judgeInDraw) {
+          throw new Error("Judge already in draw for this round");
+        }
+
+        //add new judge draw
+        await tx.insert(drawJudgesSB).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          judgeId: judge1,
+        });
+
+        return {
+          roundId,
+          room1,
+          judge1,
+          judgeAddedTo: room1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Judge added successfully",
       data: updated,
       });
     }

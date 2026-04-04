@@ -118,6 +118,7 @@ export async function getFullTab(req: Request, res: Response) {
             name: spellers.name,
             email: spellers.email,
             institutionId: spellers.institutionId,
+            available: spellers.available,
           })
           .from(spellers)
           .where(eq(spellers.tabId, tab.tabId)),
