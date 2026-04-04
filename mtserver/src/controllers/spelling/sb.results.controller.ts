@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../../db/db';
-import { resultsSB, standingsSB, drawSpellers, drawsSB, spellers } from '../../db/schema';
+import { resultsSB, standingsSB, drawSpellers, drawsSB, spellers, roundsSB } from '../../db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
@@ -102,6 +102,19 @@ export async function ballot(req: Request,res: Response){
     if (status !== undefined && !allowedStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid result status" });
     }
+    //confirm round exists in tab and if complete
+        const [round] = await db
+          .select({
+            completed: roundsSB.completed,
+          })
+          .from(roundsSB)
+          .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+          .limit(1);
+        if (!round) {
+          return res.status(404).json({ message: "Round not found in this tab" });
+        }
+        if(round.completed)
+          return res.status(400).json({message: 'This round has been marked as completed on tab'});
 
     //find drawId from room and round ids
     const drawId=await db.select({drawId: drawsSB.drawId})
@@ -195,7 +208,20 @@ export async function batchBallot(req: Request, res: Response) {
 
     if (!tabId || !roundId || !roomId || !Array.isArray(updates) || !updates.length) {
       return res.status(400).json({ message: "tabId, roundId, roomId and updates are required" });
-    }
+    }    
+    //confirm round exists in tab and if complete
+        const [round] = await db
+          .select({
+            completed: roundsSB.completed,
+          })
+          .from(roundsSB)
+          .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+          .limit(1);
+        if (!round) {
+          return res.status(404).json({ message: "Round not found in this tab" });
+        }
+        if(round.completed)
+          return res.status(400).json({message: 'This round has been marked as completed on tab'});
 
     for (const item of updates) {
       if (!item.spellerId) {
@@ -210,6 +236,7 @@ export async function batchBallot(req: Request, res: Response) {
         return res.status(400).json({ message: `Invalid result status for speller ${item.spellerId}` });
       }
     }
+    
     const drawRow = await db
       .select({ drawId: drawsSB.drawId })
       .from(drawsSB)

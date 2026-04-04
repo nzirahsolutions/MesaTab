@@ -129,6 +129,7 @@ export async function getFullTab(req: Request, res: Response) {
             name: judgesSB.name,
             email: judgesSB.email,
             institutionId: judgesSB.institutionId,
+            available: judgesSB.available,
           })
           .from(judgesSB)
           .where(eq(judgesSB.tabId, tab.tabId)),
@@ -914,21 +915,23 @@ export async function addSpeller(req: Request, res: Response) {
 export async function updateSpeller(req: Request, res: Response) {
     // console.log('Update Institution');
     try {
-        const {name, email, tabId, id, institutionId}=req.body as {
+        const {name, email, tabId, id, institutionId, available}=req.body as {
             name: string;
             email: string;
             tabId: string;
             id: number;
             institutionId: number;
+            available: boolean;
         }
 
         if((!id && !tabId) || !tabId || !id)
             return res.status(400).json({message:'Provide tabId and spellerId'});
 
-        const updates:{name?: string; email?: string, institutionId?:number}={};
+        const updates:{name?: string; email?: string, institutionId?:number, available?: boolean}={};
         if(name) updates.name=name;
         if(email) updates.email=email.trim().toLocaleLowerCase();
         if(institutionId) updates.institutionId=institutionId;
+        updates.available=available;
 
         //ensure email is unique in the same tab
         if(updates.email){
@@ -950,7 +953,8 @@ export async function updateSpeller(req: Request, res: Response) {
           name: spellers.name,
           email: spellers.email,
           institutionId: spellers.institutionId,
-          tabId: institutionsSB.tabId,
+          tabId: spellers.tabId,
+          available: spellers.available,
         });
         if(!updated.length) return res.status(404).json({message:'Speller not found'});
 
@@ -1191,21 +1195,23 @@ export async function addJudge(req: Request, res: Response) {
 }
 export async function updateJudge(req: Request, res: Response) {
     try {
-        const {name, email, tabId, id, institutionId}=req.body as {
+        const {name, email, tabId, id, institutionId, available}=req.body as {
             name?: string;
             email?: string;
             tabId?: string;
             id?: number;
             institutionId?: number;
+            available?: boolean;
         }
 
         if(!tabId || !id)
             return res.status(400).json({message:'Provide tabId and judgeId'});
 
-        const updates:{name?: string; email?: string; institutionId?:number}={};
+        const updates:{name?: string; email?: string; institutionId?:number; available?:boolean;}={};
         if(name) updates.name=name;
         if(email) updates.email=email.trim().toLocaleLowerCase();
         if(institutionId) updates.institutionId=institutionId;
+        updates.available=available;
 
         if(updates.email){
           const existing=await db
@@ -1227,6 +1233,7 @@ export async function updateJudge(req: Request, res: Response) {
           email: judgesSB.email,
           institutionId: judgesSB.institutionId,
           tabId: judgesSB.tabId,
+          available: judgesSB.available,
         });
         if(!updated.length) return res.status(404).json({message:'Judge not found'});
 

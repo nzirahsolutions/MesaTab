@@ -45,7 +45,7 @@ export default function SpellingAdmin({tab, event}) {
   
   const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', blind: false, breaks:false, type:'', breakCategory:'', breakPhase:''}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:'', available: true},judge:{name:'',institutionId:0,email:'', available: true}, room:{name:''},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
 
   const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
 
@@ -205,7 +205,10 @@ useEffect(() => {
             setAddItems({...addItems, speller:{...addItems.speller,[e.target.name]:e.target.value}});
             break;
         case 'update':
-            setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.value}});
+            if(e.target.type=='checkbox')
+                setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.checked}});
+            else
+                setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.value}});
             break;
         case 'delete':
             setDeleteItems({...deleteItems, speller:{...deleteItems.speller,[e.target.name]:e.target.checked}});
@@ -237,7 +240,10 @@ useEffect(() => {
             setAddItems({...addItems, judge:{...addItems.judge,[e.target.name]:e.target.value}});
             break;
         case 'update':
-            setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.value}});
+            if(e.target.type==='checkbox')
+                setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.checked}});
+            else
+                setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.value}});
             break;
         case 'delete':
             setDeleteItems({...deleteItems, judge:{...deleteItems.judge,[e.target.name]:e.target.checked}});
@@ -459,7 +465,7 @@ useEffect(() => {
             break;
         case 'update':
             setSpellerStates({...spellerStates, updateLoading: true});
-            // console.log('update sp');
+            // console.log(updateItems.speller);
             try {
                 const res=await axios.put(`${currentServer}/sb/speller`,{...updateItems.speller, tabId: tab.tabId});
                 setUpdateItems({...updateItems, speller:{...defaultItems.speller}});
@@ -1120,17 +1126,19 @@ useEffect(() => {
         <div className="tableScroll">
         <table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <th>Name</th>
               <th>School</th>
+              <th>Available</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.spellingBees.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
+              <td>{p.available? '\u2714': '\u2718'}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, speller:{...p}});
                 setNavState({...navState, speller:'update'});
@@ -1169,6 +1177,7 @@ useEffect(() => {
             </select>
             <input type="text" placeholder="Speller Name" required name="name" value={updateItems.speller.name} onChange={spellerOnChange}/>
             <input type="email" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
+            <input type="checkbox" checked={updateItems.speller.available} name="available" onChange={spellerOnChange}/>
             <button className="darkButton" disabled={spellerStates.updateLoading}>{spellerStates.updateLoading? 'Updating':'Update Speller'}</button>
             {spellerStates.updateError &&<p style={{color:'red'}}>{spellerStates.updateErrorMessage}</p>}
             {spellerStates.updateSuccess &&<p style={{color:'green'}}>{spellerStates.updateSuccessMessage}</p>}
@@ -1208,19 +1217,21 @@ useEffect(() => {
         {fullTab.judges?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
               <th>Name</th>
               <th>Institution</th>
               <th>Email</th>
+              <th>Available</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.judges.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
+              <td>{p.available? '\u2714': '\u2718'}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, judge:{...p}});
                 setNavState({...navState, judge:'update'});
@@ -1263,6 +1274,7 @@ useEffect(() => {
                 <option value=''>Choose Institution</option>
                 {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
+            <input type="checkbox" checked={updateItems.judge.available} name="available" onChange={judgeOnChange}/>
             <button className="darkButton" disabled={judgeStates.updateLoading}>{judgeStates.updateLoading? 'Updating':'Update Judge'}</button>
             {judgeStates.updateError &&<p style={{color:'red'}}>{judgeStates.updateErrorMessage}</p>}
             {judgeStates.updateSuccess &&<p style={{color:'green'}}>{judgeStates.updateSuccessMessage}</p>}

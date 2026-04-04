@@ -147,6 +147,7 @@ export async function generateDraw(req: Request, res: Response){
         tabId: roundsSB.tabId,
         name: roundsSB.name,
         breaks: roundsSB.breaks,
+        completed: roundsSB.completed,
       })
       .from(roundsSB)
       .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
@@ -154,6 +155,10 @@ export async function generateDraw(req: Request, res: Response){
     if (!round) {
       return res.status(404).json({ message: "Round not found in this tab" });
     }
+
+    //prevent redraw of completed rounds
+    if(round.completed)
+      return res.status(400).json({message: 'This round has been marked as completed on tab'});
 
     // Load required entities
     const [rooms, bees, judges] = await Promise.all([
@@ -171,7 +176,7 @@ export async function generateDraw(req: Request, res: Response){
           institutionId: spellers.institutionId,
         })
         .from(spellers)
-        .where(eq(spellers.tabId, tabId)),
+        .where(and(eq(spellers.tabId, tabId),eq(spellers.available, true))),
 
       db
         .select({
@@ -179,12 +184,12 @@ export async function generateDraw(req: Request, res: Response){
           institutionId: judgesSB.institutionId,
         })
         .from(judgesSB)
-        .where(eq(judgesSB.tabId, tabId)),
+        .where(and(eq(judgesSB.tabId, tabId),eq(judgesSB.available, true))),
     ]);
 
     if (!rooms.length) return res.status(400).json({ message: "No rooms found for this tab" });
-    if (!bees.length) return res.status(400).json({ message: "No spellers found for this tab" });
-    if (!judges.length) return res.status(400).json({ message: "No judges found in this tab" });
+    if (!bees.length) return res.status(400).json({ message: "No spellers available for this tab" });
+    if (!judges.length) return res.status(400).json({ message: "No judges available in this tab" });
 
     let shuffledBees = shuffle(bees);
     if (powerPair) {
@@ -358,6 +363,7 @@ export async function updateDraw(req: Request, res: Response){
         tabId: roundsSB.tabId,
         name: roundsSB.name,
         breaks: roundsSB.breaks,
+        completed: roundsSB.completed,
       })
       .from(roundsSB)
       .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
@@ -365,6 +371,10 @@ export async function updateDraw(req: Request, res: Response){
     if (!round) {
       return res.status(404).json({ message: "Round not found in this tab" });
     }
+
+    //prevent redraw of completed rounds
+    if(round.completed)
+      return res.status(400).json({message: 'This round has been marked as completed on tab'});
 
     //swap spellers
     if(swapState===1){
@@ -862,12 +872,16 @@ export async function deleteDraw(req: Request, res: Response){
         tabId: roundsSB.tabId,
         name: roundsSB.name,
         breaks: roundsSB.breaks,
+        completed: roundsSB.completed,
       })
       .from(roundsSB)
       .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
       .limit(1);
     if (!round) {
       return res.status(404).json({ message: "Round not found in this tab" });
+    }
+    if (round.completed) {
+      return res.status(400).json({ message: "Cannot delete draw for a completed round" });
     }
     //find draws
     const existing= await db
@@ -1111,7 +1125,7 @@ async function getBreakContext(tabId: string) {
       })
       .from(standingsSB)
       .innerJoin(spellers, eq(spellers.spellerId, standingsSB.spellerId))
-      .where(eq(standingsSB.tabId, tabId))
+      .where(and(eq(standingsSB.tabId, tabId), eq(spellers.available, true)))
       .orderBy(asc(standingsSB.rank), asc(standingsSB.spellerId)),
 
     db
@@ -1168,7 +1182,13 @@ async function getSubsequentBreakRoundReadiness(params: {
     .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
     .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
     .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
-    .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, previousRound.roundId)))
+    .where(
+      and(
+        eq(drawsSB.tabId, tabId),
+        eq(drawsSB.roundId, previousRound.roundId),
+        eq(spellers.available, true)
+      )
+    )
     .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
 
   const blockers: string[] = [];
@@ -1433,7 +1453,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
           institutionId: judgesSB.institutionId,
         })
         .from(judgesSB)
-        .where(eq(judgesSB.tabId, tabId)),
+        .where(and(eq(judgesSB.tabId, tabId), eq(judgesSB.available, true))),
     ]);
 
     if (!rooms.length) {
@@ -1441,7 +1461,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
     }
 
     if (!judges.length) {
-      return res.status(400).json({ message: "No judges found in this tab" });
+      return res.status(400).json({ message: "No judges available in this tab" });
     }
 
     if (!roundId) {
@@ -1668,7 +1688,13 @@ export async function generateBreakDraw(req: Request, res: Response) {
       .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
       .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
       .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
-      .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, previousRound.roundId)))
+      .where(
+        and(
+          eq(drawsSB.tabId, tabId),
+          eq(drawsSB.roundId, previousRound.roundId),
+          eq(spellers.available, true)
+        )
+      )
       .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
 
     if (!previousParticipants.length) {
@@ -1776,7 +1802,13 @@ export async function generateBreakDraw(req: Request, res: Response) {
         .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
         .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
         .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
-        .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundPrevious.roundId)))
+        .where(
+          and(
+            eq(drawsSB.tabId, tabId),
+            eq(drawsSB.roundId, roundPrevious.roundId),
+            eq(spellers.available, true)
+          )
+        )
         .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
 
       if (!roundPreviousParticipants.length) {
@@ -1848,7 +1880,13 @@ export async function generateBreakDraw(req: Request, res: Response) {
         .innerJoin(drawSpellers, eq(drawSpellers.drawId, drawsSB.drawId))
         .innerJoin(spellers, eq(spellers.spellerId, drawSpellers.spellerId))
         .leftJoin(resultsSB, eq(resultsSB.drawSpellerId, drawSpellers.id))
-        .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundPrevious.roundId)))
+        .where(
+          and(
+            eq(drawsSB.tabId, tabId),
+            eq(drawsSB.roundId, roundPrevious.roundId),
+            eq(spellers.available, true)
+          )
+        )
         .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
 
       const roundPassedSpellers = roundPreviousParticipants.filter((row) => row.status === "Pass");
