@@ -20,8 +20,8 @@ export default function Home() {
           <p>Create and run multi-track tournaments with ease</p>
           {user ?
           <div className="buttonStack">
-            <button className="lightButton" onClick={()=>navigate('/events')}>Create Event</button>
-            <button className="lightButton"  onClick={()=>navigate('/events')}>Review Events</button>
+            <button className="lightButton" style={{backgroundColor:'var(--accentcolor)'}} onClick={()=>navigate('/events')}>Create Event</button>
+            <button className="lightButton" style={{backgroundColor:'var(--accentcolor)'}} onClick={()=>navigate('/events')}>Review Events</button>
           </div>:
           <button className="lightButton"  onClick={()=>navigate('/login')}>Log In</button>
           }         

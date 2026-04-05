@@ -371,16 +371,36 @@ select{
   scrollbar-width: none;
   margin-bottom: 0.5rem;
   button{
-  border-radius: 2rem;
-  transition: background-color 0.3s ease;
-}
+    border-radius: 2rem;
+    transition: background-color 0.3s ease;
+    &:hover{
+      scale:1;
+    }
+  }
+  .lightButton{
+    anchor-name: --anch;
+    background-color: transparent;
+    color: var(--brandcolor);
+    z-index: 1;
+  }
   .darkButton{
     &:hover{
       background-color: var(--brandcolor);
       font-weight: bold;
     }
   }
-
+}
+.buttonStack::after{
+  content: '';
+  position: absolute;
+  position-anchor: --anch;
+  background-color: #b5ba72;
+  bottom:anchor(bottom);
+  top:anchor(top);
+  border-radius: 3rem;
+  left:anchor(left);
+  right:anchor(right);
+  transition: left 0.3s, right 0.3s; 
 }
 .eventList{
   display: flex;

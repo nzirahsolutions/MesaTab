@@ -1,0 +1,1 @@
+ALTER TABLE "draws_sb" DROP CONSTRAINT "draws_sb_tab_id_room_id_round_id_unique";

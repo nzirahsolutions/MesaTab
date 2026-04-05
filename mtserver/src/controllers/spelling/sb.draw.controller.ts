@@ -339,7 +339,7 @@ export async function updateDraw(req: Request, res: Response){
       speller2: number;
       tabId:string;
     }
-    if(swapState!==5 && swapState!==6 && (!roundId || room1==0 || room2===0 || swapState===0 || !tabId))
+    if(swapState!==5 && swapState!==6 && swapState!==7 && swapState!==8 && (!roundId || room1==0 || room2===0 || swapState===0 || !tabId))
         return res.status(400).json({message:'Must select rounds, rooms and update operation'});
     if(swapState!==5 && swapState!==6 && room1==room2)
         return res.status(400).json({message:'Select different rooms'});
@@ -355,6 +355,10 @@ export async function updateDraw(req: Request, res: Response){
         return res.status(400).json({message:`Select speller and room to add`});
     if(swapState===6 && (!judge1 || room1==0))
         return res.status(400).json({message:'Select judge and room to add'});
+    if(swapState===7 && (room2==0 || room1==0))
+        return res.status(400).json({message:'Select rooms to swap'});
+    if(swapState===8 && (room2==0 || room1==0))
+        return res.status(400).json({message:'Select rooms to move from and to'});
     
     //confirm round exists in tab
     const [round] = await db
@@ -846,6 +850,203 @@ export async function updateDraw(req: Request, res: Response){
 
       return res.status(200).json({
       message: "Judge added successfully",
+      data: updated,
+      });
+    }
+    //swap rooms
+    if(swapState===7){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsSB.drawId,  })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsSB.drawId })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('One or both rooms had no draws in this round');
+
+        //update draws
+        const [newDraw1]=await tx
+          .update(drawsSB)
+          .set({roomId: room2})
+          .where(and(eq(drawsSB.drawId, draw1.drawId), eq(drawsSB.roomId, room1)))
+          .returning({
+            drawId: drawsSB.drawId,
+            roomId: drawsSB.roomId,
+            roundId: drawsSB.roundId
+          });
+        const [newDraw2]=await tx
+          .update(drawsSB)
+          .set({roomId: room1})
+          .where(and(eq(drawsSB.drawId, draw2.drawId), eq(drawsSB.roomId, room2)))
+          .returning({
+            drawId: drawsSB.drawId,
+            roomId: drawsSB.roomId,
+            roundId: drawsSB.roundId
+          });
+        if(!newDraw1 || !newDraw2) throw new Error('Error updating draws table');
+
+        const newDrawSpellers1=await tx
+          .update(drawSpellers)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawSpellers.drawId, draw1.drawId))
+          .returning({
+            drawId: drawSpellers.drawId,
+            roomId: drawSpellers.roomId,
+          });
+        const newDrawSpellers2=await tx
+          .update(drawSpellers)
+          .set({roomId: newDraw2.roomId})
+          .where(eq(drawSpellers.drawId, draw2.drawId))
+          .returning({
+            drawId: drawSpellers.drawId,
+            roomId: drawSpellers.roomId,
+          });
+        if(!newDrawSpellers1.length || !newDrawSpellers2.length) throw new Error('Error updating speller draws table');
+
+        const newDrawJudges1=await tx
+          .update(drawJudgesSB)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawJudgesSB.drawId, draw1.drawId))
+          .returning({
+            drawId: drawJudgesSB.drawId,
+            roomId: drawJudgesSB.roomId,
+          });
+        const newDrawJudges2=await tx
+          .update(drawJudgesSB)
+          .set({roomId: newDraw2.roomId})
+          .where(eq(drawJudgesSB.drawId, draw2.drawId))
+          .returning({
+            drawId: drawJudgesSB.drawId,
+            roomId: drawJudgesSB.roomId,
+          });
+        if(!newDrawJudges1.length || !newDrawJudges2.length) throw new Error('Error updating judge draws table');
+
+        return {
+          roundId,
+          newRoom1: newDraw2,
+          newRoom2: newDraw1
+        };
+
+      });
+      return res.status(201).json({
+      message: "Rooms swapped successfully",
+      data: updated,
+      });
+    }
+    if(swapState===8){
+      const updated=await db.transaction(async (tx)=>{
+        //confirm round exists        
+        const [currentRound] = await tx
+          .select({ roundId: roundsSB.roundId, number: roundsSB.number })
+          .from(roundsSB)
+          .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+          .limit(1);
+        if (!currentRound) throw new Error("Round not found");
+
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsSB.drawId,  })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Selected Room had no draw in this round');
+
+        //check if new Room had a draw in this round
+        const [draw2] = await tx
+          .select({ drawId: drawsSB.drawId,  })
+          .from(drawsSB)
+          .where(and(
+            eq(drawsSB.tabId, tabId), 
+            eq(drawsSB.roundId, roundId), 
+            eq(drawsSB.roomId, room2)))
+          .limit(1);
+
+        if(draw2)
+          throw new Error('"Move to" room is occupied in this cup');
+
+        //check if another round in a different cup has occupied the room
+        const siblingRounds = await tx
+          .select({ roundId: roundsSB.roundId })
+          .from(roundsSB)
+          .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.number, currentRound.number)));
+
+        const siblingRoundIds = siblingRounds.map((r) => r.roundId);
+
+        const occupiedTarget = await tx
+          .select({ drawId: drawsSB.drawId, roundId: drawsSB.roundId })
+          .from(drawsSB)
+          .where(
+            and(
+              eq(drawsSB.tabId, tabId),
+              eq(drawsSB.roomId, room2),
+              inArray(drawsSB.roundId, siblingRoundIds)
+            )
+          )
+          .limit(1);
+
+        if (occupiedTarget.length) {
+          throw new Error('Target room is occupied by another round in this time slot');
+        }
+
+        
+        //update draw tables
+        const [newDraw1]=await tx
+          .update(drawsSB)
+          .set({roomId: room2})
+          .where(and(eq(drawsSB.drawId, draw1.drawId), eq(drawsSB.roomId, room1)))
+          .returning({
+            drawId: drawsSB.drawId,
+            roomId: drawsSB.roomId,
+            roundId: drawsSB.roundId
+          });
+        if(!newDraw1) throw new Error('Error updating draws table');
+
+        const newDrawSpellers1=await tx
+          .update(drawSpellers)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawSpellers.drawId, draw1.drawId))
+          .returning({
+            drawId: drawSpellers.drawId,
+            roomId: drawSpellers.roomId,
+          });
+        if(!newDrawSpellers1.length) throw new Error('Error updating speller draws table');
+
+        const newDrawJudges1=await tx
+          .update(drawJudgesSB)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawJudgesSB.drawId, draw1.drawId))
+          .returning({
+            drawId: drawJudgesSB.drawId,
+            roomId: drawJudgesSB.roomId,
+          });
+        if(!newDrawJudges1.length) throw new Error('Error updating judge draws table');
+
+        return {
+          roundId,
+          newRoom1: newDraw1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Room moved successfully",
       data: updated,
       });
     }

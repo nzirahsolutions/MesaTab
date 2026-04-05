@@ -361,7 +361,21 @@ export async function deleteBallot(req: Request,res: Response){
       spellerId: number;
     }
     if (!tabId || !roundId || !roomId || !spellerId)
-      return res.status(400).json({message:'specify tab, round, room and speller'})
+      return res.status(400).json({message:'specify tab, round, room and speller'});
+
+    //confirm round exists in tab and if complete
+        const [round] = await db
+          .select({
+            completed: roundsSB.completed,
+          })
+          .from(roundsSB)
+          .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+          .limit(1);
+        if (!round) {
+          return res.status(404).json({ message: "Round not found in this tab" });
+        }
+        if(round.completed)
+          return res.status(400).json({message: 'This round has been marked as completed on tab'});
     
     //find draw
     const drawRow= await db

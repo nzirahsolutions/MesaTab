@@ -313,7 +313,7 @@ useEffect(() => {
             setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'update':
-            console.log(updateItems.draw)
+            // console.log(updateItems.draw)
             setUpdateItems({...updateItems, draw:{...updateItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'delete':
@@ -1489,23 +1489,25 @@ useEffect(() => {
         {fullTab.rounds?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 1fr'}}>
               <th>Order</th>
               <th>Name</th>
               <th>Type</th>
               <th>Limit</th>
               <th>Breaks</th>
+              <th>Completed</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.rounds.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 1fr'}}>
               <td>{p.number}</td>
               <td>{ p.name}</td>
               <td>{p.type}</td>
               <td>{p.timeLimit || p.wordLimit || '-'}</td>
               <td>{p.breaks ? 'Yes' : 'No'}</td>
+              <td>{p.completed ? '\u2714' : '\u2718'}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, round:{...p}});
                 setNavState({...navState, round:'update'});
@@ -1664,48 +1666,65 @@ useEffect(() => {
     const breakPreview = breakStates.previewData;
     const lastBatch = breakStates.lastBatch;
 
-    function renderDrawCards(rounds, emptyMessage){
-      return rounds.length>0
-      ? rounds.map((round)=> {
-          const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
-          return (
-            <div key={round.roundId} style={{display:'grid', gap:'0.75rem', marginBottom:'1rem'}}>
-              <h3 style={{marginBottom:0}}>{round.name}</h3>
-              {!roundDraws.length
-                ? <p>{emptyMessage}</p>
-                : 
-                <div className="roomCard">
-                    <div className="roomHeader" style={{display:'grid',gridAutoFlow:'column', gridTemplateColumns:'1fr 1fr fr'}}>
-                        <span>Room</span>
-                        <span>Adjudicators</span>
-                        <span>Spellers</span>
+        function renderDrawCards(rounds, emptyMessage){
+        return rounds.length>0
+        ? rounds.map((round)=> {
+            const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
+            return (
+                <div key={round.roundId} style={{display:'grid', gap:'0.75rem', marginBottom:'1rem'}}>
+                <h3 style={{marginBottom:0}}>{round.name}</h3>
+                {!roundDraws.length
+                    ? <p>{emptyMessage}</p>
+                    : 
+                    <div className="roomCard">
+                        <div className="roomHeader" style={{display:'grid',gridAutoFlow:'column', gridTemplateColumns:'1fr 1fr fr'}}>
+                            <span>Room</span>
+                            <span>Adjudicators</span>
+                            <span>Spellers</span>
+                        </div>
+                        {roundDraws.map((r,n)=>
+                        <div key={n} className="roomBody" style={{display:'flex',flexDirection:'row', width:'100%'}}>
+                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.room.name}</p>
+                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.judges.map((j,i)=><li style={{display: "block"}} key={i}>{j.name}</li>)}</p>
+                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.spellers.map((s,i)=><li style={{display: "block"}} key={i}>{s.name}</li>)}</p>
+                        </div>)}
                     </div>
-                    {roundDraws.map((r,n)=>
-                    <div key={n} className="roomBody" style={{display:'flex',flexDirection:'row', width:'100%'}}>
-                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.room.name}</p>
-                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.judges.map((j,i)=><li style={{display: "block"}} key={i}>{j.name}</li>)}</p>
-                        <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.spellers.map((s,i)=><li style={{display: "block"}} key={i}>{s.name}</li>)}</p>
-                    </div>)}
+                    }
                 </div>
-                }
-            </div>
-          );
-        })
-      : <p>{emptyMessage}</p>;
-    }
+            );
+            })
+        : <p>{emptyMessage}</p>;
+        }
 
-    function getMissing(spellers, spellersInDraw){
-        const arr1=spellers.map(s=>s.id);
-        const arr2=spellersInDraw.map(s=>s.id);
-        const missingIds=[
-        ...arr1.filter(x => !arr2.includes(x)),
-        ...arr2.filter(x => !arr1.includes(x))
-        ]
-        const missingSpellers= missingIds.map((i)=>{
-            return spellers.find(s=> s.id===i)
-        })
-        // console.log(missingSpellers);
-        return missingSpellers; 
+        function getMissing(spellers, spellersInDraw){
+            const arr1=spellers.map(s=>s.id);
+            const arr2=spellersInDraw.map(s=>s.id);
+            const missingIds=[
+            ...arr1.filter(x => !arr2.includes(x)),
+            ...arr2.filter(x => !arr1.includes(x))
+            ]
+            const missingSpellers= missingIds.map((i)=>{
+                return spellers.find(s=> s.id===i)
+            })
+            // console.log(missingSpellers);
+            return missingSpellers; 
+        }
+    function getEmptyRooms(roundId){
+        // console.log(fullTab);
+        const rooms=[...fullTab.rooms];
+        const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+        const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+        const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+        const availableRoomIds=[...rooms.map(r=>r.id).filter(x => !occupiedRooms[0].map(r=>r.id).includes(x))];
+        const availableRooms=rooms.filter(r=>availableRoomIds.includes(r.id));
+        // console.log(availableRooms);
+        return availableRooms || [];
+    }
+    function getOccupiedRooms(roundId){
+        const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+        const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+        const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+        return occupiedRooms.flat() || [];
     }
 
     return(
@@ -1879,16 +1898,18 @@ useEffect(() => {
                 <option value={4}>Move Judge</option>
                 <option value={5}>Add Speller</option>
                 <option value={6}>Add Judge</option>
+                <option value={7}>Swap Rooms</option>
+                <option value={8}>Move Room</option>
             </select>
             {updateItems.draw.swapState===1 && 
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select First Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
                     <option value={0}>Select Second Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
                     <option value={0}>Select speller in first room</option>
@@ -1904,11 +1925,11 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select First Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
                     <option value={0}>Select Second Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
                     <option value={0}>Select judge in first room</option>
@@ -1924,11 +1945,11 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select First Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
                     <option value={0}>Select Second Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
                     <option value={0}>Select speller in first room</option>
@@ -1940,11 +1961,11 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select First Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
                     <option value={0}>Select Second Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
                     <option value={0}>Select judge in first room</option>
@@ -1956,7 +1977,7 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
                     <option value={0}>Select speller to add to room</option>
@@ -1970,11 +1991,35 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
                 <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
                     <option value={0}>Select Room</option>
-                    {fullTab.rooms?.map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
                 <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
                     <option value={0}>Select judge to add to room</option>                    
                     {getMissing(fullTab.judges,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.judges).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                </select>
+            </div>
+            }
+            {updateItems.draw.swapState===7 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select First Room</option>
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select Second Room</option>
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+            </div>
+            }            
+            {updateItems.draw.swapState===8 && 
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
+                    <option value={0}>Select Original Room</option>
+                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                </select>
+                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
+                    <option value={0}>Select New Room</option>
+                    {getEmptyRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
                 </select>
             </div>
             }            

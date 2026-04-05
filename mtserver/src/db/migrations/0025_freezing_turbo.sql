@@ -1,0 +1,1 @@
+ALTER TABLE "draws_sb" ADD CONSTRAINT "draws_sb_tab_id_room_id_round_id_unique" UNIQUE("tab_id","room_id","round_id");

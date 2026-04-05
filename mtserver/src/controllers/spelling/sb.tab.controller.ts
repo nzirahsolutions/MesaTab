@@ -182,7 +182,8 @@ export async function getFullTab(req: Request, res: Response) {
             roomId: drawsSB.roomId,
           })
           .from(drawsSB)
-          .where(eq(drawsSB.tabId, tab.tabId)),
+          .where(eq(drawsSB.tabId, tab.tabId))
+          .orderBy(asc(drawsSB.roundId), asc(drawsSB.roomId)),
         db
           .select({
             standingId: standingsSB.standingId,
@@ -1602,6 +1603,15 @@ export async function updateRound(req: Request, res: Response) {
           .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, targetRoundId)))
           .limit(1);
         if (!existing.length) return res.status(404).json({ message: "Round not found" });
+
+        if(existing[0].number!==parseIntOrNull(number)){const existingRoundNumber=await db
+          .select({ number: roundsSB.number })
+            .from(roundsSB)
+            .where(and(eq(roundsSB.tabId, tabId),eq(roundsSB.number, number)));
+
+        if(existingRoundNumber.length)
+          return res.status(409).json({ message: "Round number already exists in this tab" });
+        }
 
         const prev = existing[0];
         const nextType = type ?? prev.type;
