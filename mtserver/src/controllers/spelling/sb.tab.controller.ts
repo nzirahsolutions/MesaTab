@@ -226,6 +226,8 @@ export async function getFullTab(req: Request, res: Response) {
         ])
       : [[], []];
     
+    const hasBlindPrelims=rounds.filter(r=>r.breaks===false).some(r=>r.blind);
+    
     //fetch results per speller draw
     const drawSpellerIds = drawSpellerRows.map((r) => r.drawSpellerId);
     const resultsRows = drawSpellerIds.length
@@ -281,7 +283,7 @@ export async function getFullTab(req: Request, res: Response) {
         .filter(Boolean),
     }));
 
-    const standings = standingsRows
+    const standingsRaw = standingsRows
       .map((standing) => {
         const speller = spellerById.get(standing.spellerId);
         if (!speller) return null;
@@ -311,7 +313,16 @@ export async function getFullTab(req: Request, res: Response) {
         };
       })
       .filter(Boolean);
-
+    //
+    const standings= hasBlindPrelims? 
+    standingsRaw.sort((a,b)=>
+      (a?.speller.name?? '').localeCompare(b?.speller.name??'')
+    )
+    : standingsRaw.sort((a,b)=>{
+      const rankA=a?.rank?? Number.MAX_SAFE_INTEGER;
+      const rankB=b?.rank?? Number.MAX_SAFE_INTEGER;
+      return rankA-rankB;
+    });
 
     return res.status(200).json({
       message: "Tab fetched successfully",

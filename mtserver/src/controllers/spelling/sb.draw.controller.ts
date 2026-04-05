@@ -1443,6 +1443,23 @@ async function createDrawsForRound(
   }
 ) {
   const { tabId, roundId, roomAllocations, roomJudgeAssignments, judges = [] } = params;
+
+  //prevent redwaing completed rounds
+  const [round] = await tx
+      .select({
+        roundId: roundsSB.roundId,
+        completed: roundsSB.completed,
+        name: roundsSB.name,
+      })
+      .from(roundsSB)
+      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
+      .limit(1);
+
+    if (!round) throw new Error("Round not found");
+    if (round.completed) {
+      throw new Error(`Cannot create or remake draws for a completed round: ${round.name}`);
+    }
+
   await replaceExistingDrawsForRound(tx, tabId, roundId);
 
   const judgeByRoom =
@@ -1526,12 +1543,16 @@ async function getBulkFirstPhaseRoundPlans(tabId: string) {
         `Preliminary rounds incomplete: ${incompletePrelims.map((round) => round.name).join(", ")}`
       );
     }
+    if (firstRound?.completed) {
+      blockers.push(`${firstRound.name} has already been marked completed`);
+    }
 
     return {
       ...cupPlan,
       roundId: firstRound?.roundId ?? null,
       roundName: firstRound?.name ?? null,
       breakPhase: firstRound?.breakPhase ?? null,
+      completed: firstRound?.completed ?? false,
       ready: blockers.length === 0 && cupPlan.allocations.length > 0,
       blockers,
     };
@@ -1680,7 +1701,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
       }
 
       const drawableRounds = firstPhaseContext.firstPhaseRounds.filter(
-        (round) => round.roundId && round.allocations.length
+        (round) => round.roundId && round.allocations.length && round.ready
       );
 
       if (!drawableRounds.length) {
@@ -1769,6 +1790,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
         breakPhase: roundsSB.breakPhase,
         cupCategoryId: roundsSB.cupCategoryId,
         breaks: roundsSB.breaks,
+        completed: roundsSB.completed,
       })
       .from(roundsSB)
       .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.roundId, roundId)))
@@ -1777,7 +1799,11 @@ export async function generateBreakDraw(req: Request, res: Response) {
     if (!targetRound) {
       return res.status(404).json({ message: "Round not found in this tab" });
     }
-
+    if (targetRound.completed) {
+      return res.status(400).json({
+        message: "This break round has already been marked as completed",
+      });
+    }
     if (!targetRound.breaks || !targetRound.cupCategoryId || !targetRound.breakPhase) {
       return res.status(400).json({ message: "Selected round is not a valid break round" });
     }
@@ -1800,7 +1826,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
         });
       }
 
-      const drawableRounds = context.firstPhaseRounds.filter((round) => round.roundId && round.allocations.length);
+      const drawableRounds = context.firstPhaseRounds.filter((round) => round.roundId && round.allocations.length && round.ready);
       const created = await db.transaction(async (tx) => {
         const generatedRounds: Array<{
           roundId: number;

@@ -1489,25 +1489,27 @@ useEffect(() => {
         {fullTab.rounds?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 0.5fr 1fr'}}>
               <th>Order</th>
               <th>Name</th>
               <th>Type</th>
               <th>Limit</th>
               <th>Breaks</th>
               <th>Completed</th>
+              <th>Blind</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {fullTab.rounds.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 0.5fr 1fr'}}>
               <td>{p.number}</td>
               <td>{ p.name}</td>
               <td>{p.type}</td>
               <td>{p.timeLimit || p.wordLimit || '-'}</td>
               <td>{p.breaks ? 'Yes' : 'No'}</td>
               <td>{p.completed ? '\u2714' : '\u2718'}</td>
+              <td>{p.blind ? '\u2714' : '\u2718'}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, round:{...p}});
                 setNavState({...navState, round:'update'});
@@ -1709,23 +1711,23 @@ useEffect(() => {
             // console.log(missingSpellers);
             return missingSpellers; 
         }
-    function getEmptyRooms(roundId){
-        // console.log(fullTab);
-        const rooms=[...fullTab.rooms];
-        const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
-        const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
-        const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
-        const availableRoomIds=[...rooms.map(r=>r.id).filter(x => !occupiedRooms[0].map(r=>r.id).includes(x))];
-        const availableRooms=rooms.filter(r=>availableRoomIds.includes(r.id));
-        // console.log(availableRooms);
-        return availableRooms || [];
-    }
-    function getOccupiedRooms(roundId){
-        const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
-        const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
-        const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
-        return occupiedRooms.flat() || [];
-    }
+        function getEmptyRooms(roundId){
+            // console.log(fullTab);
+            const rooms=[...fullTab.rooms];
+            const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+            const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+            const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+            const availableRoomIds=[...rooms.map(r=>r.id).filter(x => !occupiedRooms[0].map(r=>r.id).includes(x))];
+            const availableRooms=rooms.filter(r=>availableRoomIds.includes(r.id));
+            // console.log(availableRooms);
+            return availableRooms || [];
+        }
+        function getOccupiedRooms(roundId){
+            const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+            const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+            const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+            return occupiedRooms.flat() || [];
+        }
 
     return(
     <>
@@ -1759,7 +1761,7 @@ useEffect(() => {
     </section>}
     {navState.draw==='breaks' &&
     <section id="drawBreaks" style={{display:'grid', gap:'1rem'}}>
-        <div className="buttonStack">
+        <div style={{display:'grid', gridAutoFlow:'column',gridTemplateColumns:'1fr 1fr',gap:'1rem', backgroundColor:'var(--background-color)'}}>
           <button type="button" className="darkButton" onClick={previewBreaks} disabled={breakStates.previewLoading}>
             {breakStates.previewLoading ? 'Previewing' : 'Preview Breaks'}
           </button>
@@ -1769,7 +1771,7 @@ useEffect(() => {
             onClick={()=>generateBreakDraws()}
             disabled={breakStates.generateLoading}
           >
-            {breakStates.generateLoading && breakStates.generatingRoundId===null ? 'Generating' : 'Generate First-Phase Break Draws'}
+            {breakStates.generateLoading && breakStates.generatingRoundId===null ? 'Generating' : 'Generate All First-Phase Break Draws'}
           </button>
         </div>
         {breakStates.previewError && <p style={{color:'red'}}>{breakStates.previewErrorMessage}</p>}

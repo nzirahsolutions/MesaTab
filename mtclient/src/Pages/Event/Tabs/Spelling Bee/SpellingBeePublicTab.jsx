@@ -156,14 +156,14 @@ export default function SpellingBeePublicTab({tab, event}) {
               <p style={{margin:'0.5rem'}}>Adjudicators: <strong>{(draw.judges ?? []).map((j) => j?.name).filter(Boolean).join(', ') || 'None'}</strong></p>
             </div>
             <div className="roomBody">
-              <li><strong>Speller</strong><strong>Institution</strong> {currentRound.breaks?<strong>Status</strong>:<strong>Score</strong>} </li>
+              <li><strong>Speller</strong><strong>Institution</strong> {currentRound.breaks && !currentRound.blind?<strong>Status</strong>:!currentRound.breaks && !currentRound.blind?<strong>Score</strong>:''} </li>
               {(draw.spellers ?? []).map((sp, index) => (
                 <li key={index}>
                   <span>{sp?.name ?? 'Unknown'}</span>
                   <span>{fullTab.institutions.find((inst)=>inst.id===sp.institutionId)?.name || '-'}</span>
-                  {currentRound.breaks?<span>{sp?.result?.status ?? '-'}</span>:<span>{sp?.result?.score ?? '-'}</span>}
-                  
-                  
+                  {!currentRound.blind &&
+                  <span>{currentRound.breaks?
+                  sp?.result?.status ?? '-':sp?.result?.score ?? '-'}</span>}
                 </li>
               ))}
             </div>
@@ -175,7 +175,8 @@ export default function SpellingBeePublicTab({tab, event}) {
   }
   function spellerTab(){
     const standings = fullTab?.standings ?? [];
-    const prelimRounds = (fullTab?.rounds ?? []).filter((round) => !round.breaks);
+    const prelimRounds = (fullTab?.rounds ?? []).filter((round) => !round.breaks && !round.blind);
+    const someBlind=(fullTab?.rounds ?? []).filter((round) => !round.breaks).map(r=>r.blind).includes(true);
     return (
       <>
       <section id="intro">
@@ -186,27 +187,27 @@ export default function SpellingBeePublicTab({tab, event}) {
       <section id="speller-standings" className="tableScroll">
         <table>
           <thead>
-            <tr style={{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}}>
-              <th>Rank</th>
+            <tr style={!someBlind?{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
+              {!someBlind &&<th>Rank</th>}
               <th>Name</th>
               <th>Institution</th>
               {prelimRounds.map((round) => (
                 <th key={round.roundId}>{round.name}</th>
               ))}
-              <th>Total</th>
+              {!someBlind &&<th>Total</th>}
             </tr>
           </thead>
           <tbody>
             {standings.map((standing, i) => (
-              <tr key={standing.standingId ?? i} style={{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}}>
-                <td>{standing.rank ?? '-'}</td>
+              <tr key={standing.standingId ?? i} style={!someBlind?{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
+                {!someBlind && <td>{standing.rank ?? '-'}</td>}
                 <td>{standing.speller?.name ?? '-'}</td>
                 <td>{fullTab?.institutions?.find((i2)=>i2.id===standing.speller?.institutionId)?.name ?? '-'}</td>
                 {prelimRounds.map((round) => {
                   const roundScore = standing.roundScores?.find((entry) => entry?.roundId === round.roundId);
                   return <td key={round.roundId}>{roundScore?.score ?? '-'}</td>;
                 })}
-                <td>{standing.totalScore ?? 0}</td>
+                {!someBlind &&<td>{standing.totalScore ?? 0}</td>}
               </tr>
             ))}
           </tbody>
