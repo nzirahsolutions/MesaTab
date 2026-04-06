@@ -91,6 +91,46 @@ export default function SpellingBeePublicTab({tab, event}) {
     return () => window.removeEventListener("popstate", onPopState);
   }, [tabItem, setTabItem]);
 
+  const [sortStates, setSortStates] = useState({
+    spellerTab: { column: 'rank', state: true },
+    participants: { column: 'name', state: true },
+  });
+
+  function toggleSort(view, col) {
+    setSortStates((prev) => {
+      const current = prev[view];
+      const nextDir = current.column === col && current.state === true ? false : true;
+
+      return {
+        ...prev,
+        [view]: { column: col, state: nextDir },
+      };
+    });
+  }
+
+  function sortItems(items, view, accessorMap) {
+    const { column, state } = sortStates[view];
+    const accessor = accessorMap[column] || accessorMap.name;
+    if (!accessor) return [...items];
+
+    return [...items].sort((a, b) => {
+      const aVal = accessor(a);
+      const bVal = accessor(b);
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return state ? aVal - bVal : bVal - aVal;
+      }
+      if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
+        const aNum = aVal ? 1 : 0;
+        const bNum = bVal ? 1 : 0;
+        return state ? aNum - bNum : bNum - aNum;
+      }
+      return state
+        ? String(aVal ?? '').localeCompare(String(bVal ?? ''))
+        : String(bVal ?? '').localeCompare(String(aVal ?? ''));
+    });
+  }
+
   function tabChange(t){
     setTabItem(t);
     setMenuOpen(false);
@@ -177,6 +217,12 @@ export default function SpellingBeePublicTab({tab, event}) {
     const standings = fullTab?.standings ?? [];
     const prelimRounds = (fullTab?.rounds ?? []).filter((round) => !round.breaks && !round.blind);
     const someBlind=(fullTab?.rounds ?? []).filter((round) => !round.breaks).map(r=>r.blind).includes(true);
+    const sortedStandings = sortItems(standings, 'spellerTab', {
+      rank: (item) => item.rank ?? Number.MAX_SAFE_INTEGER,
+      name: (item) => item.speller?.name ?? '',
+      institution: (item) => fullTab?.institutions?.find((i2)=>i2.id===item.speller?.institutionId)?.name ?? '',
+      total: (item) => item.totalScore ?? 0,
+    });
     return (
       <>
       <section id="intro">
@@ -187,19 +233,27 @@ export default function SpellingBeePublicTab({tab, event}) {
       <section id="speller-standings" className="tableScroll">
         <table>
           <thead>
-            <tr style={!someBlind?{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
-              {!someBlind &&<th>Rank</th>}
-              <th>Name</th>
-              <th>Institution</th>
+            <tr style={!someBlind?{gridTemplateColumns:`5rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
+              {!someBlind &&<th>Rank <button type="button" className="sortToggle" onClick={() => toggleSort('spellerTab', 'rank')}>
+                {sortStates.spellerTab.column === 'rank' && sortStates.spellerTab.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>}
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort('spellerTab', 'name')}>
+                {sortStates.spellerTab.column === 'name' && sortStates.spellerTab.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort('spellerTab', 'institution')}>
+                {sortStates.spellerTab.column === 'institution' && sortStates.spellerTab.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
               {prelimRounds.map((round) => (
                 <th key={round.roundId}>{round.name}</th>
               ))}
-              {!someBlind &&<th>Total</th>}
+              {!someBlind &&<th>Total <button type="button" className="sortToggle" onClick={() => toggleSort('spellerTab', 'total')}>
+                {sortStates.spellerTab.column === 'total' && sortStates.spellerTab.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>}
             </tr>
           </thead>
           <tbody>
-            {standings.map((standing, i) => (
-              <tr key={standing.standingId ?? i} style={!someBlind?{gridTemplateColumns:`3rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
+            {sortedStandings.map((standing, i) => (
+              <tr key={standing.standingId ?? i} style={!someBlind?{gridTemplateColumns:`5rem minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr)) 7rem`}:{gridTemplateColumns:`minmax(180px, 2fr) minmax(180px, 2fr) repeat(${prelimRounds.length}, minmax(80px, 1fr))`}}>
                 {!someBlind && <td>{standing.rank ?? '-'}</td>}
                 <td>{standing.speller?.name ?? '-'}</td>
                 <td>{fullTab?.institutions?.find((i2)=>i2.id===standing.speller?.institutionId)?.name ?? '-'}</td>
@@ -220,6 +274,25 @@ export default function SpellingBeePublicTab({tab, event}) {
     )
   }
   function participants(){
+    const sortedParticipants = sortItems(
+      participant === 'spellers' ? fullTab?.spellingBees ?? [] : participant === 'judges' ? fullTab?.judges ?? [] : fullTab?.institutions ?? [],
+      'participants',
+      participant === 'spellers'
+        ? {
+            name: (item) => item.name,
+            school: (item) => fullTab?.institutions?.find((s)=>s.id===item.institutionId)?.name ?? '',
+          }
+        : participant === 'judges'
+        ? {
+            name: (item) => item.name,
+          }
+        : {
+            name: (item) => item.name,
+            code: (item) => item.code,
+            participants: (item) => item.spellers,
+          }
+    );
+
     return(
     <div id="participants">
       <div className="round-buttons">
@@ -230,16 +303,22 @@ export default function SpellingBeePublicTab({tab, event}) {
       {participant==='spellers'?
       <section id="spellers">
         <h2>Spellers</h2>
-        {fullTab?.spellingBees?.length > 0 ? 
+        {sortedParticipants.length > 0 ? 
         <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'repeat(2,1fr)'}}>
-              <th>Name</th>
-              <th>School</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'name')}>
+                  {sortStates.participants.column === 'name' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
+              <th>School <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'school')}>
+                  {sortStates.participants.column === 'school' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {fullTab?.spellingBees?.map((p,i)=>(
+            {sortedParticipants.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'repeat(2,1fr)'}}>
               <td>{p.name}</td>
               <td>{fullTab?.institutions?.find((s)=>s.id===p.institutionId)?.name ?? '-'}</td>
@@ -250,14 +329,17 @@ export default function SpellingBeePublicTab({tab, event}) {
       </section>:participant==='judges'?
       <section id="judges">
         <h2>Judges</h2>
-        {fullTab?.judges?.length > 0 ? <div className="tableScroll"><table>
+        {sortedParticipants.length > 0 ? <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr'}}>
-              <th>Name</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'name')}>
+                  {sortStates.participants.column === 'name' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {fullTab?.judges?.map((p,i)=>(
+            {sortedParticipants.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'1fr'}}>
               <td>{p.name}</td>
             </tr>))}
@@ -266,16 +348,25 @@ export default function SpellingBeePublicTab({tab, event}) {
       </section>:
       <section id="institutions">
         <h2>Institutions</h2>
-        {fullTab?.institutions?.length > 0 ? <div className="tableScroll"><table>
+        {sortedParticipants.length > 0 ? <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
-              <th>Name</th>
-              <th>Code</th>
-              <th>Participants</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'name')}>
+                  {sortStates.participants.column === 'name' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
+              <th>Code <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'code')}>
+                  {sortStates.participants.column === 'code' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
+              <th>Participants <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'participants')}>
+                  {sortStates.participants.column === 'participants' && sortStates.participants.state === true ? '\u2b9d' : '\u21c5'}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {fullTab?.institutions?.map((p,i)=>(
+            {sortedParticipants.map((p,i)=>(
             <tr key={i} style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{p.code}</td>
@@ -339,3 +430,4 @@ export default function SpellingBeePublicTab({tab, event}) {
     </>:!pageLoad.loading && access==='judge'?<SpellingJudgeTab tab={tab} event={event} accessOptions={accessOptions} onAccessChange={setAccess}/>:!pageLoad.loading && access==='admin'?<SpellingAdmin tab={tab} event={event}/>:<Loading/>
   )
 }
+

@@ -87,6 +87,9 @@ export default function SpellingAdmin({tab, event}) {
 
   const [batchStates, setBatchStates]=useState({ updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
 
+  const [sortStates, setSortStates]=useState({institutions:{column:'name', state:true}, tabMasters:{column:'name', state:true}, judges:{column:'name', state:true}, spellers:{column:'name', state:true}, rooms:{column:'name', state:true}, rounds:{column:'number', state:true}});
+  //state true for ascending, false for desc
+
   useEffect(() => {
     let mounted = true;
 
@@ -155,7 +158,47 @@ useEffect(() => {
   window.addEventListener("popstate", onPopState);
   return () => window.removeEventListener("popstate", onPopState);
 }, [tabItem, setTabItem]);
+   
+  //sort actions
+  function toggleSort(view,col){
+    setSortStates((prev)=>{
+        const current= prev[view];
+        const nextDir= current.column===col && current.state===true? false: true;
 
+        return{
+            ...prev,
+            [view]:{column: col, state: nextDir},
+        };
+    });
+  }
+
+  function sortItems(items, view, accessorMap) {
+    const { column, state } = sortStates[view];
+    const accessor = accessorMap[column];
+    
+    if (!accessor) {
+        console.warn(`No accessor found for column: ${column}`);
+        return [...items];
+    }    
+    return [...items].sort((a, b) => {
+        const aVal = accessor(a);
+        const bVal = accessor(b);
+        // Handle numbers
+        if (typeof aVal === "number" && typeof bVal === "number") {
+        return state === true ? aVal - bVal : bVal - aVal;
+        }        
+        // Handle booleans (true before false when ascending)
+        if (typeof aVal === "boolean" && typeof bVal === "boolean") {
+        const aNum = aVal ? 1 : 0;
+        const bNum = bVal ? 1 : 0;
+        return state === true ? aNum - bNum : bNum - aNum;
+        }        
+        // Handle strings
+        return state === true
+        ? String(aVal ?? "").localeCompare(String(bVal ?? ""))
+        : String(bVal ?? "").localeCompare(String(aVal ?? ""));
+    });
+    }
   function tabChange(t){
     setTabItem(t);
     setMenuOpen(false);
@@ -1021,6 +1064,11 @@ useEffect(() => {
     )
   }
   function institutions(){
+    const sortedInstitutions = sortItems(fullTab.institutions ?? [], "institutions", {
+        name: (item) => item.name,
+        code: (item) => item.code,
+        spellers: (item) => item.spellers,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1032,19 +1080,37 @@ useEffect(() => {
     {navState.institution==='review'&&
     <section id="institutionReview">
         <h2>Registered Institutions</h2>
-        {fullTab.institutions?.length>0?
+        {sortedInstitutions.length>0?
         <div className="tableScroll">
         <table>
           <thead>
             <tr style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
-              <th>Name</th>
-              <th>Code</th>
-              <th>Spellers</th>
+              <th>Name 
+                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "name")}>
+                    {sortStates.institutions.column === "name" && sortStates.institutions.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
+              <th>Code  
+                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "code")}>
+                    {sortStates.institutions.column === "code" && sortStates.institutions.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
+              <th>Spellers 
+                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "spellers")}>
+                    {sortStates.institutions.column === "spellers" && sortStates.institutions.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.institutions.map((p,i)=>
+            {sortedInstitutions.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{p.code}</td>
@@ -1111,6 +1177,11 @@ useEffect(() => {
     </>);
   }
   function spellers(){
+    const sortedSpellers = sortItems(fullTab.spellingBees ?? [], "spellers", {
+        name: (item) => item.name,
+        school: (item) => fullTab.institutions.find((i)=>i.id===item.institutionId).name,
+        available: (item) => item.available,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1121,20 +1192,38 @@ useEffect(() => {
     </div>
     {navState.speller==='review'&&
     <section id="spellerReview">
-        <h2>Registered Spellers ({fullTab.spellingBees?.length})</h2>
-        {fullTab.spellingBees?.length>0?
+        <h2>Registered Spellers ({sortedSpellers.length})</h2>
+        {sortedSpellers.length>0?
         <div className="tableScroll">
         <table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
-              <th>Name</th>
-              <th>School</th>
-              <th>Available</th>
+              <th>Name 
+                <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "name")}>
+                    {sortStates.spellers.column === "name" && sortStates.spellers.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
+              <th>School 
+                <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "school")}>
+                    {sortStates.spellers.column === "school" && sortStates.spellers.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
+              <th>Available 
+                <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "available")}>
+                    {sortStates.spellers.column === "available" && sortStates.spellers.state === true
+                    ? '\u2b9d'
+                    : '\u2b9f'}
+                </button>
+              </th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.spellingBees.map((p,i)=>
+            {sortedSpellers.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
@@ -1203,6 +1292,12 @@ useEffect(() => {
     </>);
   }
   function judges(){
+    const sortedJudges = sortItems(fullTab.judges ?? [], "judges", {
+        name: (item) => item.name,
+        institution: (item) => fullTab.institutions.find((i)=>i.id===item.institutionId)?.name || '',
+        email: (item) => item.email,
+        available: (item) => item.available,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1218,15 +1313,23 @@ useEffect(() => {
         <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
-              <th>Name</th>
-              <th>Institution</th>
-              <th>Email</th>
-              <th>Available</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "name")}>
+                {sortStates.judges.column === "name" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "institution")}>
+                {sortStates.judges.column === "institution" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Email <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "email")}>
+                {sortStates.judges.column === "email" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Available <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "available")}>
+                {sortStates.judges.column === "available" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.judges.map((p,i)=>
+            {sortedJudges.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
@@ -1300,6 +1403,11 @@ useEffect(() => {
     </>);
   }
   function tabMasters(){
+    const sortedTabMasters = sortItems(fullTab.tabMasters ?? [], "tabMasters", {
+        name: (item) => item.name,
+        institution: (item) => fullTab.institutions.find((i)=>i.id===item.institutionId)?.name || '',
+        email: (item) => item.email,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1315,14 +1423,20 @@ useEffect(() => {
         <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
-              <th>Name</th>
-              <th>Institution</th>
-              <th>Email</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "name")}>
+                {sortStates.tabMasters.column === "name" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "institution")}>
+                {sortStates.tabMasters.column === "institution" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Email <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "email")}>
+                {sortStates.tabMasters.column === "email" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.tabMasters.map((p,i)=>
+            {sortedTabMasters.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
@@ -1395,6 +1509,9 @@ useEffect(() => {
     </>);
   }
   function rooms(){
+    const sortedRooms = sortItems(fullTab.rooms ?? [], "rooms", {
+        name: (item) => item.name,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1410,12 +1527,14 @@ useEffect(() => {
         <div className="tableScroll"><table>
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr'}}>
-              <th>Name</th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "name")}>
+                {sortStates.rooms.column === "name" && sortStates.rooms.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.rooms.map((p,i)=>
+            {sortedRooms.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr'}}>
               <td>{p.name}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
@@ -1475,6 +1594,15 @@ useEffect(() => {
     </>);
   }
   function rounds(){
+    const sortedRounds = sortItems(fullTab.rounds ?? [], "rounds", {
+        number: (item) => item.number,
+        name: (item) => item.name,
+        type: (item) => item.type,
+        limit: (item) => item.timeLimit || item.wordLimit || 0,
+        breaks: (item) => item.breaks,
+        completed: (item) => item.completed,
+        blind: (item) => item.blind,
+        });
     return(
     <>
     <div className="buttonStack">
@@ -1489,20 +1617,34 @@ useEffect(() => {
         {fullTab.rounds?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 0.5fr 1fr'}}>
-              <th>Order</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Limit</th>
-              <th>Breaks</th>
-              <th>Completed</th>
-              <th>Blind</th>
+            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
+              <th>Order <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "number")}>
+                {sortStates.rounds.column === "number" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "name")}>
+                {sortStates.rounds.column === "name" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Type <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "type")}>
+                {sortStates.rounds.column === "type" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Limit <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "limit")}>
+                {sortStates.rounds.column === "limit" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Breaks <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "breaks")}>
+                {sortStates.rounds.column === "breaks" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Completed <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "completed")}>
+                {sortStates.rounds.column === "completed" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
+              <th>Blind <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "blind")}>
+                {sortStates.rounds.column === "blind" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+              </button></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {fullTab.rounds.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 0.5fr 0.5fr 1fr'}}>
+            {sortedRounds.map((p,i)=>
+            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
               <td>{p.number}</td>
               <td>{ p.name}</td>
               <td>{p.type}</td>
@@ -2076,7 +2218,7 @@ useEffect(() => {
                 }</span><p style={{display:'grid',gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
             </div>
             <div className="roomBody">
-                {r.spellers.map((s,y)=>
+                {(r.spellers ?? []).map((s,y)=>
                 <li style={{gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}>
                     <span>{s.name}</span>
                     <span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
@@ -2268,3 +2410,4 @@ useEffect(() => {
     <SpellingBeePublicTab tab={tab} event={event}/>:<Loading/>
   )
 }
+

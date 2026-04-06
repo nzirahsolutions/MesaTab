@@ -692,6 +692,14 @@ table{
     }
   }
 }
+/* sort button */
+.sortToggle{
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+}
 
 @media (max-width: 600px) {
   .header nav{
