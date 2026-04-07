@@ -168,7 +168,7 @@ export async function generateDraw(req: Request, res: Response){
           name: roomsSB.name,
         })
         .from(roomsSB)
-        .where(eq(roomsSB.tabId, tabId)),
+        .where(and(eq(roomsSB.tabId, tabId),eq(roomsSB.available, true))),
 
       db
         .select({
@@ -1314,7 +1314,7 @@ async function getBreakContext(tabId: string) {
         name: roomsSB.name,
       })
       .from(roomsSB)
-      .where(eq(roomsSB.tabId, tabId))
+      .where(and(eq(roomsSB.tabId, tabId),eq(roomsSB.available, true)))
       .orderBy(asc(roomsSB.roomId)),
 
     db
@@ -1391,13 +1391,21 @@ async function getSubsequentBreakRoundReadiness(params: {
       )
     )
     .orderBy(asc(drawsSB.roomId), asc(drawSpellers.id));
+  
+  const [prevRoundComplete]=await db
+    .select({roundId: roundsSB.roundId, completed: roundsSB.completed})
+    .from(roundsSB)
+    .where(and(
+        eq(roundsSB.tabId, tabId),
+        eq(roundsSB.roundId, previousRound.roundId),
+      ));
 
   const blockers: string[] = [];
   const warnings: string[] = [];
 
   if (!participantRows.length) {
     blockers.push(`No draw exists yet for ${previousRound.name}`);
-  } else if (participantRows.some((row) => !row.status || row.status === "Incomplete")) {
+  } else if (participantRows.some((row) => !row.status || row.status === "Incomplete") || !prevRoundComplete.completed) {
     blockers.push("Previous round incomplete");
   }
 
@@ -1666,7 +1674,7 @@ export async function generateBreakDraw(req: Request, res: Response) {
           name: roomsSB.name,
         })
         .from(roomsSB)
-        .where(eq(roomsSB.tabId, tabId))
+        .where(and(eq(roomsSB.tabId, tabId),eq(roomsSB.available, true)))
         .orderBy(asc(roomsSB.roomId)),
 
       db

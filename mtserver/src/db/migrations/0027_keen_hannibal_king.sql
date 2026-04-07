@@ -1,0 +1,1 @@
+ALTER TABLE "rooms_sb" ADD COLUMN "available" boolean DEFAULT true NOT NULL;

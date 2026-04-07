@@ -12,7 +12,7 @@ type StandingRoundScore = {
   status: ResultStatus | null;
 };
 
-async function rebuildStandingsForTab(tabId: string) {
+export async function rebuildStandingsForTab(tabId: string) {
   const allSpellers = await db
     .select({
       spellerId: spellers.spellerId,

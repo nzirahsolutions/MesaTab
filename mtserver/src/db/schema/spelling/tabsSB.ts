@@ -1,4 +1,4 @@
-import { index, pgTable, text, uuid, unique } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, uuid, unique, integer, boolean } from 'drizzle-orm/pg-core';
 import { events } from '../events';
 import { institutionsSB } from './institutionsSB';
 import { roomsSB } from './roomsSB';
@@ -18,6 +18,7 @@ export const tabsSB = pgTable('tabs_sb', {
   slug: text('slug').notNull(),
   track:text('track').notNull().default('Spelling Bee'),
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
+  completed: boolean('completed').notNull().default(false),
 },
 (t)=>({
     tabsb_slug_unique_per_event: unique().on(t.eventId, t.slug),

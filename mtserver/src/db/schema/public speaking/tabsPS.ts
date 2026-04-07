@@ -1,4 +1,4 @@
-import { index, pgTable, text, uuid, unique } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, uuid, unique, integer, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { events } from '../events';
 
@@ -8,6 +8,7 @@ export const tabsPS = pgTable('tabs_ps', {
   slug: text('slug').notNull(),
   track:text('track').notNull().default('Public Speaking'),
   eventId: uuid('event_id').notNull().references(()=>events.eventId, {onDelete:'cascade'}),
+  completed: boolean('completed').notNull().default(false),
 },
 (t)=>({
     tab_slug_unique_per_event: unique().on(t.eventId, t.slug),

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
 import { tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
+import { rebuildStandingsForTab } from "./sb.results.controller";
 
 type cup={
   id?: number | string | null;
@@ -78,6 +79,7 @@ export async function getFullTab(req: Request, res: Response) {
         title: tabsSB.title,
         slug: tabsSB.slug,
         track: tabsSB.track,
+        completed: tabsSB.completed,
       })
       .from(tabsSB)
       .where(eq(tabsSB.tabId, tabId))
@@ -147,6 +149,7 @@ export async function getFullTab(req: Request, res: Response) {
           .select({
             id: roomsSB.roomId,
             name: roomsSB.name,
+            available: roomsSB.available,
           })
           .from(roomsSB)
           .where(eq(roomsSB.tabId, tab.tabId)),
@@ -332,6 +335,7 @@ export async function getFullTab(req: Request, res: Response) {
         track: tab.track,
         title: tab.title,
         slug: tab.slug,
+        completed:tab.completed,
         institutions,
         cups,
         spellingBees,
@@ -351,10 +355,11 @@ export async function getFullTab(req: Request, res: Response) {
 }
 export async function updateTab(req:Request, res: Response){
   try {
-    const {title, slug, tabId, cups}=req.body as{
+    const {title, slug, tabId, cups, completed}=req.body as{
       title: string;
       slug: string;
       tabId: string;
+      completed: boolean;
       cups: cup[];
     }
     const normalizedTitle = title?.trim();
@@ -422,7 +427,7 @@ export async function updateTab(req:Request, res: Response){
 
     //check if tab exists
     const exists= await db
-        .select({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, eventId: tabsSB.eventId})
+        .select({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, eventId: tabsSB.eventId, completed: tabsSB.completed})
         .from(tabsSB)
         .where(eq(tabsSB.tabId, tabId))
         .limit(1);
@@ -451,12 +456,14 @@ export async function updateTab(req:Request, res: Response){
         .set({
           title: normalizedTitle,
           slug: normalizedSlug,
+          completed: completed,
         })
         .where(eq(tabsSB.tabId, tabId))
-        .returning({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug});
+        .returning({tabId: tabsSB.tabId, title: tabsSB.title, slug: tabsSB.slug, completed: tabsSB.completed});
 
       if(!updatedTab) throw new Error('Tab update failed');
-
+      
+      if(!updatedTab.completed){
       const existingCups = await tx
         .select({
           id: cupCategoriesSB.cupCategoryId,
@@ -674,13 +681,21 @@ export async function updateTab(req:Request, res: Response){
           .delete(roundsSB)
           .where(eq(roundsSB.roundId, existingRound.roundId));
       }
-
       return {
         tab: updatedTab,
         cups: savedCups,
-      };
+        };
+      }
+    else{ //lock tab rounds
+      const locked= await tx
+        .update(roundsSB)
+        .set({completed: true, blind: false})
+        .where(eq(roundsSB.tabId, tabId))
+        .returning({roundId: roundsSB.roundId, name: roundsSB.name});
+      
+      if(!locked.length) throw new Error("Couldn't lock rounds");
+    }
     });
-
     
 
     return res.status(200).json({
@@ -709,6 +724,9 @@ export async function updateTab(req:Request, res: Response){
         }
         if (message.includes('breakNumber must be between')) {
           return res.status(400).json({ message });
+        }
+        if (message.includes("Couldn't")) {
+          return res.status(409).json({ message });
         }
         return res.status(500).json({ message: "failed to update"});
     }
@@ -911,6 +929,7 @@ export async function addSpeller(req: Request, res: Response) {
             });
 
         const addedSpeller = added[0];
+        await rebuildStandingsForTab(tabId);
 
         return res.status(201).json({
             message: "Speller Registered Successfully",
@@ -1298,9 +1317,10 @@ export async function deleteJudge(req: Request, res: Response) {
 //room
 export async function addRoom(req: Request, res: Response) {
     try {
-        const {name, tabId}=req.body as {
+        const {name, tabId, available}=req.body as {
             name?: string;
             tabId?: string;
+            available?: boolean;
         }
         const normalizedName=name?.trim();
         if (!normalizedName || !tabId) {
@@ -1320,6 +1340,7 @@ export async function addRoom(req: Request, res: Response) {
             .values({
             name: normalizedName,
             tabId: tabId,
+            available: available,
             })
             .returning({
             id: roomsSB.roomId,
@@ -1339,17 +1360,19 @@ export async function addRoom(req: Request, res: Response) {
 }
 export async function updateRoom(req: Request, res: Response) {
     try {
-        const {name, tabId, id}=req.body as {
+        const {name, tabId, id, available}=req.body as {
             name?: string;
             tabId?: string;
             id?: number;
+            available?: boolean;
         }
 
         if(!tabId || !id)
             return res.status(400).json({message:'Provide tabId and roomId'});
 
-        const updates:{name?: string}={};
+        const updates:{name?: string, available?:boolean}={};
         if(name) updates.name=name.trim();
+        updates.available=available;
 
         if(updates.name){
           const existing=await db
@@ -1431,7 +1454,7 @@ export async function addRound(req: Request, res: Response) {
           breakPhase,
           breakCategory,
         }=req.body as {
-            name?: string;
+            name?: number | string | null;
             tabId?: string;
             number?: number | string | null;
             type?: string;
@@ -1442,8 +1465,8 @@ export async function addRound(req: Request, res: Response) {
             breakPhase?: string;
             breakCategory?: number | string | null;
         }
-        const normalizedName=name?.trim();
-        if (!normalizedName || !tabId || !type) {
+
+        if (!name || !tabId || !type) {
             return res.status(400).json({ message: "Round name, tabId and type are required" });
         }
         const parsedBreaks = parseBooleanInput(breaks) ?? false;
@@ -1451,10 +1474,12 @@ export async function addRound(req: Request, res: Response) {
         const normalizedBreakPhase = breakPhase?.trim() || null;
         const parsedBreakCategory = parseIntOrNull(breakCategory);
 
+        const parsedName = parseIntOrNull(name);
         const parsedNumber = parseIntOrNull(number);
         const parsedTime = parseIntOrNull(timeLimit);
         const parsedWord = parseIntOrNull(wordLimit);
         if (
+          Number.isNaN(parsedName) ||
           Number.isNaN(parsedNumber) ||
           Number.isNaN(parsedBreakCategory) ||
           Number.isNaN(parsedTime) ||
@@ -1462,7 +1487,7 @@ export async function addRound(req: Request, res: Response) {
         ) {
           return res.status(400).json({ message: "Round numeric fields must be positive integers" });
         }
-
+        const normalizedName= 'Round '+name;
         if (parsedBreaks) {
           if (!normalizedBreakPhase || parsedBreakCategory === null) {
             return res.status(400).json({ message: "choose break phase and break category" });
@@ -1618,10 +1643,10 @@ export async function updateRound(req: Request, res: Response) {
         if(existing[0].number!==parseIntOrNull(number)){const existingRoundNumber=await db
           .select({ number: roundsSB.number })
             .from(roundsSB)
-            .where(and(eq(roundsSB.tabId, tabId),eq(roundsSB.number, number)));
+            .where(and(eq(roundsSB.tabId, tabId),eq(roundsSB.number, number), eq(roundsSB.cupCategoryId, existing[0].cupCategoryId)));
 
         if(existingRoundNumber.length)
-          return res.status(409).json({ message: "Round number already exists in this tab" });
+          return res.status(409).json({ message: "Round number already exists in this tab and/or cup" });
         }
 
         const prev = existing[0];
@@ -1747,6 +1772,18 @@ export async function deleteRound(req: Request, res: Response) {
       const targetRoundId = roundId ?? id;
       if(!targetRoundId || !tabId) return res.status(400).json({message:'roundId and tabId required'});
 
+      const [round]= await db
+        .select({roundId: roundsSB.roundId, completed: roundsSB.completed})
+        .from(roundsSB)
+        .where(and(
+          eq(roundsSB.roundId, targetRoundId),
+          eq(roundsSB.tabId, tabId)
+        ));
+      if(!round)
+        return res.status(404).json({message:'Round not found on tab'});
+      if(round.completed)
+        return res.status(409).json({message:'Round marked as completed on tab'});
+        
       const deleted = await db
         .delete(roundsSB)
         .where(and(
@@ -1765,8 +1802,10 @@ export async function deleteRound(req: Request, res: Response) {
         });
 
       if (!deleted.length) {
-        return res.status(404).json({ message: "Round not found" });
+        return res.status(404).json({ message: "Round not deleted" });
       }
+
+      await rebuildStandingsForTab(tabId);
 
       return res.status(200).json({
         message: "Round removed successfully",

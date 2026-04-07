@@ -33,6 +33,8 @@ function App() {
           <Route path="/profile" element={<Profile/>}/>
           <Route path="/:eventUrl" element={<Event/>}/>
           <Route path="/:eventUrl/:tab" element={<Tab/>}/>
+          <Route path="/:eventUrl/:tab/*" element={<Tab/>}/>
+          <Route path="/*" element={<Home/>}/>
         </Routes>
         </main>
         <Footer />

@@ -11,6 +11,7 @@ import axios from 'axios';
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
 import Cell from "../../../../Components/Cell";
+import ToggleButton from "../../../../Components/ToggleButton";
 
 export default function SpellingAdmin({tab, event}) {
   const [tabItem, setTabItem]=useState('home');
@@ -20,8 +21,7 @@ export default function SpellingAdmin({tab, event}) {
   const newBreakCapacityRef=useRef(null);
   const newBreakNumberRef=useRef(null);
   const [menuOpen, setMenuOpen]=useState(false);
-  const {user}= useContext(AuthContext);
-  const [access, setAccess]=useState('admin');
+  const {user, access, setAccess}= useContext(AuthContext);
   const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFulltab]=useState(null);
   const roundTypes=['Timed','Word Limit'];
@@ -43,13 +43,13 @@ export default function SpellingAdmin({tab, event}) {
 
   const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
   
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'', number:'', blind: false, breaks:false, type:'', breakCategory:'', breakPhase:''}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
+  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'',number:'', blind: false, breaks:false, type:'', breakCategory:'', breakPhase:''}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
 
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:'', available: true},judge:{name:'',institutionId:0,email:'', available: true}, room:{name:''},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[]}});
+  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:'', available: true},judge:{name:'',institutionId:0,email:'', available: true}, room:{name:'', available: true},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[], completed: false}});
 
   const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
 
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', status:false},round:{name:'', number:'', breaks:false, type:'Timed', completed:false, status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
+  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', available: true ,status:false},round:{name:'', number:'', breaks:false, type:'Timed', completed:false, status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
 
   const [configStates, setConfigStates]=useState({updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Tab Updated'});
 
@@ -118,6 +118,7 @@ export default function SpellingAdmin({tab, event}) {
           adminAuthorized: isOwner || isTabMaster,
           judgeAuthorized: isJudge,
         });
+        if(!isOwner) setAccess('public');
       } catch (error) {
         console.error(error);
         if (!mounted) return;
@@ -1056,6 +1057,7 @@ useEffect(() => {
                     newBreakNumberRef.current.value='';
                 }}>Add cup</button>
             </label>
+            <label>Tab complete? <ToggleButton state={updateItems.tabDetails.completed} setState={()=>setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, completed: !updateItems.tabDetails.completed}})}/></label>
             <button className="darkButton" disabled={configStates.updateLoading}>{configStates.updateLoading? 'Updating':'Update Tab'}</button>
             {configStates.updateError &&<p style={{color:'red'}}>{configStates.updateErrorMessage}</p>}
             {configStates.updateSuccess &&<p style={{color:'green'}}>{configStates.updateSuccessMessage}</p>}
@@ -1167,7 +1169,7 @@ useEffect(() => {
                 <option value="">Select an institution</option>
                 {fullTab.institutions.map((s, i)=><option key={i} value={s.code}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.institution.status} onChange={institutionOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.institution.status} setState={()=>setDeleteItems({...deleteItems, institution:{...deleteItems.institution, status:!deleteItems.institution.status}})}/></label>
             {deleteItems.institution.status &&<p style={{color:'red'}}>Warning: This will delete all judges and spellers registered with this institution</p>}            
             <button className="darkButton" disabled={institutionStates.deleteLoading || !deleteItems.institution.status}>{institutionStates.deleteLoading? 'Deleting':'Delete Institution'}</button>
             {institutionStates.deleteError &&<p style={{color:'red'}}>{institutionStates.deleteErrorMessage}</p>}
@@ -1266,7 +1268,7 @@ useEffect(() => {
             </select>
             <input type="text" placeholder="Speller Name" required name="name" value={updateItems.speller.name} onChange={spellerOnChange}/>
             <input type="email" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
-            <input type="checkbox" checked={updateItems.speller.available} name="available" onChange={spellerOnChange}/>
+            <ToggleButton state={updateItems.speller.available} setState={()=>setUpdateItems({...updateItems, speller:{...updateItems.speller, available:!updateItems.speller.available}})}/>
             <button className="darkButton" disabled={spellerStates.updateLoading}>{spellerStates.updateLoading? 'Updating':'Update Speller'}</button>
             {spellerStates.updateError &&<p style={{color:'red'}}>{spellerStates.updateErrorMessage}</p>}
             {spellerStates.updateSuccess &&<p style={{color:'green'}}>{spellerStates.updateSuccessMessage}</p>}
@@ -1282,7 +1284,7 @@ useEffect(() => {
                 <option value="">Select Speller</option>
                 {fullTab.spellingBees.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.speller.status} onChange={spellerOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.speller.status} setState={()=>setDeleteItems({...deleteItems, speller:{...deleteItems.speller, status:!deleteItems.speller.status}})}/></label>
             {/* {deleteItems.speller.status &&<p style={{color:'red'}}>Warning: This will delete all judges and spellers registered with this institution</p>}             */}
             <button className="darkButton" disabled={spellerStates.deleteLoading || !deleteItems.speller.status}>{spellerStates.deleteLoading? 'Deleting':'Delete Speller'}</button>
             {spellerStates.deleteError &&<p style={{color:'red'}}>{spellerStates.deleteErrorMessage}</p>}
@@ -1314,16 +1316,16 @@ useEffect(() => {
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "name")}>
-                {sortStates.judges.column === "name" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.judges.column === "name" && sortStates.judges.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "institution")}>
-                {sortStates.judges.column === "institution" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.judges.column === "institution" && sortStates.judges.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Email <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "email")}>
-                {sortStates.judges.column === "email" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.judges.column === "email" && sortStates.judges.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Available <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "available")}>
-                {sortStates.judges.column === "available" && sortStates.judges.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.judges.column === "available" && sortStates.judges.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th></th>
             </tr>
@@ -1377,7 +1379,7 @@ useEffect(() => {
                 <option value=''>Choose Institution</option>
                 {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
-            <input type="checkbox" checked={updateItems.judge.available} name="available" onChange={judgeOnChange}/>
+            <label>Available? <ToggleButton state={updateItems.judge.available} setState={()=>setUpdateItems({...updateItems, judge:{...updateItems.judge, available:!updateItems.judge.available}})}/></label>
             <button className="darkButton" disabled={judgeStates.updateLoading}>{judgeStates.updateLoading? 'Updating':'Update Judge'}</button>
             {judgeStates.updateError &&<p style={{color:'red'}}>{judgeStates.updateErrorMessage}</p>}
             {judgeStates.updateSuccess &&<p style={{color:'green'}}>{judgeStates.updateSuccessMessage}</p>}
@@ -1394,7 +1396,7 @@ useEffect(() => {
                 <option value="">Select Judge</option>
                 {fullTab.judges.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.judge.status} onChange={judgeOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.judge.status} setState={()=>setDeleteItems({...deleteItems, judge:{...deleteItems.judge, status:!deleteItems.judge.status}})}/></label>
             <button className="darkButton" disabled={judgeStates.deleteLoading || !deleteItems.judge.status}>{judgeStates.deleteLoading? 'Deleting':'Delete Judge'}</button>
             {judgeStates.deleteError &&<p style={{color:'red'}}>{judgeStates.deleteErrorMessage}</p>}
             {judgeStates.deleteSuccess &&<p style={{color:'green'}}>{judgeStates.deleteSuccessMessage}</p>}
@@ -1424,13 +1426,13 @@ useEffect(() => {
           <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "name")}>
-                {sortStates.tabMasters.column === "name" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.tabMasters.column === "name" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "institution")}>
-                {sortStates.tabMasters.column === "institution" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.tabMasters.column === "institution" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Email <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "email")}>
-                {sortStates.tabMasters.column === "email" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.tabMasters.column === "email" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th></th>
             </tr>
@@ -1500,7 +1502,7 @@ useEffect(() => {
                 <option value="">Select Tab Master</option>
                 {fullTab.tabMasters.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.tabMaster.status} onChange={tabMasterOnChange} /></label>
+            <label>Are you sure? <ToggleButton state={deleteItems.tabMaster.status} setState={()=>setDeleteItems({...deleteItems, tabMaster:{...deleteItems.tabMaster, status:!deleteItems.tabMaster.status}})}/></label>
             <button className="darkButton" disabled={tabMasterStates.deleteLoading || !deleteItems.tabMaster.status}>{tabMasterStates.deleteLoading? 'Deleting':'Delete Tab Master'}</button>
             {tabMasterStates.deleteError &&<p style={{color:'red'}}>{tabMasterStates.deleteErrorMessage}</p>}
             {tabMasterStates.deleteSuccess &&<p style={{color:'green'}}>{tabMasterStates.deleteSuccessMessage}</p>}
@@ -1511,6 +1513,7 @@ useEffect(() => {
   function rooms(){
     const sortedRooms = sortItems(fullTab.rooms ?? [], "rooms", {
         name: (item) => item.name,
+        available: (item)=> item.available,
         });
     return(
     <>
@@ -1526,17 +1529,21 @@ useEffect(() => {
         {fullTab.rooms?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "name")}>
-                {sortStates.rooms.column === "name" && sortStates.rooms.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rooms.column === "name" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
+              </button></th>
+              <th>Available <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "available")}>
+                {sortStates.rooms.column === "available" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {sortedRooms.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
               <td>{p.name}</td>
+              <td>{p.available? '\u2714': '\u2718'}</td>
               <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
                 setUpdateItems({...updateItems, room:{...p}});
                 setNavState({...navState, room:'update'});
@@ -1552,6 +1559,7 @@ useEffect(() => {
         <form onSubmit={submitRoom}>
             <p><strong>Add room</strong></p>
             <input type="text" placeholder="Room Name" required name="name" value={addItems.room.name} onChange={roomOnChange}/>
+            <label>Available? <ToggleButton state={addItems.room.available} setState={()=>setAddItems({...addItems, room:{...addItems.room, available:!addItems.room.available}})}/></label>
             <button className="darkButton" disabled={roomStates.addLoading}>{roomStates.addLoading? 'Adding':'Add Room'}</button>
             {roomStates.addError &&<p style={{color:'red'}}>{roomStates.addErrorMessage}</p>}
             {roomStates.addSuccess &&<p style={{color:'green'}}>{roomStates.addSuccessMessage}</p>}
@@ -1569,6 +1577,7 @@ useEffect(() => {
                 {fullTab.rooms.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
             <input type="text" placeholder="Room Name" required name="name" value={updateItems.room.name} onChange={roomOnChange}/>
+            <label>Available? <ToggleButton state={updateItems.room.available} setState={()=>setUpdateItems({...updateItems, room:{...updateItems.room, available:!updateItems.room.available}})}/></label>
             <button className="darkButton" disabled={roomStates.updateLoading}>{roomStates.updateLoading? 'Updating':'Update Room'}</button>
             {roomStates.updateError &&<p style={{color:'red'}}>{roomStates.updateErrorMessage}</p>}
             {roomStates.updateSuccess &&<p style={{color:'green'}}>{roomStates.updateSuccessMessage}</p>}
@@ -1585,7 +1594,7 @@ useEffect(() => {
                 <option value="">Select Room</option>
                 {fullTab.rooms.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.room.status} onChange={roomOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.room.status} setState={()=>setDeleteItems({...deleteItems, room:{...deleteItems.room, status:!deleteItems.room.status}})}/></label>
             <button className="darkButton" disabled={roomStates.deleteLoading || !deleteItems.room.status}>{roomStates.deleteLoading? 'Deleting':'Delete Room'}</button>
             {roomStates.deleteError &&<p style={{color:'red'}}>{roomStates.deleteErrorMessage}</p>}
             {roomStates.deleteSuccess &&<p style={{color:'green'}}>{roomStates.deleteSuccessMessage}</p>}
@@ -1619,25 +1628,25 @@ useEffect(() => {
           <thead>
             <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
               <th>Order <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "number")}>
-                {sortStates.rounds.column === "number" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "number" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "name")}>
-                {sortStates.rounds.column === "name" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "name" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Type <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "type")}>
-                {sortStates.rounds.column === "type" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "type" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Limit <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "limit")}>
-                {sortStates.rounds.column === "limit" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "limit" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Breaks <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "breaks")}>
-                {sortStates.rounds.column === "breaks" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "breaks" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Completed <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "completed")}>
-                {sortStates.rounds.column === "completed" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "completed" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Blind <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "blind")}>
-                {sortStates.rounds.column === "blind" && sortStates.rounds.state === true ? '\u2b9d' : '\u21c5'}
+                {sortStates.rounds.column === "blind" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th></th>
             </tr>
@@ -1666,7 +1675,7 @@ useEffect(() => {
     <section id="roundAdd">
         <form onSubmit={submitRound}>
             <p><strong>Add preliminary round</strong></p>
-            <input type="text" placeholder="Round Name" required name="name" value={addItems.round.name} onChange={roundOnChange}/>
+            <input type="number" placeholder="Round Number" required name="name" value={addItems.round.name} onChange={roundOnChange}/>
             <select required name="type" value={addItems.round.type} onChange={roundOnChange}>
                 <option value="">Select round type</option>
               {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
@@ -1674,7 +1683,7 @@ useEffect(() => {
             {addItems.round.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={addItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {addItems.round.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={addItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
             <input type="number" min="1" name="number" placeholder="Round Order" value={addItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Blind Round?<input type="checkbox" name="blind" checked={!!addItems.round.blind} onChange={roundOnChange} /></label>
+            <label>Blind Round?<ToggleButton state={addItems.round.blind} setState={()=>setAddItems({...addItems, round:{...addItems.round, blind:!addItems.round.blind}})}/></label>
             <button className="darkButton" disabled={roundStates.addLoading}>{roundStates.addLoading? 'Adding':'Add Round'}</button>
             {roundStates.addError &&<p style={{color:'red'}}>{roundStates.addErrorMessage}</p>}
             {roundStates.addSuccess &&<p style={{color:'green'}}>{roundStates.addSuccessMessage}</p>}
@@ -1699,8 +1708,8 @@ useEffect(() => {
             {updateItems.round.type==='Timed' && <input type="number" min="1" name="timeLimit" placeholder="Time Limit (seconds)" value={updateItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
             {updateItems.round.type==='Word Limit' && <input type="number" min="1" name="wordLimit" placeholder="Word Limit" value={updateItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
             <input type="number" min={1} name="number" placeholder="Round Order" value={updateItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Blind Round?<input type="checkbox" name="blind" checked={!!updateItems.round.blind} onChange={roundOnChange} /></label>
-            <label>Completed?<input type="checkbox" name="completed" checked={!!updateItems.round.completed} onChange={roundOnChange} /></label>
+            <label>Blind Round?<ToggleButton state={updateItems.round.blind} setState={()=>setUpdateItems({...updateItems, round:{...updateItems.round, blind:!updateItems.round.blind}})}/></label>
+            <label>Completed?<ToggleButton state={updateItems.round.completed} setState={()=>setUpdateItems({...updateItems, round:{...updateItems.round, completed:!updateItems.round.completed}})}/></label>
             <button className="darkButton" disabled={roundStates.updateLoading}>{roundStates.updateLoading? 'Updating':'Update Round'}</button>
             {roundStates.updateError &&<p style={{color:'red'}}>{roundStates.updateErrorMessage}</p>}
             {roundStates.updateSuccess &&<p style={{color:'green'}}>{roundStates.updateSuccessMessage}</p>}
@@ -1717,7 +1726,7 @@ useEffect(() => {
                 <option value="">Select Round</option>
                 {fullTab.rounds.filter(r=>r.breaks===false).map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.round.status} onChange={roundOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.round.status} setState={()=>setDeleteItems({...deleteItems, round:{...deleteItems.round, status:!deleteItems.round.status}})}/></label>
             <button className="darkButton" disabled={roundStates.deleteLoading || !deleteItems.round.status}>{roundStates.deleteLoading? 'Deleting':'Delete Round'}</button>
             {roundStates.deleteError &&<p style={{color:'red'}}>{roundStates.deleteErrorMessage}</p>}
             {roundStates.deleteSuccess &&<p style={{color:'green'}}>{roundStates.deleteSuccessMessage}</p>}
@@ -1809,10 +1818,12 @@ useEffect(() => {
     const breakRounds = fullTab?.rounds?.filter((round)=>round.breaks) || [];
     const breakPreview = breakStates.previewData;
     const lastBatch = breakStates.lastBatch;
+    const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
 
         function renderDrawCards(rounds, emptyMessage){
         return rounds.length>0
-        ? rounds.map((round)=> {
+        ? 
+        rounds.map((round)=> {
             const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
             return (
                 <div key={round.roundId} style={{display:'grid', gap:'0.75rem', marginBottom:'1rem'}}>
@@ -1893,7 +1904,7 @@ useEffect(() => {
             <p><strong>Generate Draw</strong></p>
             <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
                 <option value={defaultItems.draw.roundId}>Select Round</option>
-                {fullTab.rounds?.filter((d)=>!d.breaks).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+                {preliminaryRounds.filter((d)=>!d.completed).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
             <label>Power Pair (sliding)? <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/></label>            
             <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
@@ -2027,7 +2038,7 @@ useEffect(() => {
             <p><strong>Update Draw</strong></p>
             <select name="roundId" value={updateItems.draw.roundId} onChange={drawOnChange}>
                 <option value={defaultItems.draw.roundId}>Select Round</option>
-                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+                {incompleteRounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
             {!fullTab.draws.find((a)=>a.roundId===updateItems.draw.roundId)?
             <p>Draw for this round is not out yet</p>
@@ -2190,6 +2201,7 @@ useEffect(() => {
     </>);
   }
   function results(){
+    const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
     return(
     <>
     <div className="buttonStack">
@@ -2243,7 +2255,7 @@ useEffect(() => {
             <p><strong>Add/Update Result</strong></p>
             <select name="roundId" value={updateItems.result.roundId} onChange={resultOnChange}>
                 <option value={defaultItems.result.roundId}>Select Round</option>
-                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+                {incompleteRounds.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
             {!fullTab.draws.find((a)=>a.roundId===updateItems.result.roundId)?
             <p>Draw for this round is not out yet</p>
@@ -2282,7 +2294,7 @@ useEffect(() => {
             <p><strong>Add/Update Room Results</strong></p>
             <select name="roundId" value={updateItems.batch.roundId} onChange={resultOnChange}>
                 <option value={0}>Select Round</option>
-                {fullTab.rounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+                {incompleteRounds.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
             {!fullTab.draws.find((a)=>a.roundId===updateItems.batch.roundId)?
             <p>Draw for this round is not out yet</p>

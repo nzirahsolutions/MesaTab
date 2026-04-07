@@ -256,6 +256,36 @@ footer{
   .otherOptions{
     background-color: var(--brandcolor);}
 }
+.toggleButton{
+  width: 2rem;
+  height: 1rem;
+  border-radius: 5rem;
+  background-color: var(--background-color);
+  justify-self: center;
+  anchor-name: --tb;
+  transition: 0.5s ease;
+  display: inline-block;
+
+  &::after{
+    content: '';
+    position: absolute;
+    position-anchor: --tb;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background-color: var(--accentcolor);
+    left: anchor(left);
+    scale: 1.1;
+    transition: 0.5s ease;
+  }
+  &.active{
+    background-color: var(--accentcolor-light);
+    &::after{
+      transform: translateX(1rem);
+    }
+  }
+}
+
 button:disabled{
   opacity: 0.5;
   pointer-events: none;
@@ -298,6 +328,12 @@ button:disabled{
   padding: 1rem;
   border-radius: 0.5rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+label{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 form{
   background-color: var(--white-color);

@@ -10,6 +10,11 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [access, setAccess] = useState(() => {
+    const saved = localStorage.getItem('access');
+    return saved ? saved : 'public';
+  });
+
   const [tab, setTab] = useState(() => {
     const saved = localStorage.getItem('tab');
     return saved ? JSON.parse(saved) : null;
@@ -29,6 +34,11 @@ export const AuthProvider = ({ children }) => {
     if(user) localStorage.setItem('user', JSON.stringify(user));
     else localStorage.removeItem('user');
   }, [user]);
+
+  useEffect(() => {
+    if(access) localStorage.setItem('access', access);
+    else localStorage.removeItem('access');
+  }, [access]);
 
   useEffect(() => {
     localStorage.setItem('tab', JSON.stringify(tab));
@@ -58,7 +68,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, tab, setTab , isEvent, setIsEvent}}>
+    <AuthContext.Provider value={{ user, setUser, tab, setTab , isEvent, setIsEvent, access, setAccess}}>
       {children}
     </AuthContext.Provider>
   );

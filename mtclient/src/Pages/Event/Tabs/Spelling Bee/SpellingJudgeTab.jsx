@@ -8,8 +8,8 @@ import Loading from "../../../../Components/Loading";
 import Cell from "../../../../Components/Cell";
 import { currentServer } from "../../../../Context/urls";
 
-export default function SpellingJudgeTab({ tab, event, accessOptions, onAccessChange }) {
-  const { user } = useContext(AuthContext);
+export default function SpellingJudgeTab({ tab, event, accessOptions }) {
+  const { user,setAccess } = useContext(AuthContext);
   const [tabItem, setTabItem] = useState("home");
   const tabHistoryRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -34,6 +34,7 @@ export default function SpellingJudgeTab({ tab, event, accessOptions, onAccessCh
         Array.isArray(fetchedTab?.judges) &&
         fetchedTab.judges.some((judge) => judge.email === user.email);
 
+      if(!isJudge) setAccess('public');
       setFullTab(fetchedTab);
       setPageLoad({ loading: false, authorized: isJudge });
     } catch (error) {
@@ -326,19 +327,16 @@ export default function SpellingJudgeTab({ tab, event, accessOptions, onAccessCh
     );
   }
 
-  const selectedIdx = Math.max(
-    0,
-    accessOptions.findIndex((option) => option.value === "judge")
-  );
+  const selectedIdx = Math.max(0, accessOptions.findIndex((option) => option.value === "judge"));
 
   if (pageLoad.loading) return <Loading />;
-  if (!pageLoad.authorized) return <p>You are not assigned as a judge on this tab.</p>;
+  if (!pageLoad.authorized) setAccess('public');
 
   return (
     <>
       <nav className="tabMenu">
         <ul>
-          <Dropdown options={accessOptions} setValue={onAccessChange} selectedIdx={selectedIdx} />
+          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
           <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>
             My Rounds
           </li>
@@ -349,7 +347,7 @@ export default function SpellingJudgeTab({ tab, event, accessOptions, onAccessCh
       </nav>
       <div className="tabSideMenu">
         <nav className="tTitle">
-          <Dropdown options={accessOptions} setValue={onAccessChange} selectedIdx={selectedIdx} />
+          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
           <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>
             {menuOpen ? <IoClose /> : "Menu"}
           </span>

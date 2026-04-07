@@ -27,8 +27,7 @@ export default function Tab() {
     catch (error) {
     console.log(error);
     navigate(`/${eventUrl}`);  
-    }
-    
+    } 
   }
   useEffect(()=>{
     getTab();
@@ -41,7 +40,7 @@ export default function Tab() {
     :tabDetails.tab.track==='WSDC Debate'? <WSDCPublicTab tab={tabDetails.tab} event={tabDetails.event}/>
     :tabDetails.tab.track==='Public Speaking'?<PublicSpeakingPublicTab tab={tabDetails.tab} event={tabDetails.event}/>
     :tabDetails.tab.track==='Spelling Bee'? <SpellingBeePublicTab tab={tabDetails.tab} event={tabDetails.event}/>
-    :tabDetails.tab.track==='Chess'?<ChessPublicTab tab={tabDetails.tab}  event={tabDetails.event}/>: ''}
+    :tabDetails.tab.track==='Chess'?<ChessPublicTab tab={tabDetails.tab} event={tabDetails.event}/>: ''}
     </>
     : <Loading/>
     }    

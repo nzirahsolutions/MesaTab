@@ -1,4 +1,4 @@
-import { index, pgTable, text, serial, uuid, unique } from 'drizzle-orm/pg-core';
+import { index, pgTable, text, serial, uuid, unique, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { tabsSB } from './tabsSB';
 import { drawsSB } from './drawsSB';
@@ -9,6 +9,7 @@ export const roomsSB = pgTable(
     roomId: serial('room_id').primaryKey(),
     tabId: uuid('tab_id').notNull().references(() => tabsSB.tabId, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    available: boolean('available').notNull().default(true),
   },
   (i) => ({
     tabnameUnique: unique().on(i.tabId, i.name),
