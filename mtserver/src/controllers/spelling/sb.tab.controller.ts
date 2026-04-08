@@ -756,6 +756,15 @@ export async function addInstitution(req: Request, res: Response) {
         if (existing.length > 0) {
             return res.status(409).json({ message: "Institute code is already in tab" });
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+        
         const added = await db
             .insert(institutionsSB)
             .values({
@@ -797,6 +806,14 @@ export async function updateInstitution(req: Request, res: Response) {
         const updates:{name?: string; code?: string}={};
         if(name) updates.name=name;
         if(code) updates.code=code.trim().toUpperCase();
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
         //ensure code is unique in the same tab
         if(updates.code){
@@ -859,6 +876,14 @@ export async function deleteInstitution(req: Request, res: Response) {
     //   });
     // }
 
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
     const deleted = await db
       .delete(institutionsSB)
       .where(and(
@@ -913,6 +938,15 @@ export async function addSpeller(req: Request, res: Response) {
         if (existing.length > 0) {
             return res.status(409).json({ message: "Student with that email is already in tab" });
         }}
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
         const added = await db
             .insert(spellers)
             .values({
@@ -957,6 +991,14 @@ export async function updateSpeller(req: Request, res: Response) {
 
         if((!id && !tabId) || !tabId || !id)
             return res.status(400).json({message:'Provide tabId and spellerId'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
         const updates:{name?: string; email?: string, institutionId?:number, available?: boolean}={};
         if(name) updates.name=name;
@@ -1007,6 +1049,14 @@ export async function deleteSpeller(req: Request, res: Response) {
       }
       if(!id || !tabId) res.status(400).json({message:'id and tabId required'});
 
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
     const deleted = await db
       .delete(spellers)
       .where(and(
@@ -1050,6 +1100,14 @@ export async function addTabMaster(req: Request, res: Response) {
             .status(400)
             .json({ message: "Tab master name, email and institution are required" });
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
         const existing = await db
                     .select({ email: tabMastersSB.email })
                     .from(tabMastersSB)
@@ -1098,6 +1156,14 @@ export async function updateTabMaster(req: Request, res: Response) {
         if(!tabId || !id)
             return res.status(400).json({message:'Provide tabId and tabMasterId'});
 
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
         const updates:{name?: string; email?: string; institutionId?:number}={};
         if(name) updates.name=name;
         if(email) updates.email=email.trim().toLocaleLowerCase();
@@ -1143,6 +1209,14 @@ export async function deleteTabMaster(req: Request, res: Response) {
         tabId?: string;
       }
       if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
+
+      //confirm tab isn't completed
+      const [tab]= await db
+        .select({completed: tabsSB.completed})
+        .from(tabsSB)
+        .where(eq(tabsSB.tabId, tabId));
+      
+      if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
       const deleted = await db
         .delete(tabMastersSB)
@@ -1198,6 +1272,14 @@ export async function addJudge(req: Request, res: Response) {
               return res.status(409).json({ message: "Judge with that email is already in tab" });
           }
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
         const added = await db
             .insert(judgesSB)
             .values({
@@ -1237,6 +1319,14 @@ export async function updateJudge(req: Request, res: Response) {
 
         if(!tabId || !id)
             return res.status(400).json({message:'Provide tabId and judgeId'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
         const updates:{name?: string; email?: string; institutionId?:number; available?:boolean;}={};
         if(name) updates.name=name;
@@ -1285,6 +1375,14 @@ export async function deleteJudge(req: Request, res: Response) {
         tabId?: string;
       }
       if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
       const deleted = await db
         .delete(judgesSB)
@@ -1335,6 +1433,14 @@ export async function addRoom(req: Request, res: Response) {
         if (existing.length > 0) {
             return res.status(409).json({ message: "Room with that name is already in tab" });
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
         const added = await db
             .insert(roomsSB)
             .values({
@@ -1369,6 +1475,14 @@ export async function updateRoom(req: Request, res: Response) {
 
         if(!tabId || !id)
             return res.status(400).json({message:'Provide tabId and roomId'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
         const updates:{name?: string, available?:boolean}={};
         if(name) updates.name=name.trim();
@@ -1412,6 +1526,14 @@ export async function deleteRoom(req: Request, res: Response) {
         tabId?: string;
       }
       if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
       const deleted = await db
         .delete(roomsSB)
@@ -1469,6 +1591,15 @@ export async function addRound(req: Request, res: Response) {
         if (!name || !tabId || !type) {
             return res.status(400).json({ message: "Round name, tabId and type are required" });
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
         const parsedBreaks = parseBooleanInput(breaks) ?? false;
         const parsedBlind = parseBooleanInput(blind) ?? false;
         const normalizedBreakPhase = breakPhase?.trim() || null;
@@ -1620,6 +1751,14 @@ export async function updateRound(req: Request, res: Response) {
         if(!tabId || !targetRoundId){
             return res.status(400).json({message:'Provide tabId and roundId'});
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
         const existing = await db
           .select({
@@ -1783,6 +1922,14 @@ export async function deleteRound(req: Request, res: Response) {
         return res.status(404).json({message:'Round not found on tab'});
       if(round.completed)
         return res.status(409).json({message:'Round marked as completed on tab'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
         
       const deleted = await db
         .delete(roundsSB)
@@ -1828,6 +1975,15 @@ export async function addWord(req: Request, res: Response) {
         if (!normalizedWord || !tabId) {
             return res.status(400).json({ message: "Word and tabId are required" });
         }
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
         const existing = await db
                     .select({ id: wordsSB.wordId })
                     .from(wordsSB)
@@ -1868,6 +2024,14 @@ export async function updateWord(req: Request, res: Response) {
       }
       const normalizedWord = word?.trim();
       if(!id || !tabId || !normalizedWord) return res.status(400).json({message:'id, tabId and word required'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
       const existing=await db
         .select({id: wordsSB.wordId})
@@ -1912,6 +2076,14 @@ export async function deleteWord(req: Request, res: Response) {
         tabId?: string;
       }
       if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
+
+        //confirm tab isn't completed
+        const [tab]= await db
+          .select({completed: tabsSB.completed})
+          .from(tabsSB)
+          .where(eq(tabsSB.tabId, tabId));
+        
+        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
       const deleted = await db
         .delete(wordsSB)

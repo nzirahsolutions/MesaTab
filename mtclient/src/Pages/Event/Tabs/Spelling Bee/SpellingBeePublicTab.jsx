@@ -377,7 +377,7 @@ export default function SpellingBeePublicTab({tab, event}) {
   function words(){
     return(
       <>
-      <h2>Words</h2>{fullTab.complete?
+      <h2>Words</h2>{fullTab.completed?
       <section className="words">
         {fullTab?.words?.map((w,i)=><div className="word" key={i}>{w.word || w}</div>)}
         {!fullTab?.words?.length && <p>No Words Added</p>}

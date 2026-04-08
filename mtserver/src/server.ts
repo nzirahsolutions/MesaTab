@@ -6,6 +6,9 @@ import eventRoutes from './routes/events.route';
 import sbTabRoutes from './routes/spelling/sb.tab.route';
 import sbDrawRoutes from './routes/spelling/sb.draw.route';
 import sbResultRoutes from './routes/spelling/sb.result.route';
+import psTabRoutes from './routes/Public Speaking/ps.tab.route';
+import psDrawRoutes from './routes/Public Speaking/ps.draw.route';
+import psResultRoutes from './routes/Public Speaking/ps.result.route';
 
 const app = express();
 
@@ -21,6 +24,9 @@ app.use('/event',eventRoutes);
 app.use('/sb',sbTabRoutes);
 app.use('/sb/draw',sbDrawRoutes);
 app.use('/sb/result',sbResultRoutes);
+app.use('/ps', psTabRoutes);
+app.use('/ps/draw', psDrawRoutes);
+app.use('/ps/result', psResultRoutes);
 
 //run server
 app.listen(process.env.PORT ?? 3500, () => {

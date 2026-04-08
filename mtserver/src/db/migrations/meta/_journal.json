@@ -211,6 +211,13 @@
       "when": 1775578034334,
       "tag": "0029_steep_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1775606318628,
+      "tag": "0030_misty_living_lightning",
+      "breakpoints": true
     }
   ]
 }

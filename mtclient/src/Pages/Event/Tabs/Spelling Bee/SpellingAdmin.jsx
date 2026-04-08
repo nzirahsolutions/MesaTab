@@ -33,7 +33,7 @@ export default function SpellingAdmin({tab, event}) {
       const fetchedTab = res.data?.data ?? null;
     //   console.log(fetchedTab);
       setFulltab(res.data?.data ?? null);        
-      setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups}}));
+      setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups, completed: fetchedTab.completed}}));
     } catch (error) {
       console.error(error);
     }
@@ -118,7 +118,7 @@ export default function SpellingAdmin({tab, event}) {
           adminAuthorized: isOwner || isTabMaster,
           judgeAuthorized: isJudge,
         });
-        if(!isOwner) setAccess('public');
+        if(!isOwner && !isTabMaster) setAccess('public');
       } catch (error) {
         console.error(error);
         if (!mounted) return;
@@ -249,10 +249,7 @@ useEffect(() => {
             setAddItems({...addItems, speller:{...addItems.speller,[e.target.name]:e.target.value}});
             break;
         case 'update':
-            if(e.target.type=='checkbox')
-                setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.checked}});
-            else
-                setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.value}});
+            setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.value}});
             break;
         case 'delete':
             setDeleteItems({...deleteItems, speller:{...deleteItems.speller,[e.target.name]:e.target.checked}});
@@ -284,9 +281,6 @@ useEffect(() => {
             setAddItems({...addItems, judge:{...addItems.judge,[e.target.name]:e.target.value}});
             break;
         case 'update':
-            if(e.target.type==='checkbox')
-                setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.checked}});
-            else
                 setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.value}});
             break;
         case 'delete':
@@ -313,7 +307,7 @@ useEffect(() => {
   }
   function roundOnChange(e){
     setRoundStates({...roundStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-    const value = e.target.type==='checkbox' ? e.target.checked :e.target.name=='breakCategory'? parseInt(e.target.value): e.target.value;
+    const value = e.target.name=='breakCategory'? parseInt(e.target.value): e.target.value;
 
     switch(navState.round){
         case'add':
@@ -350,8 +344,6 @@ useEffect(() => {
     switch(navState.draw){
         case'generate':
             setAddItems({...addItems, draw:{...addItems.draw,[e.target.name]:e.target.value}});
-            if(e.target.type==='checkbox')
-                setAddItems({...addItems, draw:{...addItems.draw,[e.target.name]:e.target.checked}});
             break;
         case'review':
             setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
@@ -361,12 +353,7 @@ useEffect(() => {
             setUpdateItems({...updateItems, draw:{...updateItems.draw,[e.target.name]:parseInt(e.target.value)}});
             break;
         case 'delete':
-            // console.log(e.target);
-            if(e.target.type==='checkbox')
-                setDeleteItems({...deleteItems, draw:{...deleteItems.draw,[e.target.name]:e.target.checked}});
-            else{
             setDeleteItems({...deleteItems, draw:{...deleteItems.draw,[e.target.name]:parseInt(e.target.value)}});
-            }
             break;
         default: console.log('No Change');
     }
@@ -413,12 +400,7 @@ useEffect(() => {
             }
 
         case 'delete':
-            // console.log(e.target);
-            if(e.target.type==='checkbox')
-                setDeleteItems({...deleteItems, result:{...deleteItems.result,[e.target.name]:e.target.checked}});
-            else{
             setDeleteItems({...deleteItems, result:{...deleteItems.result,[e.target.name]:parseInt(e.target.value)}});
-            }
             break;
         default: console.log('No Change');
     }
@@ -1268,7 +1250,8 @@ useEffect(() => {
             </select>
             <input type="text" placeholder="Speller Name" required name="name" value={updateItems.speller.name} onChange={spellerOnChange}/>
             <input type="email" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
-            <ToggleButton state={updateItems.speller.available} setState={()=>setUpdateItems({...updateItems, speller:{...updateItems.speller, available:!updateItems.speller.available}})}/>
+            <label>Available?<ToggleButton state={updateItems.speller.available} setState={()=>setUpdateItems({...updateItems, speller:{...updateItems.speller, available:!updateItems.speller.available}})}/></label>
+            
             <button className="darkButton" disabled={spellerStates.updateLoading}>{spellerStates.updateLoading? 'Updating':'Update Speller'}</button>
             {spellerStates.updateError &&<p style={{color:'red'}}>{spellerStates.updateErrorMessage}</p>}
             {spellerStates.updateSuccess &&<p style={{color:'green'}}>{spellerStates.updateSuccessMessage}</p>}
@@ -1724,7 +1707,7 @@ useEffect(() => {
                 e.target.value==='' && setDeleteItems({...deleteItems, round:{id:'',name:'',status:false}});
                 }} value={deleteItems.round.roundId || ''}>
                 <option value="">Select Round</option>
-                {fullTab.rounds.filter(r=>r.breaks===false).map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
+                {fullTab.rounds.map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
             </select>
             <label>Are you sure?<ToggleButton state={deleteItems.round.status} setState={()=>setDeleteItems({...deleteItems, round:{...deleteItems.round, status:!deleteItems.round.status}})}/></label>
             <button className="darkButton" disabled={roundStates.deleteLoading || !deleteItems.round.status}>{roundStates.deleteLoading? 'Deleting':'Delete Round'}</button>
@@ -1805,7 +1788,7 @@ useEffect(() => {
                 <option value="">Select Word</option>
                 {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.word.status} onChange={wordOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.word.status} setState={()=>setDeleteItems({...deleteItems, word:{...deleteItems.word, status:!deleteItems.word.status}})}/></label>
             <button className="darkButton" disabled={wordStates.deleteLoading || !deleteItems.word.status}>{wordStates.deleteLoading? 'Deleting':'Delete Word'}</button>
             {wordStates.deleteError &&<p style={{color:'red'}}>{wordStates.deleteErrorMessage}</p>}
             {wordStates.deleteSuccess &&<p style={{color:'green'}}>{wordStates.deleteSuccessMessage}</p>}
@@ -1906,7 +1889,7 @@ useEffect(() => {
                 <option value={defaultItems.draw.roundId}>Select Round</option>
                 {preliminaryRounds.filter((d)=>!d.completed).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
             </select>
-            <label>Power Pair (sliding)? <input type="checkbox" name="powerPair" checked={addItems.draw.powerPair} onChange={drawOnChange}/></label>            
+            <label>Power Pair (sliding)? <ToggleButton state={addItems.draw.powerPair} setState={()=>setAddItems({...addItems, draw:{...addItems.draw, powerPair:!addItems.draw.powerPair}})}/></label>
             <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
             {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
             {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
@@ -2192,7 +2175,7 @@ useEffect(() => {
                 <option value={0}>Select Round</option>
                 {fullTab.rounds.map((r, i)=><option key={i} value={r.roundId}>{r.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="status" checked={deleteItems.draw.status} onChange={drawOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.draw.status} setState={()=>setDeleteItems({...deleteItems, draw:{...deleteItems.draw, status:!deleteItems.draw.status}})}/></label>
             <button className="darkButton" disabled={drawStates.deleteLoading || !deleteItems.draw.status}>{drawStates.deleteLoading? 'Deleting':'Delete Draw'}</button>
             {drawStates.deleteError &&<p style={{color:'red'}}>{drawStates.deleteErrorMessage}</p>}
             {drawStates.deleteSuccess &&<p style={{color:'green'}}>{drawStates.deleteSuccessMessage}</p>}
@@ -2358,7 +2341,7 @@ useEffect(() => {
                     <option value={0}>Select Speller</option>
                     {fullTab.draws.find((d)=>d.room.id===deleteItems.result.roomId && d.roundId===deleteItems.result.roundId)?.spellers?.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
             </select>
-            <label>Are you sure?<input type="checkbox" name="confirm" checked={deleteItems.result.confirm} onChange={resultOnChange} /></label>
+            <label>Are you sure?<ToggleButton state={deleteItems.result.confirm} setState={()=>setDeleteItems({...deleteItems, result:{...deleteItems.result, confirm:!deleteItems.result.confirm}})}/></label>
             <button className="darkButton" disabled={resultStates.deleteLoading || !deleteItems.result.confirm}>{resultStates.deleteLoading? 'Deleting':'Delete Result'}</button>
             {resultStates.deleteError &&<p style={{color:'red'}}>{resultStates.deleteErrorMessage}</p>}
             {resultStates.deleteSuccess &&<p style={{color:'green'}}>{resultStates.deleteSuccessMessage}</p>}

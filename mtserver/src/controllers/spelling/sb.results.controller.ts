@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../../db/db';
-import { resultsSB, standingsSB, drawSpellers, drawsSB, spellers, roundsSB } from '../../db/schema';
+import { resultsSB, standingsSB, drawSpellers, drawsSB, spellers, roundsSB, tabsSB } from '../../db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const allowedStatuses = ["Eliminated", "Pass", "Incomplete"] as const;
@@ -30,7 +30,8 @@ export async function rebuildStandingsForTab(tabId: string) {
     .from(resultsSB)
     .innerJoin(drawSpellers, eq(resultsSB.drawSpellerId, drawSpellers.id))
     .innerJoin(drawsSB, eq(drawSpellers.drawId, drawsSB.drawId))
-    .where(eq(drawSpellers.tabId, tabId));
+    .innerJoin(roundsSB, eq(drawsSB.roundId, roundsSB.roundId))
+    .where(and(eq(drawSpellers.tabId, tabId), eq(roundsSB.breaks, false)));
 
   const standingMap = new Map<number, { totalScore: number; roundScores: StandingRoundScore[] }>();
 
@@ -102,6 +103,14 @@ export async function ballot(req: Request,res: Response){
     if (status !== undefined && !allowedStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid result status" });
     }
+    
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
     //confirm round exists in tab and if complete
         const [round] = await db
           .select({
@@ -208,7 +217,15 @@ export async function batchBallot(req: Request, res: Response) {
 
     if (!tabId || !roundId || !roomId || !Array.isArray(updates) || !updates.length) {
       return res.status(400).json({ message: "tabId, roundId, roomId and updates are required" });
-    }    
+    }
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'}); 
+
     //confirm round exists in tab and if complete
         const [round] = await db
           .select({
@@ -362,6 +379,14 @@ export async function deleteBallot(req: Request,res: Response){
     }
     if (!tabId || !roundId || !roomId || !spellerId)
       return res.status(400).json({message:'specify tab, round, room and speller'});
+
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
     //confirm round exists in tab and if complete
         const [round] = await db

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/db";
-import { cupCategoriesSB, resultsSB,drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB, standingsSB} from "../../db/schema";
+import { cupCategoriesSB, resultsSB,drawsSB, drawJudgesSB, drawSpellers, roomsSB,spellers, judgesSB, roundsSB, standingsSB, tabsSB} from "../../db/schema";
 
 function shuffle<T>(array: T[]): T[] {
   const arr = [...array]; // avoid mutating original
@@ -140,6 +140,13 @@ export async function generateDraw(req: Request, res: Response){
     if (!roundId || !tabId) 
         return res.status(400).json({message:'Tab Id and round required'});
 
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
     //confirm round exists in tab
     const [round] = await db
       .select({
@@ -359,6 +366,14 @@ export async function updateDraw(req: Request, res: Response){
         return res.status(400).json({message:'Select rooms to swap'});
     if(swapState===8 && (room2==0 || room1==0))
         return res.status(400).json({message:'Select rooms to move from and to'});
+
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
     
     //confirm round exists in tab
     const [round] = await db
@@ -1066,6 +1081,14 @@ export async function deleteDraw(req: Request, res: Response){
     }
     if(!roundId || roundId===0 || !tabId) return res.status(400).json({message:'Please select a round'});
 
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+
     //confirm round exists in tab
     const [round] = await db
       .select({
@@ -1666,6 +1689,14 @@ export async function generateBreakDraw(req: Request, res: Response) {
     if (!tabId) {
       return res.status(400).json({ message: "tabId is required" });
     }
+
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsSB.completed})
+      .from(tabsSB)
+      .where(eq(tabsSB.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
     const [rooms, judges] = await Promise.all([
       db

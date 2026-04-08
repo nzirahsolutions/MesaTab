@@ -21,5 +21,18 @@ export * from './schema/WSDC debate/tabsWSDC';
 export * from './schema/chess/tabsChess';
 //PS
 export * from './schema/public speaking/tabsPS';
+export * from './schema/public speaking/institutionsPS';
+export * from './schema/public speaking/judgesPS';
+export * from './schema/public speaking/tabMastersPS';
+export * from './schema/public speaking/speakersPS';
+export * from './schema/public speaking/roomsPS';
+export * from './schema/public speaking/cupCategoriesPS';
+export * from './schema/public speaking/roundsPS';
+export * from './schema/public speaking/drawsPS';
+export * from './schema/public speaking/drawSpeakersPS';
+export * from './schema/public speaking/drawJudgesPS';
+export * from './schema/public speaking/resultsPS';
+export * from './schema/public speaking/standingsPS';
+export * from './schema/public speaking/speechPromptsPS';
 //BP
 export * from './schema/BP debate/tabsBP';
