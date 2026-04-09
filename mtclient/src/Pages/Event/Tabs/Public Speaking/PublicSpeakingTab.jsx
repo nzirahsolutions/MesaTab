@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef, useMemo } from "react";
-import { GiBee } from "react-icons/gi";
+import { GiMicrophone } from "react-icons/gi";
 import { IoClose } from "react-icons/io5";
 import { AuthContext } from "../../../../Context/AuthContext";
 import Dropdown from "../../../../Components/Dropdown";
@@ -353,7 +353,7 @@ export default function PublicSpeakingTab({ tab, event }) {
     <>
       <nav className="tabMenu">
         <ul>
-          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiBee fill="teal" /><strong>{tab.title}</strong></span>}
+          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
           <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>Rounds</li>
           <li onClick={() => tabChange("speakerTab")} className={tabItem === "speakerTab" ? "selectedTabItem" : ""}>Speaker Tab</li>
           <li onClick={() => tabChange("prompts")} className={tabItem === "prompts" ? "selectedTabItem" : ""}>Speech Prompts</li>
@@ -362,12 +362,12 @@ export default function PublicSpeakingTab({ tab, event }) {
       </nav>
       <div className="tabSideMenu">
         <nav className="tTitle">
-          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiBee fill="teal" /><strong>{tab.title}</strong></span>}
+          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
           <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
         </nav>
         <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
           <ul>
-            <span onClick={() => tabChange("home")}><GiBee fill="teal" /><strong>{tab.title}</strong></span>
+            <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>
             <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>Rounds</li>
             <li onClick={() => tabChange("speakerTab")} className={tabItem === "speakerTab" ? "selectedTabItem" : ""}>Speaker Tab</li>
             <li onClick={() => tabChange("prompts")} className={tabItem === "prompts" ? "selectedTabItem" : ""}>Speech Prompts</li>

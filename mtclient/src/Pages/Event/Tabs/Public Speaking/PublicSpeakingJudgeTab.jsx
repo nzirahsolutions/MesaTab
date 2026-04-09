@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { GiBee } from "react-icons/gi";
+import { GiMicrophone } from "react-icons/gi";
 import { IoClose } from "react-icons/io5";
 import axios from "axios";
 import { AuthContext } from "../../../../Context/AuthContext";
@@ -321,7 +321,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
         </nav>
         <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
           <ul>
-            <span onClick={() => tabChange("home")}><GiBee fill="teal" /><strong>{tab.title}</strong></span>
+            <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>
             <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>My Rounds</li>
             <li onClick={() => tabChange("ballots")} className={tabItem === "ballots" ? "selectedTabItem" : ""}>My Ballots</li>
           </ul>

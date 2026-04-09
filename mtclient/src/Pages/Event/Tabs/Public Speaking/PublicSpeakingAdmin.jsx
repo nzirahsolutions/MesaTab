@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { GiBee } from "react-icons/gi";
+import { GiMicrophone} from "react-icons/gi";
 import { IoClose } from "react-icons/io5";
 import axios from "axios";
 import { AuthContext } from "../../../../Context/AuthContext";
@@ -7,6 +7,7 @@ import Dropdown from "../../../../Components/Dropdown";
 import Loading from "../../../../Components/Loading";
 import ToggleButton from "../../../../Components/ToggleButton";
 import Cell from "../../../../Components/Cell";
+import Toast from "../../../../Components/Toast";
 import { currentServer } from "../../../../Context/urls";
 
 const speechTypes = [
@@ -21,17 +22,15 @@ const speechTypes = [
   "creative",
   "other",
 ];
-
 const breakPhases = ["Triples", "Doubles", "Octos", "Quarters", "Semis", "Finals"];
 
 export default function PublicSpeakingAdmin({ tab, event }) {
   const { user, access, setAccess } = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [tabItem, setTabItem] = useState("configuration");
+  const [tabItem, setTabItem] = useState("home");
   const tabHistoryRef = useRef(false);
   const [pageLoad, setPageLoad] = useState({ loading: true, adminAuthorized: false, judgeAuthorized: false });
   const [fullTab, setFullTab] = useState(null);
-  const [message, setMessage] = useState({ type: "", text: "" });
   const [configForm, setConfigForm] = useState({ title: "", slug: "", minScore: 30, maxScore: 90, completed: false, cups: [] });
   const [institutionForm, setInstitutionForm] = useState({ id: null, name: "", code: "" });
   const [tabMasterForm, setTabMasterForm] = useState({ id: null, name: "", institutionId: 0, email: "" });
@@ -42,6 +41,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
   const [promptForm, setPromptForm] = useState({ id: null, roundId: "", speechPrompt: "", speechType: "narrative", visible: false });
   const [drawForm, setDrawForm] = useState({ roundId: "", powerPair: true, breakRoundId: "", preview: null });
   const [resultForm, setResultForm] = useState({ roundId: "", roomId: "", draft: null });
+  const [toasts, setToasts]=useState([]);
 
   async function getFullTab() {
     try {
@@ -74,16 +74,16 @@ export default function PublicSpeakingAdmin({ tab, event }) {
   }, [tab.tabId, event?.ownerId, user]);
 
   useEffect(() => {
-    if (tabItem !== "configuration" && !tabHistoryRef.current) {
+    if (tabItem !== "home" && !tabHistoryRef.current) {
       window.history.pushState({ internalTab: true }, "", window.location.href);
       tabHistoryRef.current = true;
     }
-    if (tabItem === "configuration") tabHistoryRef.current = false;
+    if (tabItem === "home") tabHistoryRef.current = false;
   }, [tabItem]);
 
   useEffect(() => {
     const onPopState = () => {
-      if (tabItem !== "configuration") setTabItem("configuration");
+      if (tabItem !== "home") setTabItem("home");
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -119,18 +119,14 @@ export default function PublicSpeakingAdmin({ tab, event }) {
   );
   const currentDraw = fullTab?.draws?.find((draw) => draw.roundId === Number(resultForm.roundId) && draw.room?.id === Number(resultForm.roomId)) ?? null;
 
-  function flash(type, text) {
-    setMessage({ type, text });
-  }
-
   async function saveConfig(e) {
     e.preventDefault();
     try {
       const res = await axios.put(`${currentServer}/ps/tab/update`, { ...configForm, tabId: tab.tabId });
-      flash("success", res.data?.message ?? "Configuration updated");
+      setToast('success', res.data?.message ?? "Configuration updated");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to update configuration");
+      setToast('error', error?.response?.data?.message ?? "Failed to update configuration");
     }
   }
 
@@ -139,11 +135,11 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       const res = form.id
         ? await axios.put(`${currentServer}/ps/${endpoint}`, { ...form, tabId: tab.tabId })
         : await axios.post(`${currentServer}/ps/${endpoint}`, { ...form, tabId: tab.tabId });
-      flash("success", res.data?.message ?? "Saved");
+      setToast("success", res.data?.message ?? "Saved");
       resetForm();
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to save");
+      setToast("error", error?.response?.data?.message ?? "Failed to save");
     }
   }
 
@@ -151,10 +147,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     if (!window.confirm("Delete this item?")) return;
     try {
       const res = await axios.delete(`${currentServer}/ps/${endpoint}`, { data: { ...payload, tabId: tab.tabId } });
-      flash("success", res.data?.message ?? "Deleted");
+      setToast("success", res.data?.message ?? "Deleted");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to delete");
+      setToast("error", error?.response?.data?.message ?? "Failed to delete");
     }
   }
 
@@ -162,10 +158,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     e.preventDefault();
     try {
       const res = await axios.post(`${currentServer}/ps/draw/generate`, { tabId: tab.tabId, roundId: Number(drawForm.roundId), powerPair: drawForm.powerPair });
-      flash("success", res.data?.message ?? "Draw generated");
+      setToast("success", res.data?.message ?? "Draw generated");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to generate draw");
+      setToast("error", error?.response?.data?.message ?? "Failed to generate draw");
     }
   }
 
@@ -174,19 +170,19 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     try {
       const res = await axios.post(`${currentServer}/ps/draw/breaks`, { tabId: tab.tabId, roundId: Number(drawForm.breakRoundId) });
       setDrawForm((prev) => ({ ...prev, preview: res.data?.data ?? null }));
-      flash("success", res.data?.message ?? "Break preview generated");
+      setToast("success", res.data?.message ?? "Break preview generated");
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to preview break draw");
+      setToast("error", error?.response?.data?.message ?? "Failed to preview break draw");
     }
   }
 
   async function generateBreakDraw() {
     try {
       const res = await axios.post(`${currentServer}/ps/draw/break-generate`, { tabId: tab.tabId, roundId: Number(drawForm.breakRoundId) });
-      flash("success", res.data?.message ?? "Break draw generated");
+      setToast("success", res.data?.message ?? "Break draw generated");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to generate break draw");
+      setToast("error", error?.response?.data?.message ?? "Failed to generate break draw");
     }
   }
 
@@ -194,10 +190,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     if (!window.confirm("Delete the draw for this round?")) return;
     try {
       const res = await axios.delete(`${currentServer}/ps/draw/delete`, { data: { tabId: tab.tabId, roundId } });
-      flash("success", res.data?.message ?? "Draw deleted");
+      setToast("success", res.data?.message ?? "Draw deleted");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to delete draw");
+      setToast("error", error?.response?.data?.message ?? "Failed to delete draw");
     }
   }
 
@@ -233,10 +229,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         })),
       };
       const res = await axios.post(`${currentServer}/ps/result/batch`, payload);
-      flash("success", res.data?.message ?? "Results saved");
+      setToast("success", res.data?.message ?? "Results saved");
       await getFullTab();
     } catch (error) {
-      flash("error", error?.response?.data?.message ?? "Failed to save results");
+      setToast("error", error?.response?.data?.message ?? "Failed to save results");
     }
   }
 
@@ -248,39 +244,22 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     setResultForm((prev) => ({ ...prev, draft: JSON.parse(JSON.stringify(currentDraw)) }));
   }, [resultForm.roundId, resultForm.roomId, currentDraw?.drawId]);
 
-  function renderMessage() {
-    return message.text ? <p style={{ color: message.type === "error" ? "red" : "green" }}>{message.text}</p> : null;
+  function setToast(type, message){
+    setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
   }
 
-  if (pageLoad.loading || access !== "admin") return <Loading />;
-
-  return (
-    <>
-      <nav className="tabMenu">
-        <ul>
-          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
-          {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
+  function home(){
+    return(
+      <div className="tabHome">
+        {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
             <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
           ))}
-        </ul>
-      </nav>
-      <div className="tabSideMenu">
-        <nav className="tTitle">
-          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
-          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
-        </nav>
-        <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
-          <ul>
-            <span onClick={() => setTabItem("configuration")}><GiBee fill="teal" /><strong>{tab.title}</strong></span>
-            {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
-              <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
-            ))}
-          </ul>
-        </nav>
       </div>
-      {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
-      {renderMessage()}
-      {tabItem === "configuration" && (
+    )
+  }
+
+  function configuration(){
+    return(
         <form onSubmit={saveConfig}>
           <h2>{fullTab?.title}</h2>
           <label>Title <input type="text" value={configForm.title} onChange={(e) => setConfigForm((prev) => ({ ...prev, title: e.target.value }))} /></label><br />
@@ -291,18 +270,20 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           <h3>Cups</h3>
           {configForm.cups.map((cup, index) => (
             <div key={cup.id ?? `cup-${index}`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "0.5rem" }}>
-              <input value={cup.cupCategory} onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
-              <input type="number" value={cup.cupOrder} onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
-              <input type="number" value={cup.breakNumber} onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
-              <input type="number" value={cup.breakCapacity} onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakCapacity: Number(e.target.value) } : item) }))} />
+              <input value={cup.cupCategory} placeholder="Cup Name, e.g.: Gold" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
+              <input type="number" value={cup.cupOrder} placeholder="Cup Order e.g.: 1 for Gold, 2 for Silver" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
+              <input type="number" value={cup.breakNumber} placeholder="No of break rounds" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
+              <input type="number" value={cup.breakCapacity} placeholder="Min Speakers per break Room" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakCapacity: Number(e.target.value) } : item) }))} />
               <button type="button" className="lightButton" onClick={() => setConfigForm((prev) => ({ ...prev, cups: prev.cups.filter((_, itemIdx) => itemIdx !== index) }))}>Remove</button>
             </div>
           ))}
-          <button type="button" className="lightButton" onClick={() => setConfigForm((prev) => ({ ...prev, cups: [...prev.cups, { cupCategory: "", cupOrder: prev.cups.length + 1, breakNumber: 1, breakCapacity: 5 }] }))}>Add Cup</button>
+          <button type="button" className="lightButton" onClick={() => setConfigForm((prev) => ({ ...prev, cups: [...prev.cups, { cupCategory: "", cupOrder: '', breakNumber: '', breakCapacity: '' }] }))}>Add Cup</button>
           <button className="darkButton">Save Configuration</button>
         </form>
-      )}
-      {tabItem === "institutions" && (
+      )
+  }
+  function institutions(){
+    return(
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("institution", institutionForm, () => setInstitutionForm({ id: null, name: "", code: "" })); }}>
             <h2>Institutions</h2>
@@ -312,8 +293,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedInstitutions.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2><p>{item.code}</p></div><button className="lightButton" onClick={() => setInstitutionForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("institution", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "tabMasters" && (
+      )
+  }
+  function tabMasters(){
+    return(
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("tabMaster", tabMasterForm, () => setTabMasterForm({ id: null, name: "", institutionId: 0, email: "" })); }}>
             <h2>Tab Masters</h2>
@@ -324,8 +307,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedTabMasters.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2><p>{item.email}</p></div><button className="lightButton" onClick={() => setTabMasterForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("tabMaster", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "speakers" && (
+      )
+  }
+  function speakers(){
+    return (
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("speaker", speakerForm, () => setSpeakerForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
             <h2>Speakers</h2>
@@ -337,8 +322,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedSpeakers.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2><p>{fullTab?.institutions?.find((entry) => entry.id === item.institutionId)?.code ?? "-"}</p></div><button className="lightButton" onClick={() => setSpeakerForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("speaker", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "judges" && (
+      )
+  }
+  function judges(){
+    return (
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("judge", judgeForm, () => setJudgeForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
             <h2>Judges</h2>
@@ -350,8 +337,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedJudges.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2><p>{item.email}</p></div><button className="lightButton" onClick={() => setJudgeForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("judge", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "rooms" && (
+      )
+  }
+  function rooms(){
+    return (
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("room", roomForm, () => setRoomForm({ id: null, name: "", available: true })); }}>
             <h2>Rooms</h2>
@@ -361,8 +350,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedRooms.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2></div><button className="lightButton" onClick={() => setRoomForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("room", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "rounds" && (
+      )
+  }
+  function rounds(){
+    return (
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("round", roundForm, () => setRoundForm({ id: null, name: "", number: "", speechDuration: "", breaks: false, blind: false, completed: false, breakCategory: "", breakPhase: "" })); }}>
             <h2>Rounds</h2>
@@ -380,8 +371,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedRounds.map((item) => <div className="roomCard" key={item.roundId}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2><p>#{item.number} • {item.speechDuration}s</p></div><button className="lightButton" onClick={() => setRoundForm({ id: item.roundId, name: item.name, number: item.number, speechDuration: item.speechDuration, breaks: item.breaks, blind: item.blind, completed: item.completed, breakCategory: item.cupCategoryId ?? "", breakPhase: item.breakPhase ?? "" })}>Edit</button><button className="lightButton" onClick={() => deleteEntity("round", { id: item.roundId })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "prompts" && (
+      )
+  }
+  function prompts(){
+    return (
         <>
           <form onSubmit={(e) => { e.preventDefault(); submitEntity("prompt", promptForm, () => setPromptForm({ id: null, roundId: "", speechPrompt: "", speechType: "narrative", visible: false })); }}>
             <h2>Speech Prompts</h2>
@@ -393,8 +386,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           </form>
           <div className="results">{sortedPrompts.map((item) => <div className="roomCard" key={item.id}><div className="roomHeader"><h2 style={{ margin: 0 }}>{sortedRounds.find((round) => round.roundId === item.roundId)?.name ?? "Round"}</h2><p>{item.speechType}</p></div><div className="roomBody"><p style={{ margin: 0 }}>{item.speechPrompt}</p></div><button className="lightButton" onClick={() => setPromptForm(item)}>Edit</button><button className="lightButton" onClick={() => deleteEntity("prompt", { id: item.id })}>Delete</button></div>)}</div>
         </>
-      )}
-      {tabItem === "draws" && (
+      )
+  }
+  function draws(){
+    return (
         <>
           <form onSubmit={generateDraw}>
             <h2>Preliminary Draws</h2>
@@ -411,8 +406,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           {drawForm.preview && <div className="roomCard"><div className="roomHeader"><h2 style={{ margin: 0 }}>{drawForm.preview.targetRound?.name}</h2></div><div className="roomBody">{(drawForm.preview.allocations ?? []).map((allocation, index) => <p key={index} style={{ margin: 0 }}>Room {allocation.roomId}: {allocation.allocatedSpeakers?.length ?? 0} speakers</p>)}</div></div>}
           <div className="results">{sortedRounds.map((item) => <div className="roomCard" key={item.roundId}><div className="roomHeader"><h2 style={{ margin: 0 }}>{item.name}</h2></div><div className="roomBody"><p style={{ margin: 0 }}>{(fullTab?.draws ?? []).filter((draw) => draw.roundId === item.roundId).length} rooms drawn</p></div><button className="lightButton" onClick={() => deleteDraw(item.roundId)}>Delete Draw</button></div>)}</div>
         </>
-      )}
-      {tabItem === "results" && (
+      )
+  }
+  function results(){
+    return (
         <form onSubmit={saveRoomResults}>
           <h2>Room Results</h2>
           <select value={resultForm.roundId} onChange={(e) => setResultForm((prev) => ({ ...prev, roundId: e.target.value, roomId: "", draft: null }))}><option value="">Select Round</option>{sortedRounds.map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}</select>
@@ -440,7 +437,48 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           )}
           <button className="darkButton">Save Room Results</button>
         </form>
-      )}
+      )
+  }
+
+  if (pageLoad.loading || access !== "admin") return <Loading />;
+
+  return (
+    <>
+      <nav className="tabMenu">
+        <ul>
+          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
+          {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
+            <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
+          ))}
+        </ul>
+      </nav>
+      <div className="tabSideMenu">
+        <nav className="tTitle">
+          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
+          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
+        </nav>
+        <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
+          <ul>
+            <span onClick={() => setTabItem("configuration")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>
+            {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
+              <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+      {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
+      <Toast toasts={toasts} setToasts={setToasts}/>
+      {tabItem === "home" && home()}
+      {tabItem === "configuration" && configuration()}
+      {tabItem === "institutions" && institutions()}
+      {tabItem === "tabMasters" && tabMasters()}
+      {tabItem === "speakers" && speakers()}
+      {tabItem === "judges" && judges()}
+      {tabItem === "rooms" && rooms()}
+      {tabItem === "rounds" && rounds()}
+      {tabItem === "prompts" && prompts()}
+      {tabItem === "draws" && draws()}
+      {tabItem === "results" && results()}
     </>
   );
 }

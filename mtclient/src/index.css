@@ -219,7 +219,7 @@ footer{
   position: relative;
   .selected{
     background-color: var(--accentcolor);
-    padding: 0.3rem;
+    padding: 0.2rem 0.5rem 0.2rem 0.5rem;
     border-radius: 1rem;
     color: var(--white-color);
   }
@@ -262,19 +262,19 @@ footer{
   border-radius: 5rem;
   background-color: var(--background-color);
   justify-self: center;
-  anchor-name: --tb;
   transition: 0.5s ease;
   display: inline-block;
+  cursor:pointer;
+  position: relative;
 
   &::after{
     content: '';
     position: absolute;
-    position-anchor: --tb;
     width: 1rem;
     height: 1rem;
     border-radius: 50%;
     background-color: var(--accentcolor);
-    left: anchor(left);
+    left: 0;
     scale: 1.1;
     transition: 0.5s ease;
   }
@@ -285,7 +285,58 @@ footer{
     }
   }
 }
+.toastContainer{
+  display: grid;
+  width: max-content;
+  gap: 1rem;
+  --col: var(--brandcolor);
+  z-index: 1;
+  position: fixed;
+  right: 0;
+  top: 0;
+  button{
+    border-radius: 50%;
+    border: none;
+    aspect-ratio: 1/1;
+    font-weight: bold;
+    padding: 0.2rem;
+  }
 
+  .success, .error{
+    background-color: var(--white-color);
+    padding: 0.5rem;
+    border-radius: 5rem 0 0 5rem;
+    position: relative;
+    border: 1px solid var(--background-color);
+    border-right: 5px solid var(--col);
+    button{
+      color: var(--col);
+    }
+  }
+  .success{
+    --col: green;
+  }
+  .error{
+    --col: red;
+  }
+  .success::after, .error::after{
+    content: '';
+    height: 5px;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    animation: runOut 5s;
+    background-color: var(--col);
+  }
+}
+@keyframes runOut {
+  0%{
+    width:100%;
+  }
+  100%{
+    width: 0;
+  }  
+}
 button:disabled{
   opacity: 0.5;
   pointer-events: none;
