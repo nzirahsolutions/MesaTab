@@ -38,7 +38,7 @@ export default function SignUp() {
         console.log(err);
         setLoading(false);
         setError(true);
-        setErrorMessage(err.response.data.message);
+        setErrorMessage(err.response.data?.message || 'Connection Error');
     }   
   }
 

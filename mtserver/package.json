@@ -7,10 +7,10 @@
     "build": "tsc",
     "prestart": "npm run build",
     "start": "node dist/src/server.js",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:generate": "drizzle-kit generate --config src/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config src/drizzle.config.ts",
+    "db:push": "drizzle-kit push --config src/drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config src/drizzle.config.ts"
   },
   "keywords": [],
   "author": "",
