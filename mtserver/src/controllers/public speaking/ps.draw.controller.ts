@@ -12,6 +12,7 @@ import {
   roundsPS,
   speakersPS,
   standingsPS,
+  tabsPS
 } from '../../db/schema';
 import { rebuildStandingsForTab } from './ps.results.controller';
 
@@ -652,4 +653,745 @@ export async function deleteDraw(req: Request, res: Response) {
     console.error('ps deleteDraw error:', error);
     return res.status(500).json({ message: 'failed to delete draw' });
   }
+}
+
+export async function updateDraw(req: Request, res: Response){
+  try {
+    const {roundId, room1, room2, swapState, judge1, judge2, speaker1, speaker2, tabId}=req.body as{
+      roundId: number;
+      room1: number;
+      room2: number;
+      swapState: number;
+      judge1: number;
+      judge2: number;
+      speaker1: number;
+      speaker2: number;
+      tabId:string;
+    }
+    if(swapState!==5 && swapState!==6 && swapState!==7 && swapState!==8 && (!roundId || room1==0 || room2===0 || swapState===0 || !tabId))
+        return res.status(400).json({message:'Must select rounds, rooms and update operation'});
+    if(swapState!==5 && swapState!==6 && room1===room2)
+        return res.status(400).json({message:'Select different rooms'});
+    if(swapState===1 && (!speaker1 || !speaker2))
+        return res.status(400).json({message:'Select two speakers to swap'});
+    if(swapState===2 && (!judge1 || !judge2))
+        return res.status(400).json({message:'Select two judges to swap'});
+    if(swapState===3 && !speaker1)
+        return res.status(400).json({message:'Select speaker to move'});
+    if(swapState===4 && !judge1)
+        return res.status(400).json({message:'Select judge to move'});
+    if(swapState===5 && (!speaker1 || room1==0))
+        return res.status(400).json({message:`Select speaker and room to add`});
+    if(swapState===6 && (!judge1 || room1==0))
+        return res.status(400).json({message:'Select judge and room to add'});
+    if(swapState===7 && (room2==0 || room1==0))
+        return res.status(400).json({message:'Select rooms to swap'});
+    if(swapState===8 && (room2==0 || room1==0))
+        return res.status(400).json({message:'Select rooms to move from and to'});
+
+    //confirm tab isn't completed
+    const [tab]= await db
+      .select({completed: tabsPS.completed})
+      .from(tabsPS)
+      .where(eq(tabsPS.tabId, tabId));
+    
+    if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
+    
+    //confirm round exists in tab
+    const [round] = await db
+      .select({
+        roundId: roundsPS.roundId,
+        tabId: roundsPS.tabId,
+        name: roundsPS.name,
+        breaks: roundsPS.breaks,
+        completed: roundsPS.completed,
+      })
+      .from(roundsPS)
+      .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.roundId, roundId)))
+      .limit(1);
+    if (!round) {
+      return res.status(404).json({ message: "Round not found in this tab" });
+    }
+
+    //prevent redraw of completed rounds
+    if(round.completed)
+      return res.status(400).json({message: 'This round has been marked as completed on tab'});
+
+    //swap speakers
+    if(swapState===1){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('Rooms had no draws in this round');
+
+        //find speakers in drawspeakersps
+        const [s1InDraw1] = await tx
+          .select({ id: drawSpeakersPS.id })
+          .from(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw1.drawId),
+              eq(drawSpeakersPS.roomId, room1),
+              eq(drawSpeakersPS.speakerId, speaker1)
+            )
+          )
+          .limit(1);
+
+        const [s2InDraw2] = await tx
+          .select({ id: drawSpeakersPS.id })
+          .from(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw2.drawId),
+              eq(drawSpeakersPS.roomId, room2),
+              eq(drawSpeakersPS.speakerId, speaker2)
+            )
+          )
+          .limit(1);
+
+        if (!s1InDraw1 || !s2InDraw2) {
+          throw new Error("One or both speakers are not in the selected rooms");
+        }
+        
+        // delete speaker draws;
+        await tx
+          .delete(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw1.drawId),
+              eq(drawSpeakersPS.roomId, room1),
+              eq(drawSpeakersPS.speakerId, speaker1)
+            )
+          );
+        await tx
+          .delete(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw2.drawId),
+              eq(drawSpeakersPS.roomId, room2),
+              eq(drawSpeakersPS.speakerId, speaker2)
+            )
+          );
+
+          //insert new speaker draws
+        await tx.insert(drawSpeakersPS).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          speakerId: speaker2,
+        });
+
+        await tx.insert(drawSpeakersPS).values({
+          tabId,
+          drawId: draw2.drawId,
+          roomId: room2,
+          speakerId: speaker1,
+        });
+
+        return {
+          roundId,
+          room1,
+          room2,
+          speaker1MovedTo: room2,
+          speaker2MovedTo: room1,
+        };
+
+      });
+      return res.status(201).json({
+      message: "Speakerrs swapped successfully",
+      data: updated,
+      });
+    }
+    //swap judges
+    if(swapState===2){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('Rooms had no draws in this round');
+
+        //find judges in drawspeakersps
+        const [j1InDraw1] = await tx
+          .select({ id: drawJudgesPS.id })
+          .from(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw1.drawId),
+              eq(drawJudgesPS.roomId, room1),
+              eq(drawJudgesPS.judgeId, judge1)
+            )
+          )
+          .limit(1);
+
+        const [j2InDraw2] = await tx
+          .select({ id: drawJudgesPS.id })
+          .from(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw2.drawId),
+              eq(drawJudgesPS.roomId, room2),
+              eq(drawJudgesPS.judgeId, judge2)
+            )
+          )
+          .limit(1);
+
+        if (!j1InDraw1 || !j2InDraw2) {
+          throw new Error("One or both judges are not in the selected rooms");
+        }
+        
+        // delete judge draws;
+        await tx
+          .delete(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw1.drawId),
+              eq(drawJudgesPS.roomId, room1),
+              eq(drawJudgesPS.judgeId, judge1)
+            )
+          );
+        await tx
+          .delete(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw2.drawId),
+              eq(drawJudgesPS.roomId, room2),
+              eq(drawJudgesPS.judgeId, judge2)
+            )
+          );
+
+          //insert new judge draws
+        await tx.insert(drawJudgesPS).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          judgeId: judge2,
+        });
+
+        await tx.insert(drawJudgesPS).values({
+          tabId,
+          drawId: draw2.drawId,
+          roomId: room2,
+          judgeId: judge1,
+        });
+
+        return {
+          roundId,
+          room1,
+          room2,
+          judge1MovedTo: room2,
+          judge2MovedTo: room1,
+        };
+
+      });
+      return res.status(201).json({
+      message: "Judges swapped successfully",
+      data: updated,
+      });
+    }
+    
+    //move speaker
+    if(swapState===3){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('Rooms had no draws in this round');
+
+        //find speakers in drawspeakersps
+        const [s1InDraw1] = await tx
+          .select({ id: drawSpeakersPS.id })
+          .from(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw1.drawId),
+              eq(drawSpeakersPS.roomId, room1),
+              eq(drawSpeakersPS.speakerId, speaker1)
+            )
+          )
+          .limit(1);
+
+        if (!s1InDraw1) {
+          throw new Error("Speaker is not in the selected rooms");
+        }
+        
+        // delete speaker draw;
+        await tx
+          .delete(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw1.drawId),
+              eq(drawSpeakersPS.roomId, room1),
+              eq(drawSpeakersPS.speakerId, speaker1)
+            )
+          );
+
+          //insert new speaker draw
+        await tx.insert(drawSpeakersPS).values({
+          tabId,
+          drawId: draw2.drawId,
+          roomId: room2,
+          speakerId: speaker1,
+        });
+
+        return {
+          roundId,
+          room1,
+          room2,
+          speaker1MovedTo: room2,
+        };
+
+      });
+      return res.status(201).json({
+      message: "Speaker moved successfully",
+      data: updated,
+      });
+    }
+
+    //move judge
+    if(swapState===4){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('Rooms had no draws in this round');
+
+        //find judge in drawJudges
+        const [j1InDraw1] = await tx
+          .select({ id: drawJudgesPS.id })
+          .from(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw1.drawId),
+              eq(drawJudgesPS.roomId, room1),
+              eq(drawJudgesPS.judgeId, judge1)
+            )
+          )
+          .limit(1);
+
+        if (!j1InDraw1) {
+          throw new Error("Judge is not in the selected rooms");
+        }
+        
+        // delete judge draw;
+        await tx
+          .delete(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw1.drawId),
+              eq(drawJudgesPS.roomId, room1),
+              eq(drawJudgesPS.judgeId, judge1)
+            )
+          );
+
+          //insert new judge draw
+        await tx.insert(drawJudgesPS).values({
+          tabId,
+          drawId: draw2.drawId,
+          roomId: room2,
+          judgeId: judge1,
+        });
+
+        return {
+          roundId,
+          room1,
+          room2,
+          judge1MovedTo: room2,
+        };
+
+      });
+      return res.status(200).json({
+      message: "Judge moved successfully",
+      data: updated,
+      });
+    }
+
+    //add speaker
+    if(swapState===5){
+      const updated=await db.transaction(async (tx)=>{
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Room had no draw in this round');
+
+        //check if speaker already in draw
+        const [speakerInDraw] = await tx
+          .select({ id: drawSpeakersPS.id })
+          .from(drawSpeakersPS)
+          .where(
+            and(
+              eq(drawSpeakersPS.tabId, tabId),
+              eq(drawSpeakersPS.drawId, draw1.drawId),
+              eq(drawSpeakersPS.speakerId, speaker1)
+            )
+          )
+          .limit(1);
+
+        if (speakerInDraw) {
+          throw new Error("Speaker already in draw for this round");
+        }
+
+        //add new speaker draw
+        await tx.insert(drawSpeakersPS).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          speakerId: speaker1,
+        });
+
+        return {
+          roundId,
+          room1,
+          speaker1,
+          speaker1AddedTo: room1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Speaker added successfully",
+      data: updated,
+      });
+    }
+    //add judge
+    if(swapState===6){
+      const updated=await db.transaction(async (tx)=>{
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Room had no draw in this round');
+
+        //check if judge already in draw
+        const [judgeInDraw] = await tx
+          .select({ id: drawJudgesPS.id })
+          .from(drawJudgesPS)
+          .where(
+            and(
+              eq(drawJudgesPS.tabId, tabId),
+              eq(drawJudgesPS.drawId, draw1.drawId),
+              eq(drawJudgesPS.judgeId, judge1)
+            )
+          )
+          .limit(1);
+
+        if (judgeInDraw) {
+          throw new Error("Judge already in draw for this round");
+        }
+
+        //add new judge draw
+        await tx.insert(drawJudgesPS).values({
+          tabId,
+          drawId: draw1.drawId,
+          roomId: room1,
+          judgeId: judge1,
+        });
+
+        return {
+          roundId,
+          room1,
+          judge1,
+          judgeAddedTo: room1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Judge added successfully",
+      data: updated,
+      });
+    }
+    //swap rooms
+    if(swapState===7){
+      const updated = await db.transaction(async (tx) => {
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+        
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(!draw1 ||!draw2)
+          throw new Error('One or both rooms had no draws in this round');
+
+        //update draws
+        const [newDraw1]=await tx
+          .update(drawsPS)
+          .set({roomId: room2})
+          .where(and(eq(drawsPS.drawId, draw1.drawId), eq(drawsPS.roomId, room1)))
+          .returning({
+            drawId: drawsPS.drawId,
+            roomId: drawsPS.roomId,
+            roundId: drawsPS.roundId
+          });
+        const [newDraw2]=await tx
+          .update(drawsPS)
+          .set({roomId: room1})
+          .where(and(eq(drawsPS.drawId, draw2.drawId), eq(drawsPS.roomId, room2)))
+          .returning({
+            drawId: drawsPS.drawId,
+            roomId: drawsPS.roomId,
+            roundId: drawsPS.roundId
+          });
+        if(!newDraw1 || !newDraw2) throw new Error('Error updating draws table');
+
+        const newDrawSpeakers1=await tx
+          .update(drawSpeakersPS)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawSpeakersPS.drawId, draw1.drawId))
+          .returning({
+            drawId: drawSpeakersPS.drawId,
+            roomId: drawSpeakersPS.roomId,
+          });
+        const newDrawSpeakers2=await tx
+          .update(drawSpeakersPS)
+          .set({roomId: newDraw2.roomId})
+          .where(eq(drawSpeakersPS.drawId, draw2.drawId))
+          .returning({
+            drawId: drawSpeakersPS.drawId,
+            roomId: drawSpeakersPS.roomId,
+          });
+        if(!newDrawSpeakers1.length || !newDrawSpeakers2.length) throw new Error('Error updating speaker draws table');
+
+        const newDrawJudges1=await tx
+          .update(drawJudgesPS)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawJudgesPS.drawId, draw1.drawId))
+          .returning({
+            drawId: drawJudgesPS.drawId,
+            roomId: drawJudgesPS.roomId,
+          });
+        const newDrawJudges2=await tx
+          .update(drawJudgesPS)
+          .set({roomId: newDraw2.roomId})
+          .where(eq(drawJudgesPS.drawId, draw2.drawId))
+          .returning({
+            drawId: drawJudgesPS.drawId,
+            roomId: drawJudgesPS.roomId,
+          });
+        if(!newDrawJudges1.length || !newDrawJudges2.length) throw new Error('Error updating judge draws table');
+
+        return {
+          roundId,
+          newRoom1: newDraw2,
+          newRoom2: newDraw1
+        };
+
+      });
+      return res.status(201).json({
+      message: "Rooms swapped successfully",
+      data: updated,
+      });
+    }
+    if(swapState===8){
+      const updated=await db.transaction(async (tx)=>{
+        //confirm round exists        
+        const [currentRound] = await tx
+          .select({ roundId: roundsPS.roundId, number: roundsPS.number })
+          .from(roundsPS)
+          .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.roundId, roundId)))
+          .limit(1);
+        if (!currentRound) throw new Error("Round not found");
+
+        //check if room had a draw in this round
+        const [draw1] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room1)))
+          .limit(1);
+
+        if(!draw1)
+          throw new Error('Selected Room had no draw in this round');
+
+        //check if new Room had a draw in this round
+        const [draw2] = await tx
+          .select({ drawId: drawsPS.drawId,  })
+          .from(drawsPS)
+          .where(and(
+            eq(drawsPS.tabId, tabId), 
+            eq(drawsPS.roundId, roundId), 
+            eq(drawsPS.roomId, room2)))
+          .limit(1);
+
+        if(draw2)
+          throw new Error('"Move to" room is occupied in this cup');
+
+        //check if another round in a different cup has occupied the room
+        const siblingRounds = await tx
+          .select({ roundId: roundsPS.roundId })
+          .from(roundsPS)
+          .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.number, currentRound.number)));
+
+        const siblingRoundIds = siblingRounds.map((r) => r.roundId);
+
+        const occupiedTarget = await tx
+          .select({ drawId: drawsPS.drawId, roundId: drawsPS.roundId })
+          .from(drawsPS)
+          .where(
+            and(
+              eq(drawsPS.tabId, tabId),
+              eq(drawsPS.roomId, room2),
+              inArray(drawsPS.roundId, siblingRoundIds)
+            )
+          )
+          .limit(1);
+
+        if (occupiedTarget.length) {
+          throw new Error('Target room is occupied by another round in this time slot');
+        }
+
+        
+        //update draw tables
+        const [newDraw1]=await tx
+          .update(drawsPS)
+          .set({roomId: room2})
+          .where(and(eq(drawsPS.drawId, draw1.drawId), eq(drawsPS.roomId, room1)))
+          .returning({
+            drawId: drawsPS.drawId,
+            roomId: drawsPS.roomId,
+            roundId: drawsPS.roundId
+          });
+        if(!newDraw1) throw new Error('Error updating draws table');
+
+        const newDrawSpeakers1=await tx
+          .update(drawSpeakersPS)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawSpeakersPS.drawId, draw1.drawId))
+          .returning({
+            drawId: drawSpeakersPS.drawId,
+            roomId: drawSpeakersPS.roomId,
+          });
+        if(!newDrawSpeakers1.length) throw new Error('Error updating speaker draws table');
+
+        const newDrawJudges1=await tx
+          .update(drawJudgesPS)
+          .set({roomId: newDraw1.roomId})
+          .where(eq(drawJudgesPS.drawId, draw1.drawId))
+          .returning({
+            drawId: drawJudgesPS.drawId,
+            roomId: drawJudgesPS.roomId,
+          });
+        if(!newDrawJudges1.length) throw new Error('Error updating judge draws table');
+
+        return {
+          roundId,
+          newRoom1: newDraw1,
+        };
+      });
+
+      return res.status(200).json({
+      message: "Room moved successfully",
+      data: updated,
+      });
+    }
+
+    return res.status(400).json({message: 'Unsupported update operation (swapState)'});
+  } 
+    catch (error){
+      const msg = error instanceof Error ? error.message : "failed to update draw";
+      return res.status(500).json({ message: msg });
+    }
 }

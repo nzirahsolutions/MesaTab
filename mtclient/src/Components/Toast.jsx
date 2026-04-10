@@ -5,7 +5,7 @@ function ToastItem({toast, setToasts}){
         return()=> window.clearTimeout(timer);
     },[setToasts, toast.id]);
     return (<div className={toast.type}>
-                {toast.message}
+                <p style={{margin:0}}>{toast.message}</p>
                 <button onClick={() => setToasts(p => p.filter(t => t.id !== toast.id))}>x</button>
             </div>)
 }

@@ -52,6 +52,13 @@ const allowedSpeechTypes = new Set([
   'creative',
   'other',
 ]);
+const allBreakPhases = ['Triples','Doubles','Octos','Quarters','Semis','Finals'] as const;
+function getBreakPhases(breakNumber: number) {
+  if (breakNumber < 1 || breakNumber > allBreakPhases.length) {
+    throw new Error("breakNumber must be between 1 and 6");
+  }  
+  return allBreakPhases.slice(allBreakPhases.length - breakNumber);
+}
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === 'boolean') return value;
@@ -509,7 +516,8 @@ export async function updateTab(req: Request, res: Response) {
         });
 
       if (!updatedTab) throw new Error('Tab update failed');
-
+      
+      if(!updatedTab.completed){
       const existingCups = await tx
         .select({
           id: cupCategoriesPS.cupCategoryId,
@@ -547,31 +555,170 @@ export async function updateTab(req: Request, res: Response) {
         await tx.delete(cupCategoriesPS).where(inArray(cupCategoriesPS.cupCategoryId, cupsToDelete.map((cup) => cup.id)));
       }
 
+      //update or insert cups
+      const savedCups: Array<{
+        id: number;
+        cupCategory: string | null;
+        cupOrder: number;
+        breakNumber: number;
+        breakCapacity: number;
+      }> = [];
       for (const cup of normalizedCups) {
-        if (cup.id === null) {
-          await tx.insert(cupCategoriesPS).values({
-            tabId,
-            cupCategory: cup.cupCategory,
-            cupOrder: cup.cupOrder,
-            breakNumber: cup.breakNumber,
-            breakCapacity: cup.breakCapacity,
+              if (cup.id !== null) {
+                const [updatedCup] = await tx
+                  .update(cupCategoriesPS)
+                  .set({
+                    cupCategory: cup.cupCategory,
+                    cupOrder: cup.cupOrder,
+                    breakNumber: cup.breakNumber,
+                    breakCapacity: cup.breakCapacity,
+                  })
+                  .where(and(eq(cupCategoriesPS.tabId, tabId), eq(cupCategoriesPS.cupCategoryId, cup.id)))
+                  .returning({
+                    id: cupCategoriesPS.cupCategoryId,
+                    cupCategory: cupCategoriesPS.cupCategory,
+                    cupOrder: cupCategoriesPS.cupOrder,
+                    breakNumber: cupCategoriesPS.breakNumber,
+                    breakCapacity: cupCategoriesPS.breakCapacity,
+                  });
+                savedCups.push(updatedCup);
+                continue;
+              }
+              const [newCup] = await tx
+                        .insert(cupCategoriesPS)
+                        .values({
+                          tabId,
+                          cupCategory: cup.cupCategory,
+                          cupOrder: cup.cupOrder,
+                          breakNumber: cup.breakNumber,
+                          breakCapacity: cup.breakCapacity,
+                        })
+                        .returning({
+                          id: cupCategoriesPS.cupCategoryId,
+                          cupCategory: cupCategoriesPS.cupCategory,
+                          cupOrder: cupCategoriesPS.cupOrder,
+                          breakNumber: cupCategoriesPS.breakNumber,
+                          breakCapacity: cupCategoriesPS.breakCapacity,
+                        });
+                      savedCups.push(newCup);
+            }
+      savedCups.sort((a, b) => a.cupOrder - b.cupOrder || a.id - b.id);
+      
+          //automatically add break rounds
+          const existingBreakRounds = await tx
+            .select({
+              roundId: roundsPS.roundId,
+              cupCategoryId: roundsPS.cupCategoryId,
+              breakPhase: roundsPS.breakPhase,
+              name: roundsPS.name,
+              number: roundsPS.number,
+            })
+            .from(roundsPS)
+            .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.breaks, true)))
+            .orderBy(asc(roundsPS.number), asc(roundsPS.roundId));
+      
+          let nextBreakRoundNumber = 30;
+      
+          //return the an array of the new break rounds with cupCategory id, breakPhase, name, number  
+          const expectedBreakRounds = savedCups.flatMap((cup) => {
+            const phases = getBreakPhases(cup.breakNumber);
+      
+            return phases.map((phase) => ({
+              cupCategoryId: cup.id,
+              breakPhase: phase,
+              name: `${cup.cupCategory} ${phase}`,
+              number: nextBreakRoundNumber++,
+            }));
           });
-          continue;
-        }
-
-        await tx
-          .update(cupCategoriesPS)
-          .set({
-            cupCategory: cup.cupCategory,
-            cupOrder: cup.cupOrder,
-            breakNumber: cup.breakNumber,
-            breakCapacity: cup.breakCapacity,
-          })
-          .where(and(eq(cupCategoriesPS.tabId, tabId), eq(cupCategoriesPS.cupCategoryId, cup.id)));
-      }
-
-      return updatedTab;
-    });
+      
+          const existingBreakRoundByKey = new Map(
+            existingBreakRounds
+              .filter((round) => round.cupCategoryId && round.breakPhase)
+              .map((round) => [
+                `${round.cupCategoryId}:${round.breakPhase}`,
+                round,
+              ])
+          );
+      
+          const expectedBreakRoundKeys = new Set<string>();
+          for (const round of expectedBreakRounds) {
+            const key = `${round.cupCategoryId}:${round.breakPhase}`;
+            if (expectedBreakRoundKeys.has(key)) {
+              throw new Error(`Duplicate expected break round for cupCategoryId ${round.cupCategoryId} and phase ${round.breakPhase}`);
+            }
+            expectedBreakRoundKeys.add(key);
+          }
+      
+          const existingBreakRoundNumbers = new Set(existingBreakRounds.map((round) => round.number));
+          let tempBreakNumber = nextBreakRoundNumber;
+      
+          for (const expectedRound of expectedBreakRounds) {
+            const key = `${expectedRound.cupCategoryId}:${expectedRound.breakPhase}`;
+            const existingRound = existingBreakRoundByKey.get(key);
+            if (!existingRound) {
+              if (existingBreakRoundNumbers.has(tempBreakNumber)) {
+                throw new Error(`Break round number collision at ${tempBreakNumber}; existing break rounds must be cleaned before creating new ones`);
+              }
+              tempBreakNumber++;
+            }
+      
+            if (!existingRound) {
+              await tx
+                .insert(roundsPS)
+                .values({
+                  tabId,
+                  name: expectedRound.name,
+                  number: expectedRound.number,
+                  breaks: true,
+                  cupCategoryId: expectedRound.cupCategoryId,
+                  breakPhase: expectedRound.breakPhase,
+                  completed: false,
+                  speechDuration: 4,
+                  blind: false,
+                });
+              continue;
+            }
+      
+            await tx
+              .update(roundsPS)
+              .set({
+                name: expectedRound.name,
+                number: existingRound.number,
+                breaks: true,
+                cupCategoryId: expectedRound.cupCategoryId,
+                breakPhase: expectedRound.breakPhase,
+                speechDuration:4,
+                blind: false,
+              })
+              .where(eq(roundsPS.roundId, existingRound.roundId));
+          }
+          //to remove break rounds that are no longer needed when a cup’s breakNumber decreases
+          for (const existingRound of existingBreakRounds) {
+              if (!existingRound.cupCategoryId || !existingRound.breakPhase) continue;
+      
+              const key = `${existingRound.cupCategoryId}:${existingRound.breakPhase}`;
+              if (expectedBreakRoundKeys.has(key)) continue;
+      
+              await tx
+                .delete(roundsPS)
+                .where(eq(roundsPS.roundId, existingRound.roundId));
+            }
+            return {
+              tab: updatedTab,
+              cups: savedCups,
+              };
+            }
+            else{ //lock tab rounds
+                  const locked= await tx
+                    .update(roundsPS)
+                    .set({completed: true, blind: false})
+                    .where(eq(roundsPS.tabId, tabId))
+                    .returning({roundId: roundsPS.roundId, name: roundsPS.name});
+                  
+                  if(!locked.length) throw new Error("Couldn't lock rounds");
+                }
+            });
+          
 
     return res.status(200).json({
       message: 'Tab updated successfully',
@@ -1051,7 +1198,7 @@ export async function deleteTabMaster(req: Request, res: Response) {
 
 export async function addRoom(req: Request, res: Response) {
   try {
-    const { name, tabId } = req.body as { name?: string; tabId?: string };
+    const { name, tabId, available } = req.body as { name?: string; tabId?: string; available?:boolean; };
     const normalizedName = name?.trim();
     if (!normalizedName || !tabId) {
       return res.status(400).json({ message: 'name and tabId are required' });
@@ -1059,7 +1206,7 @@ export async function addRoom(req: Request, res: Response) {
 
     const created = await db
       .insert(roomsPS)
-      .values({ tabId, name: normalizedName })
+      .values({ tabId, name: normalizedName, available: available })
       .returning({
         id: roomsPS.roomId,
         name: roomsPS.name,
@@ -1317,10 +1464,10 @@ export async function updateRound(req: Request, res: Response) {
     const existingNumber = await db
       .select({ roundId: roundsPS.roundId })
       .from(roundsPS)
-      .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.number, nextNumber)))
+      .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.number, nextNumber),eq(roundsPS.cupCategoryId, nextBreakCategory)))
       .limit(1);
     if (existingNumber.length && existingNumber[0].roundId !== targetRoundId) {
-      return res.status(409).json({ message: 'Round number already exists in this tab' });
+      return res.status(409).json({ message: 'Round number already exists in this tab/cup' });
     }
 
     const updated = await db
@@ -1426,6 +1573,12 @@ export async function addPrompt(req: Request, res: Response) {
     if (!(await ensureRoundExists(tabId, parsedRoundId))) {
       return res.status(404).json({ message: 'Round not found in this tab' });
     }
+
+    const [roundPrompt]=await db
+      .select({id:speechPromptsPS.roundId})
+      .from(speechPromptsPS)
+      .where(and(eq(speechPromptsPS.roundId, parsedRoundId), eq(speechPromptsPS.tabId, tabId)));
+    if(roundPrompt) return res.status(400).json({message:'Round already has a prompt. Update or choose a different round'});
 
     const created = await db
       .insert(speechPromptsPS)

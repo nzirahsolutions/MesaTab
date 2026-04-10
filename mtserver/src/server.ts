@@ -24,6 +24,7 @@ app.use('/event',eventRoutes);
 app.use('/sb',sbTabRoutes);
 app.use('/sb/draw',sbDrawRoutes);
 app.use('/sb/result',sbResultRoutes);
+// Public Speaking
 app.use('/ps', psTabRoutes);
 app.use('/ps/draw', psDrawRoutes);
 app.use('/ps/result', psResultRoutes);

@@ -580,18 +580,7 @@ export async function updateTab(req:Request, res: Response){
       .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, true)))
       .orderBy(asc(roundsSB.number), asc(roundsSB.roundId));
 
-    const existingPrelimRounds = await tx
-      .select({
-        roundId: roundsSB.roundId,
-        number: roundsSB.number,
-      })
-      .from(roundsSB)
-      .where(and(eq(roundsSB.tabId, tabId), eq(roundsSB.breaks, false)))
-      .orderBy(asc(roundsSB.number), asc(roundsSB.roundId));
-
-    let nextBreakRoundNumber = existingPrelimRounds.length
-      ? existingPrelimRounds[existingPrelimRounds.length - 1].number + 1
-      : 1;
+    let nextBreakRoundNumber = 30;
 
     //return the an array of the new break rounds with cupCategory id, breakPhase, name, number  
     const expectedBreakRounds = savedCups.flatMap((cup) => {

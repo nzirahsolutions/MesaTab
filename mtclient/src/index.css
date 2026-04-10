@@ -287,7 +287,7 @@ footer{
 }
 .toastContainer{
   display: grid;
-  width: max-content;
+  max-width: 90%;
   gap: 1rem;
   --col: var(--brandcolor);
   z-index: 1;
@@ -309,6 +309,8 @@ footer{
     position: relative;
     border: 1px solid var(--background-color);
     border-right: 5px solid var(--col);
+    text-wrap: wrap;
+    display: flex;
     button{
       color: var(--col);
     }
@@ -414,6 +416,22 @@ form{
   }
   .roomCard{
     width: 100%;
+  }
+}
+dialog{
+  border: 2px solid var(--accentcolor);
+  border-radius: 1rem;
+  padding: 0;
+  top: 50%;
+  bottom: 50%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: fixed;
+  z-index: 1;
+  form{
+    background-color: var(--transparent);
+    width: 80vw;
+    max-width: 500px;
   }
 }
 select{
@@ -763,6 +781,7 @@ table{
   overflow-y: hidden;
   justify-content: center;
   display:block;
+  margin: 0.5rem;
 }
 
 .words{
