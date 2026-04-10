@@ -120,7 +120,7 @@ async function replaceExistingDrawsForRound(
     .from(drawsSB)
     .where(and(eq(drawsSB.tabId, tabId), eq(drawsSB.roundId, roundId)));
 
-  const drawIds = existingDraws.map((d) => d.drawId);
+  const drawIds = existingDraws.map((d: { drawId: number }) => d.drawId);
   if (drawIds.length) {
     await tx.delete(drawSpellers).where(inArray(drawSpellers.drawId, drawIds));
     await tx.delete(drawJudgesSB).where(inArray(drawJudgesSB.drawId, drawIds));

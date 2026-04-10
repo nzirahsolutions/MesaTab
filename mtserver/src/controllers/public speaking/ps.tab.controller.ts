@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '../../db/db';
 import {
   cupCategoriesPS,
@@ -1464,7 +1464,15 @@ export async function updateRound(req: Request, res: Response) {
     const existingNumber = await db
       .select({ roundId: roundsPS.roundId })
       .from(roundsPS)
-      .where(and(eq(roundsPS.tabId, tabId), eq(roundsPS.number, nextNumber),eq(roundsPS.cupCategoryId, nextBreakCategory)))
+      .where(
+        and(
+          eq(roundsPS.tabId, tabId),
+          eq(roundsPS.number, nextNumber),
+          nextBreakCategory === null
+            ? isNull(roundsPS.cupCategoryId)
+            : eq(roundsPS.cupCategoryId, nextBreakCategory)
+        )
+      )
       .limit(1);
     if (existingNumber.length && existingNumber[0].roundId !== targetRoundId) {
       return res.status(409).json({ message: 'Round number already exists in this tab/cup' });

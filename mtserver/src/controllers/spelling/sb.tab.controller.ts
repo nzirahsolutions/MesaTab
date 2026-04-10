@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../db/db";
 import { tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
 import { rebuildStandingsForTab } from "./sb.results.controller";
@@ -844,7 +844,7 @@ export async function deleteInstitution(req: Request, res: Response) {
         id?: number;
         tabId?: string;
       }
-      if(!id || !tabId) res.status(400).json({message:'id and tabId required'});
+      if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
     
     // // Optional: prevent delete if spellers/judges still reference this institution
     // const spellerCount = await db
@@ -1036,7 +1036,7 @@ export async function deleteSpeller(req: Request, res: Response) {
         id?: number;
         tabId?: string;
       }
-      if(!id || !tabId) res.status(400).json({message:'id and tabId required'});
+      if(!id || !tabId) return res.status(400).json({message:'id and tabId required'});
 
         //confirm tab isn't completed
         const [tab]= await db
@@ -1661,7 +1661,7 @@ export async function addRound(req: Request, res: Response) {
             blind: parsedBlind,
             cupCategoryId: parsedBreaks ? parsedBreakCategory : null,
             breakPhase: parsedBreaks
-              ? normalizedBreakPhase as "Octo-Finals" | "Quarter-Finals" | "Semi-Finals" | "Finals"
+              ? normalizedBreakPhase as "Triples" | "Doubles" | "Octos" | "Quarters" | "Semis" | "Finals"
               : null,
             type: type as "Timed" | "Word Limit" | "Eliminator",
             timeLimit: validated.timeLimit,
@@ -1768,13 +1768,31 @@ export async function updateRound(req: Request, res: Response) {
           .limit(1);
         if (!existing.length) return res.status(404).json({ message: "Round not found" });
 
-        if(existing[0].number!==parseIntOrNull(number)){const existingRoundNumber=await db
-          .select({ number: roundsSB.number })
-            .from(roundsSB)
-            .where(and(eq(roundsSB.tabId, tabId),eq(roundsSB.number, number), eq(roundsSB.cupCategoryId, existing[0].cupCategoryId)));
+        const parsedNumberForCheck = parseIntOrNull(number);
+        const numberProvided = number !== undefined && number !== null;
+        if (
+          numberProvided &&
+          typeof parsedNumberForCheck === "number" &&
+          !Number.isNaN(parsedNumberForCheck) &&
+          existing[0].number !== parsedNumberForCheck
+        ) {
+          const cupCategoryCondition = existing[0].cupCategoryId === null
+            ? isNull(roundsSB.cupCategoryId)
+            : eq(roundsSB.cupCategoryId, existing[0].cupCategoryId);
 
-        if(existingRoundNumber.length)
-          return res.status(409).json({ message: "Round number already exists in this tab and/or cup" });
+          const existingRoundNumber = await db
+            .select({ number: roundsSB.number })
+            .from(roundsSB)
+            .where(
+              and(
+                eq(roundsSB.tabId, tabId),
+                eq(roundsSB.number, parsedNumberForCheck),
+                cupCategoryCondition
+              )
+            );
+
+          if(existingRoundNumber.length)
+            return res.status(409).json({ message: "Round number already exists in this tab and/or cup" });
         }
 
         const prev = existing[0];
@@ -1846,7 +1864,7 @@ export async function updateRound(req: Request, res: Response) {
           completed: nextCompleted,
           blind: nextBlind,
           cupCategoryId: nextBreakCategory,
-          breakPhase: nextBreakPhase as "Octo-Finals" | "Quarter-Finals" | "Semi-Finals" | "Finals" | null,
+          breakPhase: nextBreakPhase as "Triples" | "Doubles" | "Octos" | "Quarters" | "Semis" | "Finals" | null,
           type: nextType as "Timed" | "Word Limit" | "Eliminator",
           timeLimit: validated.timeLimit,
           wordLimit: validated.wordLimit,

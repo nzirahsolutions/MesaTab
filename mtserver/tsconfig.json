@@ -10,12 +10,12 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "sourceMap": true,
     "noEmitOnError": true,
     "incremental": true
   },
-  "include": ["src", "drizzle.config.ts"],
+  "include": ["src", "src/drizzle.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

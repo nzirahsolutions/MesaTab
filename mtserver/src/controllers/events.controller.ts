@@ -64,9 +64,11 @@ export async function getUserEvents(req: Request, res: Response){
   // console.log('User Events called');
   // console.log(req.params);
   try{
-    const {ownerId}= req.params;
+    const ownerIdFromParams = Array.isArray(req.params.ownerId)
+      ? req.params.ownerId[0]
+      : req.params.ownerId;
 
-    if(!ownerId){
+    if(!ownerIdFromParams){
       return res.status(400).json({message: 'ownerId is required'});
     }
 
@@ -80,7 +82,7 @@ export async function getUserEvents(req: Request, res: Response){
       createdAt: events.createdAt,
     })
     .from(events)
-    .where(eq(events.ownerId, ownerId));
+    .where(eq(events.ownerId, ownerIdFromParams));
 
     if(!ownedEvents.length){
       return res.status(200).json({
@@ -364,8 +366,8 @@ export async function deleteEventTab(req: Request, res:Response) {
     };
 
     const normalizedSlug= slug?.trim().toLowerCase();
-    if(!normalizedSlug || !password || !ownerId){
-      return res.status(400).json({message: 'Event url, track and user password are required'});
+    if(!normalizedSlug || !password || !ownerId || !eventId){
+      return res.status(400).json({message: 'Event url, eventId, track and user password are required'});
     }
 
     const foundUser = await db
