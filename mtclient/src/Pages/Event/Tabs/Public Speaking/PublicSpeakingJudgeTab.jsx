@@ -6,6 +6,7 @@ import { AuthContext } from "../../../../Context/AuthContext";
 import Dropdown from "../../../../Components/Dropdown";
 import Loading from "../../../../Components/Loading";
 import Cell from "../../../../Components/Cell";
+import Toast from "../../../../Components/Toast";
 import { currentServer } from "../../../../Context/urls";
 
 export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
@@ -24,6 +25,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
     message: "",
     roomKey: "",
   });
+  const [toasts, setToasts] = useState([]);
 
   async function getFullTab() {
     try {
@@ -135,7 +137,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
     const round = fullTab?.rounds?.find((item) => item.roundId === roundId);
 
     if (!draw || !round) return;
-
+    
     setSaveState({ loading: true, success: false, error: false, message: "", roomKey });
 
     try {
@@ -157,13 +159,15 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
         delete next[roomKey];
         return next;
       });
+      const successMessage = res.data?.message ?? "Ballot submitted";
       setSaveState({
         loading: false,
         success: true,
         error: false,
-        message: res.data?.message ?? "Ballot submitted",
+        message: successMessage,
         roomKey,
       });
+      setToasts((prev) => [...prev, { id: Date.now(), type: "success", message: successMessage }]);
     } catch (error) {
       const message = error?.response?.data?.message ?? "Something went wrong";
       setSaveState({
@@ -173,6 +177,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
         message,
         roomKey,
       });
+      setToasts((prev) => [...prev, { id: Date.now(), type: "error", message }]);
     }
   }
 
@@ -256,8 +261,6 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
                         {(draw.judges ?? []).map((item) => item?.name).filter(Boolean).join(", ") || "None"}
                       </strong>
                     </p>
-                    {saveState.roomKey === roomKey && saveState.error && <p style={{ color: "red", margin: 0 }}>{saveState.message}</p>}
-                    {saveState.roomKey === roomKey && saveState.success && <p style={{ color: "green", margin: 0 }}>{saveState.message}</p>}
                   </div>
                   <div className="roomBody">
                     <li style={{ gridTemplateColumns: currentRound.breaks ? "3fr 2fr 1fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
@@ -329,6 +332,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
       </div>
       {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
       {tabItem === "home" ? home() : tabItem === "rounds" ? rounds() : ballots()}
+      <Toast toasts={toasts} setToasts={setToasts} />
     </>
   );
 }
