@@ -6,7 +6,7 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL as string,
+    url: process.env.CLOUD_DATABASE_URL as string,
   },
   verbose: true, //tells us exactly what's changing when we set up our migrations
   strict: true //asks you to confirm any changes that migrations may cause

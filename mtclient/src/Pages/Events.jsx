@@ -110,10 +110,10 @@ export default function Events() {
     if (user && !loadPage)
     return(
       <section id="userEvent">
-        <h2>User Events</h2>
+        <h2>User's Events</h2>
         <div className="eventList">
           {userEvents.length===0 ? 
-          <div className="eventCard"><p>You have no events</p></div> 
+          <div className="eventCard"><p>You have not started any events</p></div> 
           : 
           userEvents.map((event)=>(
             <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
@@ -139,9 +139,9 @@ export default function Events() {
         {creating && 
         <form>
           <strong style={{fontSize:'1.5rem'}}>Create New Event</strong>
-          <input type="text" name="title" placeholder="Event Title" value={newEvent.title} onChange={handleChange}/>
-          <input type="text" name="organizer" placeholder="Event Organizer" value={newEvent.organizer} onChange={handleChange}/>
-          <input type="text" name="slug" placeholder="url extension e.g.: lumumba-opens" value={newEvent.slug} onChange={handleChange}/>
+          <input required type="text" name="title" placeholder="Event Title" value={newEvent.title} onChange={handleChange}/>
+          <input required type="text" name="organizer" placeholder="Event Organizer" value={newEvent.organizer} onChange={handleChange}/>
+          <input required type="text" name="slug" placeholder="url extension e.g.: lumumba-opens" value={newEvent.slug} onChange={handleChange}/>
           <button className="darkButton" disabled={loading} onClick={handleSubmit}>{loading?'Creating':'Create Event'}</button>
           {error && <p style={{color:'red'}}>{errorMessage}</p>}
           {success && <p style={{color:'green'}}>{successMessage}</p>}
@@ -179,8 +179,8 @@ export default function Events() {
     return(
       <form onSubmit={handleDelete}>
         <h2>Delete Event</h2>
-        <input type="text" name="slug" value={newDeleteEvent.slug} autoComplete="one-time-code" placeholder="Event url" onChange={handleDeleteOnChange}/>
-        <input type="password" name="password" value={newDeleteEvent.password} autoComplete="one-time-code" placeholder="Enter password" onChange={handleDeleteOnChange}/>
+        <input required type="text" name="slug" value={newDeleteEvent.slug} autoComplete="one-time-code" placeholder="Event url" onChange={handleDeleteOnChange}/>
+        <input required type="password" name="password" value={newDeleteEvent.password} autoComplete="one-time-code" placeholder="Enter password" onChange={handleDeleteOnChange}/>
         <button className="darkButton" disabled={deleteStates.loading}>{deleteStates.loading?'Deleting':'Delete Event'}</button>
         {deleteStates.error && <p style={{color:'red'}}>{deleteStates.errorMessage}</p>}
         {deleteStates.success && <p style={{color:'green'}}>{deleteStates.successMessage}</p>}        

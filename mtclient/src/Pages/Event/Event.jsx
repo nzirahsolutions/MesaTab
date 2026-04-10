@@ -10,14 +10,15 @@ export default function Event() {
   const navigate=useNavigate();
   const {eventUrl}=useParams();
   const [event, setEvent]=useState(null);
-  const [newTab, setNewTab]=useState({title:'', track:'Spelling Bee',slug:''});
-  const [newDeleteTab,setNewDeleteTab]=useState({slug:'',track:'Spelling Bee', password:''});
+  const [newTab, setNewTab]=useState({title:'', track:'',slug:''});
+  const [newDeleteTab,setNewDeleteTab]=useState({slug:'',track:'', password:''});
   const [loadingPage, setLoadingPage]=useState(true);
   const [newTabStates, setNewTabStates]=useState({creating:false, loading: false, error: false, success: false, errorMessage:'Something went wrong', successMessage: 'Success'});
   const [deleteTabStates, setDeleteTabStates]=useState({loading: false, error: false, success: false, errorMessage:'Something went wrong', successMessage: 'Success'});
-  const defaultTab={title:'', track:'Spelling Bee',slug:''};
-  const defaultNewDeleteTab={slug:'',track:'Spelling Bee', password:''};
+  const defaultTab={title:'', track:'',slug:''};
+  const defaultNewDeleteTab={slug:'',track:'', password:''};
   const [view, setView]=useState('review');
+  const tracks=['Spelling Bee', 'Public Speaking'];
 
   async function findEvent(){
     try{
@@ -97,14 +98,11 @@ export default function Event() {
     <section>
       <form onSubmit={handleNewTabSubmit}>
         <strong>Add Tab</strong>
-        <input type="text" name="title" placeholder="Tab title" value={newTab.title} onChange={handleNewTabChange}/>
-        <input type="text" name="slug" placeholder="Tab url" value={newTab.slug} onChange={handleNewTabChange}/>
-        <select name="track" value={newTab.track} onChange={handleNewTabChange}>
-          <option value="Spelling Bee">Spelling Bee</option>
-          <option value="WSDC Debate">WSDC Debate</option>
-          <option value="BP Debate">BP Debate</option>
-          <option value="Public Speaking">Public Speaking</option>
-          <option value="Chess">Chess</option>
+        <input type="text" required name="title" placeholder="Tab title" value={newTab.title} onChange={handleNewTabChange}/>
+        <input type="text" name="slug" required placeholder="Tab url" value={newTab.slug} onChange={handleNewTabChange}/>
+        <select name="track" value={newTab.track} required onChange={handleNewTabChange}>
+          <option value="">Select Track</option>
+          {tracks.map((t,i)=><option value={t} key={i}>{t}</option>)}
         </select>
         <button className="darkButton" disabled={newTabStates.loading}>{newTabStates.loading?'Adding':'Add Tab'}</button>
         {newTabStates.success && <p style={{color:'green'}}>{newTabStates.successMessage}</p>}
@@ -118,16 +116,13 @@ export default function Event() {
     user && user.id===event.ownerId && 
     <form onSubmit={handleDeleteTab}>
         <h2>Delete Tab</h2>
-        <input type="text" name="slug" value={newDeleteTab.slug} autoComplete="one-time-code" placeholder="Event url" onChange={handleDeleteTabChange}/>
-        <select name="track" value={newDeleteTab.track} onChange={handleDeleteTabChange}>
-          <option value="Spelling Bee">Spelling Bee</option>
-          <option value="WSDC Debate">WSDC Debate</option>
-          <option value="BP Debate">BP Debate</option>
-          <option value="Public Speaking">Public Speaking</option>
-          <option value="Chess">Chess</option>
+        <input type="text" name="slug" value={newDeleteTab.slug} required autoComplete="one-time-code" placeholder="Event url" onChange={handleDeleteTabChange}/>
+        <select name="track" value={newDeleteTab.track} required onChange={handleDeleteTabChange}>
+          <option value="">Select Track</option>
+          {tracks.map((t,i)=><option value={t} key={i}>{t}</option>)}
         </select>
-        <input type="password" name="password" value={newDeleteTab.password} autoComplete="one-time-code" placeholder="Enter password" onChange={handleDeleteTabChange}/>
-        <button className="darkButton" disabled={deleteTabStates.loading}>{deleteTabStates.loading?'Deleting':'Delete Event'}</button>
+        <input type="password" name="password" value={newDeleteTab.password} autoComplete="one-time-code" placeholder="Enter password" required onChange={handleDeleteTabChange}/>
+        <button className="darkButton" disabled={deleteTabStates.loading}>{deleteTabStates.loading?'Deleting':'Delete Event Tab'}</button>
         {deleteTabStates.error && <p style={{color:'red'}}>{deleteTabStates.errorMessage}</p>}
         {deleteTabStates.success && <p style={{color:'green'}}>{deleteTabStates.successMessage}</p>}        
       </form>
