@@ -1,12 +1,12 @@
 {
   "name": "mtserver",
   "version": "1.0.0",
-  "main": "dist/src/server.js",
+  "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "prestart": "npm run build",
-    "start": "node dist/src/server.js",
+    "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate --config src/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config src/drizzle.config.ts",
     "db:push": "drizzle-kit push --config src/drizzle.config.ts",
