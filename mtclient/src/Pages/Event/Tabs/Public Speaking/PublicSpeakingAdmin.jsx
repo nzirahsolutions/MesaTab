@@ -77,7 +77,6 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         completed: fetchedTab.completed,
         cups: fetchedTab.cups ?? [],
       });
-
       const isOwner = !!user && user.id === event?.ownerId;
       const isTabMaster = !!user && (fetchedTab?.tabMasters ?? []).some((entry) => entry.email === user.email);
       const isJudge = !!user && (fetchedTab?.judges ?? []).some((entry) => entry.email === user.email);
@@ -1150,7 +1149,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       <div className="tabSideMenu">
         <nav className="tTitle">
           <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
-          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
+          <span className="☰" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "☰"}</span>
         </nav>
         <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
           <ul>

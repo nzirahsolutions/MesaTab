@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, useRef } from "react";
+import { useState, useContext, useEffect, useRef, useMemo } from "react";
 import {GiBee} from 'react-icons/gi';
 import {IoClose} from 'react-icons/io5';
 import {RiDeleteBin6Fill} from 'react-icons/ri';
@@ -12,124 +12,75 @@ import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
 import Cell from "../../../../Components/Cell";
 import ToggleButton from "../../../../Components/ToggleButton";
+import Toast from "../../../../Components/Toast";
 
 export default function SpellingAdmin({tab, event}) {
   const [tabItem, setTabItem]=useState('home');
   const tabHistoryRef=useRef(false);
-  const newCupRef=useRef(null);
-  const newCupOrderRef=useRef(null);
-  const newBreakCapacityRef=useRef(null);
-  const newBreakNumberRef=useRef(null);
   const [menuOpen, setMenuOpen]=useState(false);
   const {user, access, setAccess}= useContext(AuthContext);
   const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
   const [fullTab, setFulltab]=useState(null);
   const roundTypes=['Timed','Word Limit'];
-  const resultStatus=['Incomplete','Pass','Eliminated'];
+
+    const [configForm, setConfigForm] = useState({ title: "", slug: "", minScore: 30, maxScore: 90, completed: false, cups: [] });
+    const [institutionForm, setInstitutionForm] = useState({ id: null, name: "", code: "" });
+    const [tabMasterForm, setTabMasterForm] = useState({ id: null, name: "", institutionId: 0, email: "" });
+    const [spellerForm, setSpellerForm] = useState({ id: null, name: "", institutionId: 0, email: "", available: true });
+    const [judgeForm, setJudgeForm] = useState({ id: null, name: "", institutionId: 0, email: "", available: true });
+    const [roomForm, setRoomForm] = useState({ id: null, name: "", available: true });
+    const [roundForm, setRoundForm] = useState({ id: null, name:'', number:'', breaks:false, type:'Timed', timeLimit:'',wordLimit:'', completed:false, blind:false });
+    const [wordForm, setWordForm] = useState({ id: null, word: "" });
+    const [drawForm, setDrawForm] = useState({ roundId: "", powerPair: true, breakRoundId: "", preview: null });
+    const [drawUpdateForm, setDrawUpdateForm]= useState({roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0})
+    const [resultForm, setResultForm] = useState({ roundId: "", roomId: "", draft: null });
+    const newItems={
+      institution:{id: null, name: "", code: ""}, 
+      tabMaster:{id: null, name: "", institutionId: 0, email: ""}, 
+      speller:{id: null, name: "", institutionId: 0, email: "", available: true},
+      judge:{id: null, name: "", institutionId: 0, email: "", available: true},
+      room:{id: null, name: "", available: true}, 
+      round:{id: null, name:'', number:'', breaks:false, type:'Timed', timeLimit:'',wordLimit:'', completed:false, blind:false}, 
+      word:{id: null, word: ""}, 
+      draw:{roundId: "", powerPair: true, breakRoundId: "", preview: null},
+      drawUpdate: {roundId:0, room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0},
+      result:{roundId: "", roomId: "", draft: null}
+    };
+    const [sortStates, setSortStates]=useState({institutions:{column:'name', state:true}, tabMasters:{column:'name', state:true}, judges:{column:'name', state:true}, spellers:{column:'name', state:true}, rooms:{column:'name', state:true}, rounds:{column:'number', state:true}, words:{column:'word', state:true}});
+    const [toasts, setToasts]=useState([]);
+    const dialogRef=useRef(null);
+    const dialogRef2=useRef(null);
+    const [drawView, setDrawView]=useState('prelim');
+    const drawViews=['prelim', 'breaks'];
+    const currentDraw = fullTab?.draws?.find((draw) => draw.roundId === Number(resultForm.roundId) && draw.room?.id === Number(resultForm.roomId)) ?? null;
 
   async function getFullTab() {
     try {
       const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
       const fetchedTab = res.data?.data ?? null;
-    //   console.log(fetchedTab);
-      setFulltab(res.data?.data ?? null);        
-      setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups, completed: fetchedTab.completed}}));
+      setConfigForm({
+        title: fetchedTab.title,
+        slug: fetchedTab.slug,
+        minScore: fetchedTab.minScore,
+        maxScore: fetchedTab.maxScore,
+        completed: fetchedTab.completed,
+        cups: fetchedTab.cups ?? [],
+      });
+      setFulltab(fetchedTab);
+      const isOwner = !!user && user.id === event?.ownerId;
+      const isTabMaster = !!user && (fetchedTab?.tabMasters ?? []).some((entry) => entry.email === user.email);
+      const isJudge = !!user && (fetchedTab?.judges ?? []).some((entry) => entry.email === user.email);
+      const adminAuthorized = isOwner || isTabMaster;
+      setPageLoad({ loading: false, adminAuthorized, judgeAuthorized: isJudge });
+      if (!adminAuthorized && access === "admin") setAccess("public");
     } catch (error) {
       console.error(error);
+      setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
     }
   }
 
-  const [navState, setNavState]=useState({institution:'review',tabMaster:'review',speller:'review',judge:'review',room:'review',round:'review',word:'review', draw:'review', result:'review'});
-
-  const [reviewItems, setReviewItems]=useState({draw:{roundId:0}, result:{roundId:0}});
-  
-  const [addItems, setAddItems]=useState({institution:{name:'', code:''}, tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:''},judge:{name:'',institutionId:0,email:''}, room:{name:''},round:{name:'',number:'', blind: false, breaks:false, type:'', breakCategory:'', breakPhase:''}, word:{word:''}, draw:{roundId:0, powerPair:true}, result:{roundId:0, spellerId:0, score:0, status:'Incomplete'}});
-
-  const [updateItems, setUpdateItems]=useState({institution:{name:'', code:''},tabMaster:{name:'',institutionId:0,email:''},speller:{name:'',institutionId:0,email:'', available: true},judge:{name:'',institutionId:0,email:'', available: true}, room:{name:'', available: true},round:{name:'', number:'', breaks:false,blind: false, type:'', completed:false, cupCategoryId:0, breakPhase:''}, word:{word:''}, draw:{roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{roundId:0, roomId:0, spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}, tabDetails:{title:'',slug:'', cups:[], completed: false}});
-
-  const [deleteItems, setDeleteItems]=useState({institution:{id:0, name:'', status:false},tabMaster:{id:0,name:'', status:false},speller:{id:0,name:'', status:false},judge:{id:0,name:'', status:false}, room:{id:0,name:'', status:false},round:{id:0,name:'', status:false}, word:{id:0,word:'', status:false}, draw:{roundId:0, status: false}, result:{roundId:0,roomId:0, spellerId:0 ,confirm:false}});
-
-  const defaultItems={institution:{name:'', code:'', status:false},tabMaster:{name:'',institutionId:0,email:'', status:false},speller:{name:'',institutionId:0,email:'', status:false},judge:{name:'',institutionId:0,email:'', status:false}, room:{name:'', available: true ,status:false},round:{name:'', number:'', breaks:false, type:'Timed', completed:false, status:false}, word:{word:'', status:false}, draw:{roundId:0, powerPair:true, status:false,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speller1:0, speller2:0}, result:{spellerId:0, score:0, status:'Incomplete'}, batch:{roundId:0, roomId:0, updates:null}};
-
-  const [configStates, setConfigStates]=useState({updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Tab Updated'});
-
-  const [institutionStates, setInstitutionStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Institution Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Institution Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Institution Updated'});
-
-  const [spellerStates, setSpellerStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Speller Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Speller Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Speller Updated'});
-
-  const [tabMasterStates, setTabMasterStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Tab Master Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Tab Master Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Tab Master Updated'});
-  
-  const [judgeStates, setJudgeStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Judge Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Judge Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Judge Updated'});
-  
-  const [roomStates, setRoomStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Room Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Room Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Room Updated'});
-  
-  const [roundStates, setRoundStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Round Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Round Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Round Updated'});
-  
-  const [wordStates, setWordStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Word Added',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Word Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Word Updated'});
-  
-  const [drawStates, setDrawSates]=useState({generateSuccess:false, generateError:false, generateLoading:false, generateErrorMessage:'Something went wrong', generateSuccessMessage:'Draw Generated',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Draw Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Draw Updated'});
-  const [breakStates, setBreakStates]=useState({
-    previewLoading:false,
-    previewError:false,
-    previewSuccess:false,
-    previewErrorMessage:'Something went wrong',
-    previewData:null,
-    lastBatch:null,
-    generateLoading:false,
-    generateError:false,
-    generateSuccess:false,
-    generateErrorMessage:'Something went wrong',
-    generateSuccessMessage:'Break Draws Generated',
-    generatingRoundId:null,
-  });
-  
-  const [resultStates, setResultStates]=useState({addSuccess:false, addError:false, addLoading:false, addErrorMessage:'Something went wrong', addSuccessMessage:'Ballot Submitted',deleteSuccess:false, deleteError:false, deleteLoading:false, deleteErrorMessage:'Something went wrong', deleteSuccessMessage:'Ballot Deleted',updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
-
-  const [batchStates, setBatchStates]=useState({ updateSuccess:false, updateError:false, updateLoading:false, updateErrorMessage:'Something went wrong', updateSuccessMessage:'Ballot Updated'});
-
-  const [sortStates, setSortStates]=useState({institutions:{column:'name', state:true}, tabMasters:{column:'name', state:true}, judges:{column:'name', state:true}, spellers:{column:'name', state:true}, rooms:{column:'name', state:true}, rounds:{column:'number', state:true}});
-  //state true for ascending, false for desc
-
   useEffect(() => {
-    let mounted = true;
-
-    async function loadPage() {
-      setPageLoad((prev) => ({ ...prev, loading: true }));
-      try {
-        const res = await axios.get(`${currentServer}/sb/tab/${tab.tabId}`);
-        const fetchedTab = res.data?.data ?? null;
-        // console.log(res.data.data);
-        if (!mounted) return;
-        setFulltab(fetchedTab);
-        setUpdateItems((prev)=>({...prev,tabDetails:{...prev.tabDetails, title: fetchedTab.title, slug: fetchedTab.slug, cups: fetchedTab.cups}}));
-
-        const isOwner = !!user && user.id === event?.ownerId;
-        const isTabMaster =
-          !!user &&
-          Array.isArray(fetchedTab?.tabMasters) &&
-          fetchedTab.tabMasters.some((e) => e.email === user.email);
-        const isJudge =
-          !!user &&
-          Array.isArray(fetchedTab?.judges) &&
-          fetchedTab.judges.some((e) => e.email === user.email);
-
-        setPageLoad({
-          loading: false,
-          adminAuthorized: isOwner || isTabMaster,
-          judgeAuthorized: isJudge,
-        });
-        if(!isOwner && !isTabMaster) setAccess('public');
-      } catch (error) {
-        console.error(error);
-        if (!mounted) return;
-        setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
-      }
-    }
-
-    loadPage();
-    return () => {
-      mounted = false;
-    };
+    getFullTab();
   }, [tab.tabId, event?.ownerId, user]);
   
   //tab-level navigation
@@ -159,1123 +110,660 @@ useEffect(() => {
   window.addEventListener("popstate", onPopState);
   return () => window.removeEventListener("popstate", onPopState);
 }, [tabItem, setTabItem]);
+
+const accessOptions = [
+    { option: `${tab.title}`, value: "public" },
+    ...(pageLoad.judgeAuthorized ? [{ option: `${tab.title} (Judge)`, value: "judge" }] : []),
+    ...(pageLoad.adminAuthorized ? [{ option: `${tab.title} (Admin)`, value: "admin" }] : []),
+  ];
+
+const sortedResultsRooms = useMemo(
+    () =>
+    [...(fullTab?.draws ?? [])]
+        .filter((draw) => draw.roundId === Number(resultForm.roundId))
+        .sort((a, b) => (a.room?.name ?? "").localeCompare(b.room?.name ?? "")),
+    [fullTab, resultForm.roundId]
+);
    
   //sort actions
-  function toggleSort(view,col){
-    setSortStates((prev)=>{
-        const current= prev[view];
-        const nextDir= current.column===col && current.state===true? false: true;
+function toggleSort(view,col){
+setSortStates((prev)=>{
+    const current= prev[view];
+    const nextDir= current.column===col && current.state===true? false: true;
 
-        return{
-            ...prev,
-            [view]:{column: col, state: nextDir},
-        };
-    });
-  }
-
-  function sortItems(items, view, accessorMap) {
-    const { column, state } = sortStates[view];
-    const accessor = accessorMap[column];
-    
-    if (!accessor) {
-        console.warn(`No accessor found for column: ${column}`);
-        return [...items];
-    }    
-    return [...items].sort((a, b) => {
-        const aVal = accessor(a);
-        const bVal = accessor(b);
-        // Handle numbers
-        if (typeof aVal === "number" && typeof bVal === "number") {
-        return state === true ? aVal - bVal : bVal - aVal;
-        }        
-        // Handle booleans (true before false when ascending)
-        if (typeof aVal === "boolean" && typeof bVal === "boolean") {
-        const aNum = aVal ? 1 : 0;
-        const bNum = bVal ? 1 : 0;
-        return state === true ? aNum - bNum : bNum - aNum;
-        }        
-        // Handle strings
-        return state === true
-        ? String(aVal ?? "").localeCompare(String(bVal ?? ""))
-        : String(bVal ?? "").localeCompare(String(aVal ?? ""));
-    });
-    }
-  function tabChange(t){
-    setTabItem(t);
-    setMenuOpen(false);
-  }
-  function configOnChange(e){
-    setConfigStates({...configStates, updateSuccess: false, updateError: false, updateLoading: false});
-    if(e.target.name==='cups'){
-        let cups=[...updateItems.tabDetails.cups];
-        let idx=Number(e.target.dataset.idx);
-        let v=e.target.dataset.v;
-        if(e.target.type=='text')
-            cups[idx].cupCategory=e.target.value;
-        if(e.target.type=='number'){
-            // console.log(e.target);
-            if(v==='number') cups[idx].breakNumber=Number(e.target.value);
-            if(v==='capacity') cups[idx].breakCapacity=Number(e.target.value);
-            if(v==='order') cups[idx].cupOrder=Number(e.target.value);
-        }
-        setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails,[e.target.name]:[...cups]}});
-    }
-    else{
-       setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails,[e.target.name]:e.target.value}}); 
-    }
-  }
-  function institutionOnChange(e){
-    setInstitutionStates({...institutionStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.institution){
-        case'add':
-            setAddItems({...addItems, institution:{...addItems.institution,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, institution:{...updateItems.institution,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, institution:{...deleteItems.institution,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-    
-  }
-  function spellerOnChange(e){
-    setSpellerStates({...spellerStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.speller){
-        case'add':
-            setAddItems({...addItems, speller:{...addItems.speller,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, speller:{...updateItems.speller,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, speller:{...deleteItems.speller,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function tabMasterOnChange(e){
-    setTabMasterStates({...tabMasterStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.tabMaster){
-        case'add':
-            setAddItems({...addItems, tabMaster:{...addItems.tabMaster,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, tabMaster:{...updateItems.tabMaster,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, tabMaster:{...deleteItems.tabMaster,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function judgeOnChange(e){
-    setJudgeStates({...judgeStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.judge){
-        case'add':
-            setAddItems({...addItems, judge:{...addItems.judge,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-                setUpdateItems({...updateItems, judge:{...updateItems.judge,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, judge:{...deleteItems.judge,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function roomOnChange(e){
-    setRoomStates({...roomStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.room){
-        case'add':
-            setAddItems({...addItems, room:{...addItems.room,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, room:{...updateItems.room,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, room:{...deleteItems.room,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function roundOnChange(e){
-    setRoundStates({...roundStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-    const value = e.target.name=='breakCategory'? parseInt(e.target.value): e.target.value;
-
-    switch(navState.round){
-        case'add':
-            setAddItems({...addItems, round:{...addItems.round,[e.target.name]:value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, round:{...updateItems.round,[e.target.name]:value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, round:{...deleteItems.round,[e.target.name]:value}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function wordOnChange(e){
-    setWordStates({...wordStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.word){
-        case'add':
-            setAddItems({...addItems, word:{...addItems.word,[e.target.name]:e.target.value}});
-            break;
-        case 'update':
-            setUpdateItems({...updateItems, word:{...updateItems.word,[e.target.name]:e.target.value}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, word:{...deleteItems.word,[e.target.name]:e.target.checked}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function drawOnChange(e){
-    setDrawSates({...drawStates, generateSuccess: false, generateError: false, generateLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.draw){
-        case'generate':
-            setAddItems({...addItems, draw:{...addItems.draw,[e.target.name]:e.target.value}});
-            break;
-        case'review':
-            setReviewItems({...reviewItems, draw:{...reviewItems.draw,[e.target.name]:parseInt(e.target.value)}});
-            break;
-        case 'update':
-            // console.log(updateItems.draw)
-            setUpdateItems({...updateItems, draw:{...updateItems.draw,[e.target.name]:parseInt(e.target.value)}});
-            break;
-        case 'delete':
-            setDeleteItems({...deleteItems, draw:{...deleteItems.draw,[e.target.name]:parseInt(e.target.value)}});
-            break;
-        default: console.log('No Change');
-    }
-  }
-  function resultOnChange(e){
-    setResultStates({...resultStates, addSuccess: false, addError: false, addLoading: false, deleteSuccess:false, deleteError: false, deleteLoading: false, updateSuccess: false, updateError: false, updateLoading: false});
-
-    switch(navState.result){
-        case'review':
-            setReviewItems({...reviewItems, result:{...reviewItems.result,[e.target.name]:parseInt(e.target.value)}});
-            break;
-        case 'update':{
-            fullTab.draws.find((d)=>d.room.id===updateItems.result.roomId && d.roundId===updateItems.result.roundId)?.spellers?.find(b=> b.id==updateItems.result.spellerId)?.result?.score
-            const value =e.target.name === 'status'? e.target.value
-            : parseInt(e.target.value);
-            setUpdateItems({...updateItems, result:{...updateItems.result,[e.target.name]:value}});
-            break;}
-        case 'batch': {
-            const value =
-                e.target.name === 'status'
-                ? e.target.value
-                : parseInt(e.target.value, 10);
-
-            //to prevent using previous stale state in updates that lags them one update behind
-            const nextBatch = {
-                ...updateItems.batch,
-                [e.target.name]: value,
-            };
-            if (e.target.name === 'roundId') {
-                nextBatch.roomId = 0;
-                nextBatch.updates = null;
-            }
-            if (e.target.name === 'roomId') {
-                nextBatch.updates =
-                fullTab.draws.find(
-                    (d) => d.room.id === value && d.roundId === nextBatch.roundId
-                ) ?? null;
-            }
-            setUpdateItems({
-                ...updateItems,
-                batch: nextBatch,
-            });
-            break;
-            }
-
-        case 'delete':
-            setDeleteItems({...deleteItems, result:{...deleteItems.result,[e.target.name]:parseInt(e.target.value)}});
-            break;
-        default: console.log('No Change');
-    }
-  }
- 
-  async function submitConfig(e){
-    e.preventDefault();
-    setConfigStates({...configStates, updateLoading: true, updateError: false, updateSuccess:false});
-        try {
-            const res=await axios.put(`${currentServer}/sb/tab/update`,{...updateItems.tabDetails, tabId: tab.tabId});
-            // setUpdateItems({...updateItems, tabDetails:{...defaultItems.institution}});
-            getFullTab();
-            setConfigStates({...configStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-        } 
-        catch (err) {
-            const message= err?.response?.data?.message || "Something went wrong";
-            setConfigStates({...configStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-        }
-
-  }
-  async function submitInstitution(e){
-    e.preventDefault();
-    switch(navState.institution){
-        case'add':
-            setInstitutionStates({...institutionStates, addLoading: true});
-            // console.log('add inst');
-            try {
-                const res=await axios.post(`${currentServer}/sb/institution`,{...addItems.institution, tabId: tab.tabId});
-                // console.log(res);
-                setAddItems({...addItems, institution:{...defaultItems.institution}});
-                getFullTab();
-                setInstitutionStates({...institutionStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setInstitutionStates({...institutionStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setInstitutionStates({...institutionStates, updateLoading: true});
-            // console.log('add inst');
-            try {
-                const res=await axios.put(`${currentServer}/sb/institution`,{...updateItems.institution, tabId: tab.tabId});
-                // console.log({...updateItems.institution, tabId: tab.tabId});
-                setUpdateItems({...updateItems, institution:{...defaultItems.institution}});
-                getFullTab();
-                setInstitutionStates({...institutionStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setInstitutionStates({...institutionStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setInstitutionStates({...institutionStates, deleteLoading: true});
-            // console.log('delete inst');
-            try {
-                const res=await axios.delete(`${currentServer}/sb/institution`,{data:{...deleteItems.institution, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, institution:{...defaultItems.institution, status: false}});
-                getFullTab();
-                setInstitutionStates({...institutionStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setInstitutionStates({...institutionStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitInstitution');
-    }
-  }
-  async function submitSpeller(e){
-    e.preventDefault();
-    switch(navState.speller){
-        case'add':
-            setSpellerStates({...spellerStates, addLoading: true});
-            // console.log('add sp');
-            try {
-                const res=await axios.post(`${currentServer}/sb/speller`,{...addItems.speller, tabId: tab.tabId});
-                // console.log(res);
-                setAddItems({...addItems, speller:{...defaultItems.speller}});
-                getFullTab();
-                setSpellerStates({...spellerStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setSpellerStates({...spellerStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setSpellerStates({...spellerStates, updateLoading: true});
-            // console.log(updateItems.speller);
-            try {
-                const res=await axios.put(`${currentServer}/sb/speller`,{...updateItems.speller, tabId: tab.tabId});
-                setUpdateItems({...updateItems, speller:{...defaultItems.speller}});
-                getFullTab();
-                setSpellerStates({...spellerStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setSpellerStates({...spellerStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setSpellerStates({...spellerStates, deleteLoading: true});
-            // console.log('delete sp');
-            try {
-                const res=await axios.delete(`${currentServer}/sb/speller`,{data:{...deleteItems.speller, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, speller:{...defaultItems.speller, status: false}});
-                getFullTab();
-                setSpellerStates({...spellerStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setSpellerStates({...spellerStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitSpeller');
-    }
-  }
-  async function submitTabMaster(e){
-    e.preventDefault();
-    switch(navState.tabMaster){
-        case'add':
-            setTabMasterStates({...tabMasterStates, addLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/tabMaster`,{...addItems.tabMaster, tabId: tab.tabId});
-                setAddItems({...addItems, tabMaster:{...defaultItems.tabMaster}});
-                getFullTab();
-                setTabMasterStates({...tabMasterStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setTabMasterStates({...tabMasterStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setTabMasterStates({...tabMasterStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/tabMaster`,{...updateItems.tabMaster, tabId: tab.tabId});
-                setUpdateItems({...updateItems, tabMaster:{...defaultItems.tabMaster}});
-                getFullTab();
-                setTabMasterStates({...tabMasterStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setTabMasterStates({...tabMasterStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setTabMasterStates({...tabMasterStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/tabMaster`,{data:{...deleteItems.tabMaster, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, tabMaster:{...defaultItems.tabMaster, status: false}});
-                getFullTab();
-                setTabMasterStates({...tabMasterStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setTabMasterStates({...tabMasterStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitTabMaster');
-    }
-  }
-  async function submitJudge(e){
-    e.preventDefault();
-    switch(navState.judge){
-        case'add':
-            setJudgeStates({...judgeStates, addLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/judge`,{...addItems.judge, tabId: tab.tabId});
-                setAddItems({...addItems, judge:{...defaultItems.judge}});
-                getFullTab();
-                setJudgeStates({...judgeStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setJudgeStates({...judgeStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setJudgeStates({...judgeStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/judge`,{...updateItems.judge, tabId: tab.tabId});
-                setUpdateItems({...updateItems, judge:{...defaultItems.judge}});
-                getFullTab();
-                setJudgeStates({...judgeStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setJudgeStates({...judgeStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setJudgeStates({...judgeStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/judge`,{data:{...deleteItems.judge, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, judge:{...defaultItems.judge, status: false}});
-                getFullTab();
-                setJudgeStates({...judgeStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setJudgeStates({...judgeStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitJudge');
-    }
-  }
-  async function submitRoom(e){
-    e.preventDefault();
-    switch(navState.room){
-        case'add':
-            setRoomStates({...roomStates, addLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/room`,{...addItems.room, tabId: tab.tabId});
-                setAddItems({...addItems, room:{...defaultItems.room}});
-                getFullTab();
-                setRoomStates({...roomStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoomStates({...roomStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setRoomStates({...roomStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/room`,{...updateItems.room, tabId: tab.tabId});
-                setUpdateItems({...updateItems, room:{...defaultItems.room}});
-                getFullTab();
-                setRoomStates({...roomStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoomStates({...roomStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setRoomStates({...roomStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/room`,{data:{...deleteItems.room, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, room:{...defaultItems.room, status: false}});
-                getFullTab();
-                setRoomStates({...roomStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoomStates({...roomStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitRoom');
-    }
-  }
-  async function submitRound(e){
-    e.preventDefault();
-    switch(navState.round){
-        case'add':
-            setRoundStates({...roundStates, addLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/round`,{...addItems.round, tabId: tab.tabId});
-                setAddItems({...addItems, round:{...defaultItems.round}});
-                getFullTab();
-                setRoundStates({...roundStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoundStates({...roundStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setRoundStates({...roundStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/round`,{...updateItems.round, tabId: tab.tabId});
-                setUpdateItems({...updateItems, round:{...defaultItems.round}});
-                getFullTab();
-                setRoundStates({...roundStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoundStates({...roundStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setRoundStates({...roundStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/round`,{data:{...deleteItems.round, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, round:{...defaultItems.round, status: false}});
-                getFullTab();
-                setRoundStates({...roundStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setRoundStates({...roundStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitRound');
-    }
-  }
-  async function submitWord(e){
-    e.preventDefault();
-    switch(navState.word){
-        case'add':
-            setWordStates({...wordStates, addLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/word`,{...addItems.word, tabId: tab.tabId});
-                setAddItems({...addItems, word:{...defaultItems.word}});
-                getFullTab();
-                setWordStates({...wordStates, addError: false, addSuccess: true, addLoading:false, addSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setWordStates({...wordStates, addSuccess: false, addError: true, addLoading: false, addErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setWordStates({...wordStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/word`,{...updateItems.word, tabId: tab.tabId});
-                setUpdateItems({...updateItems, word:{...defaultItems.word}});
-                getFullTab();
-                setWordStates({...wordStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setWordStates({...wordStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setWordStates({...wordStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/word`,{data:{...deleteItems.word, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, word:{...defaultItems.word, status: false}});
-                getFullTab();
-                setWordStates({...wordStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setWordStates({...wordStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitWord');
-    }
-  }
-  async function submitDraw(e){
-    e.preventDefault();
-    switch(navState.draw){
-        case'generate':
-            setDrawSates({...drawStates, generateLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/draw/generate`, {...addItems.draw, roundId: parseInt(addItems.draw.roundId), tabId: tab.tabId});
-                setAddItems({...addItems, draw:{...defaultItems.draw}});
-                getFullTab();
-                setDrawSates({...drawStates, generateError: false, generateSuccess: true, generateLoading:false, generateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setDrawSates({...drawStates, generateSuccess: false, generateError: true, generateLoading: false, generateErrorMessage:message});
-            }
-            break;
-        case 'update':
-            setDrawSates({...drawStates, updateLoading: true});
-            try {
-                const res=await axios.put(`${currentServer}/sb/draw/update`,{...updateItems.draw, tabId: tab.tabId});
-                setUpdateItems({...updateItems, draw:{...defaultItems.draw}});
-                getFullTab();
-                setDrawSates({...drawStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setDrawSates({...drawStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setDrawSates({...drawStates, deleteLoading: true});
-            try {
-                const res=await axios.delete(`${currentServer}/sb/draw/delete`,{data:{...deleteItems.draw, tabId: tab.tabId}});
-                setDeleteItems({...deleteItems, draw:{...defaultItems.draw, status: false}});
-                getFullTab();
-                setDrawSates({...drawStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setDrawSates({...drawStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitDraw');
-    }
-  }
-  async function previewBreaks(){
-    setBreakStates((prev)=>({
-      ...prev,
-      previewLoading:true,
-      previewError:false,
-      previewSuccess:false,
-      generateError:false,
-      generateSuccess:false,
-    }));
-    try {
-      const res = await axios.post(`${currentServer}/sb/draw/breaks`, { tabId: tab.tabId });
-      setBreakStates((prev)=>({
+    return{
         ...prev,
-        previewLoading:false,
-        previewError:false,
-        previewSuccess:true,
-        previewData: res.data?.data ?? null,
-        lastBatch: null,
-      }));
-    } catch (err) {
-      const message= err?.response?.data?.message || "Something went wrong";
-      setBreakStates((prev)=>({
-        ...prev,
-        previewLoading:false,
-        previewSuccess:false,
-        previewError:true,
-        previewErrorMessage:message,
-      }));
-    }
-  }
-  async function generateBreakDraws(roundId=null){
-    setBreakStates((prev)=>({
-      ...prev,
-      generateLoading:true,
-      generateError:false,
-      generateSuccess:false,
-      generatingRoundId: roundId,
-    }));
-    try {
-      const payload = roundId ? { tabId: tab.tabId, roundId } : { tabId: tab.tabId };
-      const res = await axios.post(`${currentServer}/sb/draw/break-generate`, payload);
-      await getFullTab();
-      try {
-        const previewRes = await axios.post(`${currentServer}/sb/draw/breaks`, { tabId: tab.tabId });
-        setBreakStates((prev)=>({
-          ...prev,
-          previewData: previewRes.data?.data ?? prev.previewData,
-          previewSuccess:true,
-          previewError:false,
-          lastBatch: res.data?.data?.batch ?? prev.lastBatch,
-        }));
-      } catch (previewErr) {
-        console.error(previewErr);
-      }
-      setBreakStates((prev)=>({
-        ...prev,
-        generateLoading:false,
-        generateError:false,
-        generateSuccess:true,
-        generateSuccessMessage:res.data?.message || 'Break Draws Generated',
-        generatingRoundId:null,
-      }));
-    } catch (err) {
-      const message= err?.response?.data?.message || "Something went wrong";
-      setBreakStates((prev)=>({
-        ...prev,
-        generateLoading:false,
-        generateSuccess:false,
-        generateError:true,
-        generateErrorMessage:message,
-        lastBatch: err?.response?.data?.data?.batch ?? null,
-        generatingRoundId:null,
-      }));
-    }
-  }
-  async function submitResult(e){
-    e.preventDefault();
-    switch(navState.result){
-        case 'update':
-            setResultStates({...resultStates, updateLoading: true});
-            try {
-                const res=await axios.post(`${currentServer}/sb/result/ballot`,{...updateItems.result, tabId: tab.tabId});
-                getFullTab();
-                setUpdateItems({...updateItems, result:{...defaultItems.result}});
-                setResultStates({...resultStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setResultStates({...resultStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'batch':
-            setBatchStates({...batchStates, updateLoading: true});
-            try {
-                const payload = {
-                    tabId: tab.tabId,
-                    roundId: updateItems.batch.roundId,
-                    roomId: updateItems.batch.roomId,
-                    updates: updateItems.batch.updates.spellers.map((speller) => ({
-                        spellerId: speller.id,
-                        score: speller.result?.score,
-                        status: speller.result?.status,
-                    })),
-                    };
-                const res=await axios.post(`${currentServer}/sb/result/batch`,payload);
-                getFullTab();
-                setUpdateItems({...updateItems, batch:{...defaultItems.batch}});
-                setBatchStates({...batchStates, updateError: false, updateSuccess: true, updateLoading:false, updateSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setBatchStates({...resultStates, updateSuccess: false, updateError: true, updateLoading: false, updateErrorMessage:message});
-            }
-            break;
-        case 'delete':
-            setResultStates({...resultStates, deleteLoading: true});
-            try {
-                const payload={
-                    tabId: tab.tabId,
-                    roundId: deleteItems.result.roundId,
-                    roomId: deleteItems.result.roomId,
-                    spellerId: deleteItems.result.spellerId
-                }
-                const res=await axios.delete(`${currentServer}/sb/result/ballot`,{data:{...payload}});
-                setDeleteItems({...deleteItems, result:{...defaultItems.result, delete: false}});
-                getFullTab();
-                setResultStates({...resultStates, deleteError: false, deleteSuccess: true, deleteLoading:false, deleteSuccessMessage:res.data.message});
-            } 
-            catch (err) {
-                const message= err?.response?.data?.message || "Something went wrong";
-                setResultStates({...resultStates, deleteSuccess: false, deleteError: true, deleteLoading: false, deleteErrorMessage:message});
-            }
-            break;
-        default: console.log('check submitResult');
-    }
-  }
-  function updateBatchScore(spellerId, score) {
-    setBatchStates({...batchStates, updateSuccess: false, updateError: false, updateLoading: false});
-    setUpdateItems((prev) => {
-        if (!prev.batch.updates) return prev;
-
-        return {
-        ...prev,
-        batch: {
-            ...prev.batch,
-            updates: {
-            ...prev.batch.updates,
-            spellers: prev.batch.updates.spellers.map((speller) =>
-                speller.id === spellerId
-                ? {
-                    ...speller,
-                    result: {
-                        ...(speller.result ?? {}),
-                        score,
-                    },
-                    }
-                : speller
-            ),
-            },
-        },
-        };
-    });
-}
-  function updateBatchStatus(spellerId, status) {
-    status=status.target.value;
-    // console.log(status);
-    setBatchStates({...batchStates, updateSuccess: false, updateError: false, updateLoading: false});
-    setUpdateItems((prev) => {
-        if (!prev.batch.updates) return prev;
-
-        return {
-        ...prev,
-        batch: {
-            ...prev.batch,
-            updates: {
-            ...prev.batch.updates,
-            spellers: prev.batch.updates.spellers.map((speller) =>
-                speller.id === spellerId
-                ? {
-                    ...speller,
-                    result: {
-                        ...(speller.result ?? {}),
-                        status,
-                    },
-                    }
-                : speller
-            ),
-            },
-        },
-        };
-    });
+        [view]:{column: col, state: nextDir},
+    };
+});
 }
 
-  //return functions
+function sortItems(items, view, accessorMap) {
+const { column, state } = sortStates[view];
+const accessor = accessorMap[column];
+
+if (!accessor) {
+    console.warn(`No accessor found for column: ${column}`);
+    return [...items];
+}    
+return [...items].sort((a, b) => {
+    const aVal = accessor(a);
+    const bVal = accessor(b);
+    // Handle numbers
+    if (typeof aVal === "number" && typeof bVal === "number") {
+    return state === true ? aVal - bVal : bVal - aVal;
+    }        
+    // Handle booleans (true before false when ascending)
+    if (typeof aVal === "boolean" && typeof bVal === "boolean") {
+    const aNum = aVal ? 1 : 0;
+    const bNum = bVal ? 1 : 0;
+    return state === true ? aNum - bNum : bNum - aNum;
+    }        
+    // Handle strings
+    return state === true
+    ? String(aVal ?? "").localeCompare(String(bVal ?? ""))
+    : String(bVal ?? "").localeCompare(String(aVal ?? ""));
+});
+}
+function tabChange(t){
+setTabItem(t);
+setMenuOpen(false);
+}
+
+async function saveConfig(e) {
+    e.preventDefault();
+    try {
+    const res = await axios.put(`${currentServer}/sb/tab/update`, { ...configForm, tabId: tab.tabId });
+    setToast('success', res.data?.message ?? "Configuration updated");
+    await getFullTab();
+    } catch (error) {
+    setToast('error', error?.response?.data?.message ?? "Failed to update configuration");
+    }
+}
+
+async function submitEntity(endpoint, form, resetForm) {
+try {
+    const res = form.id
+    ? await axios.put(`${currentServer}/sb/${endpoint}`, { ...form, tabId: tab.tabId })
+    : await axios.post(`${currentServer}/sb/${endpoint}`, { ...form, tabId: tab.tabId });
+    setToast("success", res.data?.message ?? "Saved");
+    resetForm();
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to save");
+    // console.log(error?.response?.data?.message ?? "Failed to save");
+}
+}
+async function deleteEntity(endpoint, payload) {
+if (!window.confirm("Delete this item?")) return;
+try {
+    const res = await axios.delete(`${currentServer}/sb/${endpoint}`, { data: { ...payload, tabId: tab.tabId } });
+    setToast("success", res.data?.message ?? "Deleted");
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to delete");
+}
+}
+
+async function generateDraw(e) {
+e.preventDefault();
+try {
+    const res = await axios.post(`${currentServer}/sb/draw/generate`, { tabId: tab.tabId, roundId: Number(drawForm.roundId), powerPair: drawForm.powerPair });
+    setToast("success", res.data?.message ?? "Draw generated");
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to generate draw");
+    console.log(error?.response?.data?.message ?? "Failed to update draw")
+}
+}
+async function updateDraw(e) {
+e.preventDefault();
+try {
+    const res = await axios.put(`${currentServer}/sb/draw/update`, { tabId: tab.tabId,...drawUpdateForm });
+    setToast("success", res.data?.message ?? "Draw updated");
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to update draw");
+    // console.log(error?.response?.data?.message ?? "Failed to update draw")
+}
+}
+async function previewBreak(e) {
+e.preventDefault();
+try {
+    const res = await axios.post(`${currentServer}/sb/draw/breaks`, { tabId: tab.tabId, roundId: Number(drawForm.breakRoundId) });
+    setDrawForm((prev) => ({ ...prev, preview: res.data?.data ?? null }));
+    setToast("success", res.data?.message ?? "Break preview generated");
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to preview break draw");
+}
+}
+async function generateBreakDraw() {
+try {
+    const res = await axios.post(`${currentServer}/sb/draw/break-generate`, { tabId: tab.tabId, roundId: Number(drawForm.breakRoundId) });
+    setToast("success", res.data?.message ?? "Break draw generated");
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to generate break draw");
+}
+}
+function updateResultDraft(spellerId, patch) {
+setResultForm((prev) => {
+if (!prev.draft) return prev;
+return {
+...prev,
+draft: {
+    ...prev.draft,
+    spellers: prev.draft.spellers.map((speller) =>
+    speller.id === spellerId
+        ? { ...speller, result: { ...(speller.result ?? {}), ...patch } }
+        : speller
+    ),
+},
+};
+});
+}
+async function deleteDraw(roundId) {
+if (!window.confirm("Delete the draw for this round?")) return;
+try {
+const res = await axios.delete(`${currentServer}/sb/draw/delete`, { data: { tabId: tab.tabId, roundId } });
+setToast("success", res.data?.message ?? "Draw deleted");
+await getFullTab();
+} catch (error) {
+setToast("error", error?.response?.data?.message ?? "Failed to delete draw");
+}
+}
+async function saveRoomResults(e) {
+e.preventDefault();
+const sortedRounds=fullTab?.rounds ||[];
+if (!resultForm.draft) return;
+try {
+    const payload = {
+    tabId: tab.tabId,
+    roundId: Number(resultForm.roundId),
+    roomId: Number(resultForm.roomId),
+    updates: resultForm.draft.spellers.map((speller) => ({
+        spellerId: speller.id,
+        score: speller.result?.score ?? fullTab.minScore,
+        ...(sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks ? { status: speller.result?.status ?? "Incomplete" } : {}),
+    })),
+    };
+    const res = await axios.post(`${currentServer}/sb/result/batch`, payload);
+    setToast("success", res.data?.message ?? "Results saved");
+    await getFullTab();
+} catch (error) {
+    setToast("error", error?.response?.data?.message ?? "Failed to save results");
+}
+}
+function showForm(entity){
+    const sortedRounds=fullTab?.rounds|| [];
+    const sortedInstitutions=fullTab?.institutions||[];
+    const selectedRound= sortedRounds.find(r=> r.roundId===resultForm.roundId)?.name || '';
+    const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
+    switch(entity){
+      case 'institution':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("institution", institutionForm, () => setInstitutionForm({ id: null, name: "", code: "" })); }} method="modal">
+            <p><strong>Institution</strong></p>
+            <input placeholder="Institution Name" value={institutionForm.name} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <input placeholder="Code" value={institutionForm.code} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, code: e.target.value }))} />
+            <button className="darkButton">{institutionForm.id ? "Update" : "Add"} Institution</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'tabMaster':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("tabMaster", tabMasterForm, () => setTabMasterForm({ id: null, name: "", institutionId: 0, email: "" })); }}>
+            <h2>Tab Masters</h2>
+            <input placeholder="Name" value={tabMasterForm.name} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <input type="email" placeholder="Email" value={tabMasterForm.email} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <select value={tabMasterForm.institutionId} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <button className="darkButton">{tabMasterForm.id ? "Update" : "Add"} Tab Master</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'judge':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("judge", judgeForm, () => setJudgeForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
+            <h2>Judges</h2>
+            <input placeholder="Name" value={judgeForm.name} onChange={(e) => setJudgeForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <input type="email" placeholder="Email" value={judgeForm.email} onChange={(e) => setJudgeForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <select value={judgeForm.institutionId} onChange={(e) => setJudgeForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={judgeForm.available} setState={() => setJudgeForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
+            <button className="darkButton">{judgeForm.id ? "Update" : "Add"} Judge</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'speller':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("speller", spellerForm, () => setSpellerForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
+            <h2>Spellers</h2>
+            <input placeholder="Name" value={spellerForm.name} onChange={(e) => setSpellerForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <input type="email" placeholder="Email" value={spellerForm.email} onChange={(e) => setSpellerForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <select value={spellerForm.institutionId} onChange={(e) => setSpellerForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={spellerForm.available} setState={() => setSpellerForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
+            <button className="darkButton">{spellerForm.id ? "Update" : "Add"} Speller</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'room':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("room", roomForm, () => setRoomForm({ id: null, name: "", available: true })); }}>
+            <h2>Rooms</h2>
+            <input placeholder="Name" value={roomForm.name} onChange={(e) => setRoomForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={roomForm.available} setState={() => setRoomForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
+            <button className="darkButton">{roomForm.id ? "Update" : "Add"} Room</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'round':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("round", roundForm, () => setRoundForm({ id: null, name:'', number:'', breaks:false, type:'Timed', timeLimit:'',wordLimit:'', completed:false, blind:false })); }}>
+            <h2>Rounds</h2>
+            <input placeholder="Name" value={roundForm.name} onChange={(e) => setRoundForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <input placeholder="Number" type="number" value={roundForm.number} onChange={(e) => setRoundForm((prev) => ({ ...prev, number: e.target.value }))} />
+            {!roundForm.breaks &&<select required name="type" value={roundForm.type} onChange={(e) => setRoundForm((prev) => ({ ...prev, type: e.target.value }))}>
+                <option value="">Select round type</option>
+              {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
+            </select>}
+            {roundForm.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={roundForm.timeLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, timeLimit: e.target.value }))} required/>}
+            {roundForm.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={roundForm.wordLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, wordLimit: e.target.value }))} required/>}
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Blind <ToggleButton state={roundForm.blind} setState={() => setRoundForm((prev) => ({ ...prev, blind: !prev.blind }))} /></label>
+            {roundForm.id &&<label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Completed <ToggleButton state={roundForm.completed} setState={() => setRoundForm((prev) => ({ ...prev, completed: !prev.completed }))} /></label>}
+            <button className="darkButton">{roundForm.id ? "Update" : "Add Prelim"} Round</button>
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'word':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); submitEntity("word", wordForm, () => setWordForm({ id: null, word: ""})); }}>
+            <h2>Words</h2>
+            <input placeholder="Word" value={wordForm.word} onChange={(e) => setWordForm((prev) => ({ ...prev, word: e.target.value }))} />
+            <button className="darkButton">{wordForm.id ? "Update" : "Add"} Word</button>
+            {wordForm.id && <button type="button" className="darkButton" onClick={()=>{dialogRef.current.close(); deleteEntity("word", { id: wordForm.id })}}>Delete Word</button>}
+            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'generateDraw':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={generateDraw}>
+              <h2>Preliminary Draws</h2>
+              <select value={drawForm.roundId} onChange={(e) => setDrawForm((prev) => ({ ...prev, roundId: e.target.value }))}><option value="">Select Round</option>{sortedRounds.filter((item) => !item.breaks).map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}</select>
+              <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Power Pair <ToggleButton state={drawForm.powerPair} setState={() => setDrawForm((prev) => ({ ...prev, powerPair: !prev.powerPair }))} /></label>
+              <button className="darkButton">Generate Draw</button>
+              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            </form>
+          </dialog>
+        )
+      case 'previewBreaks':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={previewBreak}>
+              <h2>Break Draws</h2>
+              <select value={drawForm.breakRoundId} onChange={(e) => setDrawForm((prev) => ({ ...prev, breakRoundId: e.target.value }))}><option value="">Select Break Round</option>{sortedRounds.filter((item) => item.breaks).map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}</select>
+              <button className="lightButton">Preview Break Draw</button>
+              <button type="button" className="darkButton" onClick={generateBreakDraw}>Generate Break Draw</button>
+              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            </form>
+          </dialog>
+        )
+      case 'updateDraw':
+        return(
+          <dialog ref={dialogRef2}>
+            <form onSubmit={updateDraw}>
+              <p><strong>Update Draw</strong></p>
+              <select name="roundId" value={drawUpdateForm.roundId} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                  <option value={0}>Select Round</option>
+                  {incompleteRounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
+              </select>
+              {!fullTab.draws.find((a)=>a.roundId===drawUpdateForm.roundId)?
+              <p>Draw for this round is not out yet</p>
+              :            
+              <>
+              <strong>Updates</strong>
+              <select name="swapState" value={drawUpdateForm.swapState} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                  <option value={0}>Select Update</option>
+                  <option value={1}>Swap Spellers</option>
+                  <option value={2}>Swap Judges</option>
+                  <option value={3}>Move Speller</option>
+                  <option value={4}>Move Judge</option>
+                  <option value={5}>Add Speller</option>
+                  <option value={6}>Add Judge</option>
+                  <option value={7}>Swap Rooms</option>
+                  <option value={8}>Move Room</option>
+              </select>
+              {drawUpdateForm.swapState===1 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select First Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Second Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="speller1" value={drawUpdateForm.speller1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select speller in first room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room1 && d.roundId===drawUpdateForm.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+                  <select name="speller2" value={drawUpdateForm.speller2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select speller in second room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room2 && d.roundId===drawUpdateForm.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }
+              {drawUpdateForm.swapState===2 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select First Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Second Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="judge1" value={drawUpdateForm.judge1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select judge in first room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room1 && d.roundId===drawUpdateForm.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+                  <select name="judge2" value={drawUpdateForm.judge2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select judge in second room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room2 && d.roundId===drawUpdateForm.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }
+              {drawUpdateForm.swapState===3 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select First Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Second Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="speller1" value={drawUpdateForm.speller1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select speller in first room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room1 && d.roundId===drawUpdateForm.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }
+              {drawUpdateForm.swapState===4 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select First Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Second Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="judge1" value={drawUpdateForm.judge1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select judge in first room</option>
+                      {fullTab.draws.find((d)=>d.room.id===drawUpdateForm.room1 && d.roundId===drawUpdateForm.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }            
+              {drawUpdateForm.swapState===5 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="speller1" value={drawUpdateForm.speller1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select speller to add to room</option>
+                      {getMissing(fullTab.spellingBees,fullTab.draws.filter(d=>d.roundId===drawUpdateForm.roundId).map(d=>d.spellers).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }            
+              {drawUpdateForm.swapState===6 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="judge1" value={drawUpdateForm.judge1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select judge to add to room</option>                    
+                      {getMissing(fullTab.judges,fullTab.draws.filter(d=>d.roundId===drawUpdateForm.roundId).map(d=>d.judges).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
+                  </select>
+              </div>
+              }
+              {drawUpdateForm.swapState===7 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select First Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Second Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+              </div>
+              }            
+              {drawUpdateForm.swapState===8 && 
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
+                  <select name="room1" value={drawUpdateForm.room1} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select Original Room</option>
+                      {getOccupiedRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+                  <select name="room2" value={drawUpdateForm.room2} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
+                      <option value={0}>Select New Room</option>
+                      {getEmptyRooms(drawUpdateForm.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
+                  </select>
+              </div>
+              }            
+              </>}
+              <button className="darkButton">Save Draw Updates</button>
+              <button type="button" className="darkButton" onClick={()=>dialogRef2.current.close()}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'results':
+        return (
+          <dialog ref={dialogRef}>
+            <form onSubmit={saveRoomResults}>
+              <h2> {selectedRound} Results </h2>
+              <select value={resultForm.roomId} onChange={(e) => setResultForm((prev) => ({ ...prev, roomId: Number(e.target.value) }))}><option value="">Select Room</option>{sortedResultsRooms.map((draw) => <option key={draw.drawId} value={draw.room.id}>{draw.room.name}</option>)}</select>
+              {resultForm.draft && (
+                <div className="roomCard">
+                  <div className="roomHeader"><h2 style={{ margin: 0 }}>{resultForm.draft.room.name}</h2></div>
+                  <div className="roomBody">
+                    {resultForm.draft.spellers.map((speller) => (
+                      <li key={speller.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr", gap: "0.5rem" }}>
+                        <span>{speller.name}</span>
+                        <span>{fullTab?.institutions?.find((entry) => entry.id === speller.institutionId)?.code ?? "-"}</span>
+                        {sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks ?(
+                          <select value={speller.result?.status ?? "Incomplete"} onChange={(e) => updateResultDraft(speller.id, { status: e.target.value })}>
+                            <option value="Incomplete">Incomplete</option>
+                            <option value="Eliminated">Eliminated</option>
+                            <option value="Pass">Pass</option>
+                          </select>
+                        ):(
+                        <Cell value={speller.result?.score ?? fullTab.minScore} min={0} max={selectedRound.type==='Word Limit'? selectedRound.wordLimit :30} onChange={(score) => updateResultDraft(speller.id, { score })} />
+                        )}
+                      </li>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button className="darkButton">Save Room Results</button>
+              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            </form>
+          </dialog>
+        )
+      default: console.log('No form to show'); 
+    }
+  }
+
+useEffect(() => {
+if (!currentDraw) {
+    setResultForm((prev) => ({ ...prev, draft: null }));
+    return;
+}
+setResultForm((prev) => ({ ...prev, draft: JSON.parse(JSON.stringify(currentDraw)) }));
+}, [resultForm.roundId, resultForm.roomId, currentDraw?.drawId]);
+
+function setToast(type, message){
+setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
+}
+
+//return functions
   function home(){
     return(
-      <>
       <div className="tabHome">
-        <li onClick={()=>tabChange('configuration')}>Configuration</li>
-        <li onClick={()=>tabChange('institutions')}>Institutions</li>
-        <li onClick={()=>tabChange('tabMasters')}>Tab Masters</li>
-        <li onClick={()=>tabChange('judges')}>Judges</li>
-        <li onClick={()=>tabChange('spellers')}>Spellers</li>
-        <li onClick={()=>tabChange('rooms')}>Rooms</li>
-        <li onClick={()=>tabChange('rounds')}>Rounds</li>
-        <li onClick={()=>tabChange('words')}>Words</li>
-        <li onClick={()=>tabChange('draws')}>Draws</li>
-        <li onClick={()=>tabChange('results')}>Results</li>
+        {["configuration", "institutions", "tabMasters", "spellers", "judges", "rooms", "rounds", "words", "draws", "results"].map((item) => (
+            <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
+          ))}
       </div>
-      </>
     )
-  }
+    }
   function configuration(){
-    return(
-        <>
-        <form onSubmit={submitConfig}>
-            <h2>{fullTab.title}</h2>
-            <label>Title <input type="text" name="title" value={updateItems.tabDetails.title} onChange={configOnChange}/></label><br />
-            <label>Slug <input type="text" name="slug" value={updateItems.tabDetails.slug} onChange={configOnChange}/></label><br />
-            <strong>Cups</strong><br />
-            {updateItems.tabDetails.cups.length>0? updateItems.tabDetails.cups.map((c,i)=>
-            <div key={c.id ?? `new-cup-${i}`} style={{display: 'grid', gridTemplateColumns:"repeat(auto-fit,minmax(60px, 1fr))", justifySelf:'center', width: '90%'}}>
-                <input  type="text" name="cups" data-idx={i} value={updateItems.tabDetails.cups[i].cupCategory}  onChange={configOnChange}/>
-                <input  type="number" name="cups" data-idx={i} data-v='order' value={updateItems.tabDetails.cups[i].cupOrder}  onChange={configOnChange} placeholder="cup order"/>
-                <input  type="number" name="cups" data-idx={i} data-v='number' value={updateItems.tabDetails.cups[i].breakNumber} max={6} min={1} onChange={configOnChange} placeholder="break rounds"/>
-                <input  type="number" name="cups" data-idx={i} data-v='capacity' min={2} placeholder="spellers per break room" value={updateItems.tabDetails.cups[i].breakCapacity}  onChange={configOnChange}/>
-                <RiDeleteBin6Fill fill="red" onClick={()=>{
-                    let cups=[...updateItems.tabDetails.cups];
-                    cups.splice(i,1);
-                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});  
-                    setConfigStates({...configStates, updateSuccess: false, updateError: false, updateLoading: false});              
-                }}/>
-            </div>): <b>No cups set up</b> }<br />
-            <label style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(90px, 1fr)',justifySelf:'center', gap:'0.5rem', width:'90%'}}>
-                <input type="text" ref={newCupRef} placeholder="Cup Name"/>
-                <input type="number" min={1} max={10} ref={newCupOrderRef} placeholder="Cup Order"/>
-                <input type="number" min={1} max={6} ref={newBreakNumberRef} placeholder="No of break rounds"/>
-                <input type="number" min={2} ref={newBreakCapacityRef} placeholder="spellers per break room"/>
-                <button type="button" className="darkButton" onClick={()=>{
-                    let cups=[...updateItems.tabDetails.cups];
-                    if(newCupRef.current.value.trim()!=='' && newCupOrderRef.current.value.trim()!=='' && newBreakCapacityRef.current.value.trim()!=='' && newBreakNumberRef.current.value.trim()!=='') cups.push({id: null, cupCategory: newCupRef.current.value, cupOrder: Number(newCupOrderRef.current.value), breakNumber: Number(newBreakNumberRef.current.value),breakCapacity: Number(newBreakCapacityRef.current.value)});
-                    setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, cups: cups}});
-                    // console.log(updateItems.tabDetails);
-                    newCupRef.current.value='';
-                    newCupOrderRef.current.value='';
-                    newBreakCapacityRef.current.value='';
-                    newBreakNumberRef.current.value='';
-                }}>Add cup</button>
-            </label>
-            <label>Tab complete? <ToggleButton state={updateItems.tabDetails.completed} setState={()=>setUpdateItems({...updateItems, tabDetails:{...updateItems.tabDetails, completed: !updateItems.tabDetails.completed}})}/></label>
-            <button className="darkButton" disabled={configStates.updateLoading}>{configStates.updateLoading? 'Updating':'Update Tab'}</button>
-            {configStates.updateError &&<p style={{color:'red'}}>{configStates.updateErrorMessage}</p>}
-            {configStates.updateSuccess &&<p style={{color:'green'}}>{configStates.updateSuccessMessage}</p>}
-        </form>
-        </>
-    )
-  }
+      return(
+          <form onSubmit={saveConfig}>
+            <h2>{fullTab?.title}</h2>
+            <label>Title <input type="text" value={configForm.title} onChange={(e) => setConfigForm((prev) => ({ ...prev, title: e.target.value }))} /></label><br />
+            <label>Slug <input type="text" value={configForm.slug} onChange={(e) => setConfigForm((prev) => ({ ...prev, slug: e.target.value }))} /></label><br />
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Completed <ToggleButton state={configForm.completed} setState={() => setConfigForm((prev) => ({ ...prev, completed: !prev.completed }))} /></label>
+            <h3>Cups</h3>
+            {configForm.cups.map((cup, index) => (
+              <div key={cup.id ?? `cup-${index}`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "0.5rem" }}>
+                <input value={cup.cupCategory} placeholder="Cup Name, e.g.: Gold" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
+                <input type="number" value={cup.cupOrder} placeholder="Cup Order e.g.: 1 for Gold, 2 for Silver" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
+                <input type="number" value={cup.breakNumber} placeholder="No of break rounds" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
+                <input type="number" value={cup.breakCapacity} placeholder="Min Spellers per break Room" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakCapacity: Number(e.target.value) } : item) }))} />
+                <RiDeleteBin6Fill onClick={() => setConfigForm((prev) => ({ ...prev, cups: prev.cups.filter((_, itemIdx) => itemIdx !== index) }))}/>
+              </div>
+            ))}
+            <button type="button" className="lightButton" onClick={() => setConfigForm((prev) => ({ ...prev, cups: [...prev.cups, { cupCategory: "", cupOrder: '', breakNumber: '', breakCapacity: '' }] }))}>Add Cup</button>
+            <button className="darkButton">Save Configuration</button>
+          </form>
+        )
+    }
   function institutions(){
-    const sortedInstitutions = sortItems(fullTab.institutions ?? [], "institutions", {
-        name: (item) => item.name,
-        code: (item) => item.code,
-        spellers: (item) => item.spellers,
-        });
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.institution==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, institution:'review'})}>Review</button>
-        <button className={navState.institution==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, institution:'add'})}>Add</button>
-        <button className={navState.institution==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, institution:'update'})}>Update</button>
-        <button className={navState.institution==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, institution:'delete'})}>Delete</button>
-    </div>
-    {navState.institution==='review'&&
-    <section id="institutionReview">
-        <h2>Registered Institutions</h2>
-        {sortedInstitutions.length>0?
-        <div className="tableScroll">
-        <table>
-          <thead>
-            <tr style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
-              <th>Name 
-                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "name")}>
-                    {sortStates.institutions.column === "name" && sortStates.institutions.state === true
-                    ? '\u2b9d'
-                    : '\u2b9f'}
-                </button>
-              </th>
-              <th>Code  
-                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "code")}>
-                    {sortStates.institutions.column === "code" && sortStates.institutions.state === true
-                    ? '\u2b9d'
-                    : '\u2b9f'}
-                </button>
-              </th>
-              <th>Spellers 
-                <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "spellers")}>
-                    {sortStates.institutions.column === "spellers" && sortStates.institutions.state === true
-                    ? '\u2b9d'
-                    : '\u2b9f'}
-                </button>
-              </th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedInstitutions.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
-              <td>{p.name}</td>
-              <td>{p.code}</td>
-              <td>{p.spellers}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, institution:{...p}});
-                setNavState({...navState, institution:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...updateItems, institution:{...p}});
-                setNavState({...navState, institution:'delete'});}}/></td>
-            </tr>)}
-          </tbody>
-        </table></div>:<p>No Registered Institutions</p>}
-    </section>}
-    {navState.institution==='add'&&
-    <section id="institutionAdd">
-        <form onSubmit={submitInstitution}>
-            <p><strong>Register an institution</strong></p>
-            <input type="text" placeholder="Institution Name" required name="name" value={addItems.institution.name} onChange={institutionOnChange}/>
-            <input type="text" placeholder="Institution Code e.g: GHS (Must be Unique) " required name="code" value={addItems.institution.code} onChange={institutionOnChange}/>
-            <button className="darkButton" disabled={institutionStates.addLoading}>{institutionStates.addLoading? 'Adding':'Add Institution'}</button>
-            {institutionStates.addError &&<p style={{color:'red'}}>{institutionStates.addErrorMessage}</p>}
-            {institutionStates.addSuccess &&<p style={{color:'green'}}>{institutionStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.institution==='update' &&
-    <section id="institutionUpdate">
-        <form onSubmit={submitInstitution}>
-            <p><strong>Update {updateItems.institution.name}'s info</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, institution:{...fullTab.institutions.find((s)=>s.code===e.target.value)}});
-                // console.log(updateItems.institution);
-                e.target.value==="" && setUpdateItems({...updateItems, institution:defaultItems.institution});
-                }} value={updateItems.institution.code}>
-                <option value="">Select an Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.code}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Institution Name" required name="name" value={updateItems.institution.name} onChange={institutionOnChange}/>
-            <input type="text" placeholder="Institution Code e.g: GHS (Must be Unique) " required name="code" value={updateItems.institution.code} onChange={institutionOnChange}/>
-            <button className="darkButton" disabled={institutionStates.updateLoading}>{institutionStates.updateLoading? 'Updating':'Update Institution'}</button>
-            {institutionStates.updateError &&<p style={{color:'red'}}>{institutionStates.updateErrorMessage}</p>}
-            {institutionStates.updateSuccess &&<p style={{color:'green'}}>{institutionStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.institution==='delete' &&
-    <section id="institutionDelete">
-        <form onSubmit={submitInstitution}>
-            <p><strong>Delete {deleteItems.institution.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, institution:{...fullTab.institutions.find((s)=>s.code===e.target.value), status: false}});
-                e.target.value==="" && setDeleteItems({...deleteItems, institution:defaultItems.institution});
-                // console.log(deleteItems.institution);
-                }} value={deleteItems.institution.code}>
-                <option value="">Select an institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.code}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.institution.status} setState={()=>setDeleteItems({...deleteItems, institution:{...deleteItems.institution, status:!deleteItems.institution.status}})}/></label>
-            {deleteItems.institution.status &&<p style={{color:'red'}}>Warning: This will delete all judges and spellers registered with this institution</p>}            
-            <button className="darkButton" disabled={institutionStates.deleteLoading || !deleteItems.institution.status}>{institutionStates.deleteLoading? 'Deleting':'Delete Institution'}</button>
-            {institutionStates.deleteError &&<p style={{color:'red'}}>{institutionStates.deleteErrorMessage}</p>}
-            {institutionStates.deleteSuccess &&<p style={{color:'green'}}>{institutionStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
-  }
+      const sortedInstitutions = sortItems(fullTab.institutions ?? [], "institutions", {
+          name: (item) => item.name,
+          code: (item) => item.code,
+          spellers: (item) => item.spellers,
+          });
+      return(
+          <>
+            <section id="institutions">
+              {/* <button onClick={console.log(fullTab)}>Log Full Tab</button> */}
+              <h2>Registered Institutions</h2>
+              <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setInstitutionForm({...newItems.institution});}}>Add Institution</button>
+              {showForm('institution')}
+              {sortedInstitutions.length>0?
+                      <div className="tableScroll">
+                      <table>
+                        <thead>
+                          <tr style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
+                            <th>Name 
+                              <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "name")}>
+                                  {sortStates.institutions.column === "name" && sortStates.institutions.state === true
+                                  ? '\u2b9d'
+                                  : '\u2b9f'}
+                              </button>
+                            </th>
+                            <th>Code  
+                              <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "code")}>
+                                  {sortStates.institutions.column === "code" && sortStates.institutions.state === true
+                                  ? '\u2b9d'
+                                  : '\u2b9f'}
+                              </button>
+                            </th>
+                            <th>Spellers 
+                              <button type="button" className="sortToggle" onClick={() => toggleSort("institutions", "spellers")}>
+                                  {sortStates.institutions.column === "spellers" && sortStates.institutions.state === true
+                                  ? '\u2b9d'
+                                  : '\u2b9f'}
+                              </button>
+                            </th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedInstitutions.map((p,i)=>
+                          <tr key={i} style={{gridTemplateColumns:'4fr 1fr 1fr 1fr'}}>
+                            <td>{p.name}</td>
+                            <td>{p.code}</td>
+                            <td>{p.spellers}</td>
+                            <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setInstitutionForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("institution", { id: p.id })}}/></td>
+                          </tr>)}
+                        </tbody>
+                      </table></div>:<p>No Registered Institutions</p>}
+            </section>
+          </>
+        )
+    }
   function spellers(){
     const sortedSpellers = sortItems(fullTab.spellingBees ?? [], "spellers", {
         name: (item) => item.name,
         school: (item) => fullTab.institutions.find((i)=>i.id===item.institutionId).name,
         available: (item) => item.available,
         });
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.speller==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, speller:'review'})}>Review</button>
-        <button className={navState.speller==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, speller:'add'})}>Add</button>
-        <button className={navState.speller==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, speller:'update'})}>Update</button>
-        <button className={navState.speller==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, speller:'delete'})}>Delete</button>
-    </div>
-    {navState.speller==='review'&&
-    <section id="spellerReview">
-        <h2>Registered Spellers ({sortedSpellers.length})</h2>
+    return (
+        <>
+            <section id="spellers">
+            <h2>Registered Spellers ({sortedSpellers.length})</h2>
+            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setSpellerForm({...newItems.speller});}}>Add Speller</button>
+            {showForm('speller')}
         {sortedSpellers.length>0?
         <div className="tableScroll">
         <table>
-          <thead>
+            <thead>
             <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
-              <th>Name 
+                <th>Name 
                 <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "name")}>
                     {sortStates.spellers.column === "name" && sortStates.spellers.state === true
                     ? '\u2b9d'
                     : '\u2b9f'}
                 </button>
-              </th>
-              <th>School 
+                </th>
+                <th>School 
                 <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "school")}>
                     {sortStates.spellers.column === "school" && sortStates.spellers.state === true
                     ? '\u2b9d'
                     : '\u2b9f'}
                 </button>
-              </th>
-              <th>Available 
+                </th>
+                <th>Available 
                 <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "available")}>
                     {sortStates.spellers.column === "available" && sortStates.spellers.state === true
                     ? '\u2b9d'
                     : '\u2b9f'}
                 </button>
-              </th>
-              <th></th>
+                </th>
+                <th></th>
             </tr>
-          </thead>
-          <tbody>
+            </thead>
+            <tbody>
             {sortedSpellers.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
-              <td>{p.name}</td>
-              <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
-              <td>{p.available? '\u2714': '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, speller:{...p}});
-                setNavState({...navState, speller:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...updateItems, speller:{...p}});
-                setNavState({...navState, speller:'delete'});}}/></td>
+                <td>{p.name}</td>
+                <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
+                <td>{p.available? '\u2714': '\u2718'}</td>
+                <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setSpellerForm(p);}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("speller", { id: p.id })}}/></td>
             </tr>)}
-          </tbody>
+            </tbody>
         </table></div>:<p>No Registered Spellers</p>}
-    </section>}
-    {navState.speller==='add'&&
-    <section id="spellerAdd">
-        <form onSubmit={submitSpeller}>
-            <p><strong>Register a speller</strong></p>
-            <input type="text" placeholder="Speller Name" required name="name" value={addItems.speller.name} onChange={spellerOnChange}/>
-            <input type="email" placeholder="email " name="email" value={addItems.speller.email} onChange={spellerOnChange}/>
-            <select required name="institutionId" onChange={spellerOnChange} value={addItems.speller.institutionId}>
-                <option value=''>Choose Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <button className="darkButton" disabled={spellerStates.addLoading}>{spellerStates.addLoading? 'Registering':'Register Speller'}</button>
-            {spellerStates.addError &&<p style={{color:'red'}}>{spellerStates.addErrorMessage}</p>}
-            {spellerStates.addSuccess &&<p style={{color:'green'}}>{spellerStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.speller==='update' &&
-    <section id="spellerUpdate">
-        <form onSubmit={submitSpeller}>
-            <p><strong>Update {updateItems.speller.name}'s info</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, speller:{...fullTab.spellingBees.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, speller:defaultItems.speller});
-                }} value={updateItems.speller.id}>
-                <option value="">Select a speller</option>
-                {fullTab.spellingBees.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Speller Name" required name="name" value={updateItems.speller.name} onChange={spellerOnChange}/>
-            <input type="email" placeholder="Speller Email" name="email" value={updateItems.speller.email} onChange={spellerOnChange}/>
-            <label>Available?<ToggleButton state={updateItems.speller.available} setState={()=>setUpdateItems({...updateItems, speller:{...updateItems.speller, available:!updateItems.speller.available}})}/></label>
-            
-            <button className="darkButton" disabled={spellerStates.updateLoading}>{spellerStates.updateLoading? 'Updating':'Update Speller'}</button>
-            {spellerStates.updateError &&<p style={{color:'red'}}>{spellerStates.updateErrorMessage}</p>}
-            {spellerStates.updateSuccess &&<p style={{color:'green'}}>{spellerStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.speller==='delete' &&
-    <section id="spellerDelete">
-        <form onSubmit={submitSpeller}>
-            <p><strong>Delete {deleteItems.speller.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, speller:{...fullTab.spellingBees.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                }} value={deleteItems.speller.id}>
-                <option value="">Select Speller</option>
-                {fullTab.spellingBees.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.speller.status} setState={()=>setDeleteItems({...deleteItems, speller:{...deleteItems.speller, status:!deleteItems.speller.status}})}/></label>
-            {/* {deleteItems.speller.status &&<p style={{color:'red'}}>Warning: This will delete all judges and spellers registered with this institution</p>}             */}
-            <button className="darkButton" disabled={spellerStates.deleteLoading || !deleteItems.speller.status}>{spellerStates.deleteLoading? 'Deleting':'Delete Speller'}</button>
-            {spellerStates.deleteError &&<p style={{color:'red'}}>{spellerStates.deleteErrorMessage}</p>}
-            {spellerStates.deleteSuccess &&<p style={{color:'green'}}>{spellerStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
-  }
+        </section>
+        </>
+        )
+    }
   function judges(){
     const sortedJudges = sortItems(fullTab.judges ?? [], "judges", {
         name: (item) => item.name,
@@ -1284,16 +772,11 @@ useEffect(() => {
         available: (item) => item.available,
         });
     return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.judge==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, judge:'review'})}>Review</button>
-        <button className={navState.judge==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, judge:'add'})}>Add</button>
-        <button className={navState.judge==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, judge:'update'})}>Update</button>
-        <button className={navState.judge==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, judge:'delete'})}>Delete</button>
-    </div>
-    {navState.judge==='review'&&
-    <section id="judgeReview">
-        <h2>Registered Judges</h2>
+        <>
+          <section id="judges">
+            <h2>Registered Judges ({sortedJudges.length})</h2>
+            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setJudgeForm({...newItems.judge});}}>Add Judge</button>
+            {showForm('judge')}
         {fullTab.judges?.length>0?
         <div className="tableScroll"><table>
           <thead>
@@ -1320,72 +803,13 @@ useEffect(() => {
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
               <td>{p.available? '\u2714': '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, judge:{...p}});
-                setNavState({...navState, judge:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, judge:{...p, status:false}});
-                setNavState({...navState, judge:'delete'});}}/></td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setJudgeForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("judge", { id: p.id })}}/></td>
             </tr>)}
           </tbody>
-        </table></div>:<p>No Registered Judges</p>}
-    </section>}
-    {navState.judge==='add'&&
-    <section id="judgeAdd">
-        <form onSubmit={submitJudge}>
-            <p><strong>Register a judge</strong></p>
-            <input type="text" placeholder="Judge Name" required name="name" value={addItems.judge.name} onChange={judgeOnChange}/>
-            <input type="email" placeholder="email" name="email" value={addItems.judge.email} onChange={judgeOnChange}/>
-            <select required name="institutionId" onChange={judgeOnChange} value={addItems.judge.institutionId}>
-                <option value=''>Choose Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <button className="darkButton" disabled={judgeStates.addLoading}>{judgeStates.addLoading? 'Registering':'Register Judge'}</button>
-            {judgeStates.addError &&<p style={{color:'red'}}>{judgeStates.addErrorMessage}</p>}
-            {judgeStates.addSuccess &&<p style={{color:'green'}}>{judgeStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.judge==='update' &&
-    <section id="judgeUpdate">
-        <form onSubmit={submitJudge}>
-            <p><strong>Update {updateItems.judge.name}'s info</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, judge:{...fullTab.judges.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, judge:defaultItems.judge});
-                }} value={updateItems.judge.id}>
-                <option value="">Select a judge</option>
-                {fullTab.judges.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Judge Name" required name="name" value={updateItems.judge.name} onChange={judgeOnChange}/>
-            <input type="email" placeholder="Judge Email" name="email" value={updateItems.judge.email} onChange={judgeOnChange}/>
-            <select required name="institutionId" onChange={judgeOnChange} value={updateItems.judge.institutionId}>
-                <option value=''>Choose Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <label>Available? <ToggleButton state={updateItems.judge.available} setState={()=>setUpdateItems({...updateItems, judge:{...updateItems.judge, available:!updateItems.judge.available}})}/></label>
-            <button className="darkButton" disabled={judgeStates.updateLoading}>{judgeStates.updateLoading? 'Updating':'Update Judge'}</button>
-            {judgeStates.updateError &&<p style={{color:'red'}}>{judgeStates.updateErrorMessage}</p>}
-            {judgeStates.updateSuccess &&<p style={{color:'green'}}>{judgeStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.judge==='delete' &&
-    <section id="judgeDelete">
-        <form onSubmit={submitJudge}>
-            <p><strong>Delete {deleteItems.judge.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, judge:{...fullTab.judges.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, judge:{id:0,name:'',status:false}});
-                }} value={deleteItems.judge.id}>
-                <option value="">Select Judge</option>
-                {fullTab.judges.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.judge.status} setState={()=>setDeleteItems({...deleteItems, judge:{...deleteItems.judge, status:!deleteItems.judge.status}})}/></label>
-            <button className="darkButton" disabled={judgeStates.deleteLoading || !deleteItems.judge.status}>{judgeStates.deleteLoading? 'Deleting':'Delete Judge'}</button>
-            {judgeStates.deleteError &&<p style={{color:'red'}}>{judgeStates.deleteErrorMessage}</p>}
-            {judgeStates.deleteSuccess &&<p style={{color:'green'}}>{judgeStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+        </table></div>:<p>No Registered Tab Masters</p>}
+          </section>
+        </>
+      )
   }
   function tabMasters(){
     const sortedTabMasters = sortItems(fullTab.tabMasters ?? [], "tabMasters", {
@@ -1394,16 +818,11 @@ useEffect(() => {
         email: (item) => item.email,
         });
     return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.tabMaster==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, tabMaster:'review'})}>Review</button>
-        <button className={navState.tabMaster==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, tabMaster:'add'})}>Add</button>
-        <button className={navState.tabMaster==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, tabMaster:'update'})}>Update</button>
-        <button className={navState.tabMaster==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, tabMaster:'delete'})}>Delete</button>
-    </div>
-    {navState.tabMaster==='review'&&
-    <section id="tabMasterReview">
-        <h2>Registered Tab Masters</h2>
+        <>
+          <section id="tabMasters">
+            <h2>Registered Tab Masters ({sortedTabMasters.length})</h2>
+            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setTabMasterForm({...newItems.tabMaster});}}>Add Tab Master</button>
+            {showForm('tabMaster')}
         {fullTab.tabMasters?.length>0?
         <div className="tableScroll"><table>
           <thead>
@@ -1426,164 +845,50 @@ useEffect(() => {
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}>
-                <FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, tabMaster:{...p}});
-                setNavState({...navState, tabMaster:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, tabMaster:{...p, status:false}});
-                setNavState({...navState, tabMaster:'delete'});}}/></td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setTabMasterForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("tabMaster", { id: p.id })}}/></td>
             </tr>)}
           </tbody>
         </table></div>:<p>No Registered Tab Masters</p>}
-    </section>}
-    {navState.tabMaster==='add'&&
-    <section id="tabMasterAdd">
-        <form onSubmit={submitTabMaster}>
-            <p><strong>Register a tab master</strong></p>
-            <input type="text" placeholder="Tab Master Name" required name="name" value={addItems.tabMaster.name} onChange={tabMasterOnChange}/>
-            <input type="email" placeholder="email" required name="email" value={addItems.tabMaster.email} onChange={tabMasterOnChange}/>
-            <select required name="institutionId" onChange={tabMasterOnChange} value={addItems.tabMaster.institutionId}>
-                <option value=''>Choose Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <button className="darkButton" disabled={tabMasterStates.addLoading}>{tabMasterStates.addLoading? 'Adding':'Add Tab Master'}</button>
-            {tabMasterStates.addError &&<p style={{color:'red'}}>{tabMasterStates.addErrorMessage}</p>}
-            {tabMasterStates.addSuccess &&<p style={{color:'green'}}>{tabMasterStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.tabMaster==='update' &&
-    <section id="tabMasterUpdate">
-        <form onSubmit={submitTabMaster}>
-            <p><strong>Update {updateItems.tabMaster.name}'s info</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, tabMaster:{...fullTab.tabMasters.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, tabMaster:defaultItems.tabMaster});
-                }} value={updateItems.tabMaster.id}>
-                <option value="">Select a tab master</option>
-                {fullTab.tabMasters.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Tab Master Name" required name="name" value={updateItems.tabMaster.name} onChange={tabMasterOnChange}/>
-            <input type="email" placeholder="Tab Master Email" required name="email" value={updateItems.tabMaster.email} onChange={tabMasterOnChange}/>
-            <select required name="institutionId" onChange={tabMasterOnChange} value={updateItems.tabMaster.institutionId}>
-                <option value=''>Choose Institution</option>
-                {fullTab.institutions.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <button className="darkButton" disabled={tabMasterStates.updateLoading}>{tabMasterStates.updateLoading? 'Updating':'Update Tab Master'}</button>
-            {tabMasterStates.updateError &&<p style={{color:'red'}}>{tabMasterStates.updateErrorMessage}</p>}
-            {tabMasterStates.updateSuccess &&<p style={{color:'green'}}>{tabMasterStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.tabMaster==='delete' &&
-    <section id="tabMasterDelete">
-        <form onSubmit={submitTabMaster}>
-            <p><strong>Delete {deleteItems.tabMaster.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, tabMaster:{...fullTab.tabMasters.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, tabMaster:{id:0,name:'',status:false}});
-                }} value={deleteItems.tabMaster.id}>
-                <option value="">Select Tab Master</option>
-                {fullTab.tabMasters.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <label>Are you sure? <ToggleButton state={deleteItems.tabMaster.status} setState={()=>setDeleteItems({...deleteItems, tabMaster:{...deleteItems.tabMaster, status:!deleteItems.tabMaster.status}})}/></label>
-            <button className="darkButton" disabled={tabMasterStates.deleteLoading || !deleteItems.tabMaster.status}>{tabMasterStates.deleteLoading? 'Deleting':'Delete Tab Master'}</button>
-            {tabMasterStates.deleteError &&<p style={{color:'red'}}>{tabMasterStates.deleteErrorMessage}</p>}
-            {tabMasterStates.deleteSuccess &&<p style={{color:'green'}}>{tabMasterStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+          </section>
+        </>
+      )
   }
   function rooms(){
     const sortedRooms = sortItems(fullTab.rooms ?? [], "rooms", {
         name: (item) => item.name,
         available: (item)=> item.available,
         });
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.room==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, room:'review'})}>Review</button>
-        <button className={navState.room==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, room:'add'})}>Add</button>
-        <button className={navState.room==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, room:'update'})}>Update</button>
-        <button className={navState.room==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, room:'delete'})}>Delete</button>
-    </div>
-    {navState.room==='review'&&
-    <section id="roomReview">
-        <h2>Registered Rooms</h2>
-        {fullTab.rooms?.length>0?
-        <div className="tableScroll"><table>
-          <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
-              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "name")}>
-                {sortStates.rooms.column === "name" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Available <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "available")}>
-                {sortStates.rooms.column === "available" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedRooms.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
-              <td>{p.name}</td>
-              <td>{p.available? '\u2714': '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, room:{...p}});
-                setNavState({...navState, room:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, room:{...p, status:false}});
-                setNavState({...navState, room:'delete'});}}/></td>
-            </tr>)}
-          </tbody>
-        </table></div>:<p>No Registered Rooms</p>}
-    </section>}
-    {navState.room==='add'&&
-    <section id="roomAdd">
-        <form onSubmit={submitRoom}>
-            <p><strong>Add room</strong></p>
-            <input type="text" placeholder="Room Name" required name="name" value={addItems.room.name} onChange={roomOnChange}/>
-            <label>Available? <ToggleButton state={addItems.room.available} setState={()=>setAddItems({...addItems, room:{...addItems.room, available:!addItems.room.available}})}/></label>
-            <button className="darkButton" disabled={roomStates.addLoading}>{roomStates.addLoading? 'Adding':'Add Room'}</button>
-            {roomStates.addError &&<p style={{color:'red'}}>{roomStates.addErrorMessage}</p>}
-            {roomStates.addSuccess &&<p style={{color:'green'}}>{roomStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.room==='update' &&
-    <section id="roomUpdate">
-        <form onSubmit={submitRoom}>
-            <p><strong>Update {updateItems.room.name}</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, room:{...fullTab.rooms.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, room:defaultItems.room});
-                }} value={updateItems.room.id}>
-                <option value="">Select a room</option>
-                {fullTab.rooms.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Room Name" required name="name" value={updateItems.room.name} onChange={roomOnChange}/>
-            <label>Available? <ToggleButton state={updateItems.room.available} setState={()=>setUpdateItems({...updateItems, room:{...updateItems.room, available:!updateItems.room.available}})}/></label>
-            <button className="darkButton" disabled={roomStates.updateLoading}>{roomStates.updateLoading? 'Updating':'Update Room'}</button>
-            {roomStates.updateError &&<p style={{color:'red'}}>{roomStates.updateErrorMessage}</p>}
-            {roomStates.updateSuccess &&<p style={{color:'green'}}>{roomStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.room==='delete' &&
-    <section id="roomDelete">
-        <form onSubmit={submitRoom}>
-            <p><strong>Delete {deleteItems.room.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, room:{...fullTab.rooms.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, room:{id:'',name:'',status:false}});
-                }} value={deleteItems.room.id}>
-                <option value="">Select Room</option>
-                {fullTab.rooms.map((s, i)=><option key={i} value={s.id}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.room.status} setState={()=>setDeleteItems({...deleteItems, room:{...deleteItems.room, status:!deleteItems.room.status}})}/></label>
-            <button className="darkButton" disabled={roomStates.deleteLoading || !deleteItems.room.status}>{roomStates.deleteLoading? 'Deleting':'Delete Room'}</button>
-            {roomStates.deleteError &&<p style={{color:'red'}}>{roomStates.deleteErrorMessage}</p>}
-            {roomStates.deleteSuccess &&<p style={{color:'green'}}>{roomStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+    return (
+        <>
+        <section id="rooms">
+            <h2>Registered Rooms</h2>
+            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setRoomForm({...newItems.room});}}>Add Room</button>
+            {showForm('room')}
+            {fullTab.rooms?.length>0?
+            <div className="tableScroll"><table>
+              <thead>
+                <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+                  <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "name")}>
+                    {sortStates.rooms.column === "name" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
+                  </button></th>
+                  <th>Available <button type="button" className="sortToggle" onClick={() => toggleSort("rooms", "available")}>
+                    {sortStates.rooms.column === "available" && sortStates.rooms.state === true ? '\u2b9d' : '\u2b9f'}
+                  </button></th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRooms.map((p,i)=>
+                <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
+                  <td>{p.name}</td>
+                  <td>{p.available? '\u2714': '\u2718'}</td>
+                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setRoomForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("room", { id: p.id })}}/></td>
+                </tr>)}
+              </tbody>
+            </table></div>:<p>No Registered Rooms</p>}
+        </section>
+        </>
+      )
   }
   function rounds(){
     const sortedRounds = sortItems(fullTab.rounds ?? [], "rounds", {
@@ -1595,765 +900,254 @@ useEffect(() => {
         completed: (item) => item.completed,
         blind: (item) => item.blind,
         });
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.round==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, round:'review'})}>Review</button>
-        <button className={navState.round==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, round:'add'})}>Add</button>
-        <button className={navState.round==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, round:'update'})}>Update</button>
-        <button className={navState.round==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, round:'delete'})}>Delete</button>
-    </div>
-    {navState.round==='review'&&
-    <section id="roundReview">
-        <h2>Registered Rounds</h2>
-        {fullTab.rounds?.length>0?
-        <div className="tableScroll"><table>
-          <thead>
-            <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
-              <th>Order <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "number")}>
-                {sortStates.rounds.column === "number" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "name")}>
-                {sortStates.rounds.column === "name" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Type <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "type")}>
-                {sortStates.rounds.column === "type" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Limit <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "limit")}>
-                {sortStates.rounds.column === "limit" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Breaks <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "breaks")}>
-                {sortStates.rounds.column === "breaks" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Completed <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "completed")}>
-                {sortStates.rounds.column === "completed" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Blind <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "blind")}>
-                {sortStates.rounds.column === "blind" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedRounds.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
-              <td>{p.number}</td>
-              <td>{ p.name}</td>
-              <td>{p.type}</td>
-              <td>{p.timeLimit || p.wordLimit || '-'}</td>
-              <td>{p.breaks ? 'Yes' : 'No'}</td>
-              <td>{p.completed ? '\u2714' : '\u2718'}</td>
-              <td>{p.blind ? '\u2714' : '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, round:{...p}});
-                setNavState({...navState, round:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, round:{...p, status:false}});
-                setNavState({...navState, round:'delete'});}}/></td>
-            </tr>)}
-          </tbody>
-        </table></div>:<p>No Registered Rounds</p>}
-    </section>}
-    {navState.round==='add'&&
-    <section id="roundAdd">
-        <form onSubmit={submitRound}>
-            <p><strong>Add preliminary round</strong></p>
-            <input type="number" placeholder="Round Number" required name="name" value={addItems.round.name} onChange={roundOnChange}/>
-            <select required name="type" value={addItems.round.type} onChange={roundOnChange}>
-                <option value="">Select round type</option>
-              {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
-            </select>
-            {addItems.round.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={addItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
-            {addItems.round.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={addItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
-            <input type="number" min="1" name="number" placeholder="Round Order" value={addItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Blind Round?<ToggleButton state={addItems.round.blind} setState={()=>setAddItems({...addItems, round:{...addItems.round, blind:!addItems.round.blind}})}/></label>
-            <button className="darkButton" disabled={roundStates.addLoading}>{roundStates.addLoading? 'Adding':'Add Round'}</button>
-            {roundStates.addError &&<p style={{color:'red'}}>{roundStates.addErrorMessage}</p>}
-            {roundStates.addSuccess &&<p style={{color:'green'}}>{roundStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.round==='update' &&
-    <section id="roundUpdate">
-        <form onSubmit={submitRound}>
-            <p><strong>Update {updateItems.round.name}</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, round:{...fullTab.rounds.find((s)=>s.roundId===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, round:defaultItems.round});
-                }} value={updateItems.round.roundId || ''}>
-                <option value="">Select a round</option>
-                {fullTab.rounds.map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
-            </select>
-            <input type="text" placeholder="Round Name" required name="name" value={updateItems.round.name} onChange={roundOnChange}/>
-            <select required name="type" value={updateItems.round.type} onChange={roundOnChange}>
-                <option value="">Select round type</option>
-              {!updateItems.round.breaks? roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>):<option value='Eliminator'>Eliminator</option>}
-            </select>
-            {updateItems.round.type==='Timed' && <input type="number" min="1" name="timeLimit" placeholder="Time Limit (seconds)" value={updateItems.round.timeLimit || ''} onChange={roundOnChange} required/>}
-            {updateItems.round.type==='Word Limit' && <input type="number" min="1" name="wordLimit" placeholder="Word Limit" value={updateItems.round.wordLimit || ''} onChange={roundOnChange} required/>}
-            <input type="number" min={1} name="number" placeholder="Round Order" value={updateItems.round.number || ''} onChange={roundOnChange}/>
-            <label>Blind Round?<ToggleButton state={updateItems.round.blind} setState={()=>setUpdateItems({...updateItems, round:{...updateItems.round, blind:!updateItems.round.blind}})}/></label>
-            <label>Completed?<ToggleButton state={updateItems.round.completed} setState={()=>setUpdateItems({...updateItems, round:{...updateItems.round, completed:!updateItems.round.completed}})}/></label>
-            <button className="darkButton" disabled={roundStates.updateLoading}>{roundStates.updateLoading? 'Updating':'Update Round'}</button>
-            {roundStates.updateError &&<p style={{color:'red'}}>{roundStates.updateErrorMessage}</p>}
-            {roundStates.updateSuccess &&<p style={{color:'green'}}>{roundStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.round==='delete' &&
-    <section id="roundDelete">
-        <form onSubmit={submitRound}>
-            <p><strong>Delete {deleteItems.round.name}?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, round:{...fullTab.rounds.find((s)=>s.roundId===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, round:{id:'',name:'',status:false}});
-                }} value={deleteItems.round.roundId || ''}>
-                <option value="">Select Round</option>
-                {fullTab.rounds.map((s, i)=><option key={i} value={s.roundId}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.round.status} setState={()=>setDeleteItems({...deleteItems, round:{...deleteItems.round, status:!deleteItems.round.status}})}/></label>
-            <button className="darkButton" disabled={roundStates.deleteLoading || !deleteItems.round.status}>{roundStates.deleteLoading? 'Deleting':'Delete Round'}</button>
-            {roundStates.deleteError &&<p style={{color:'red'}}>{roundStates.deleteErrorMessage}</p>}
-            {roundStates.deleteSuccess &&<p style={{color:'green'}}>{roundStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
-  }
+      return (
+          <>
+          <section id="rounds">
+              <h2>Registered Rounds</h2>
+              <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setRoundForm({...newItems.round});}}>Add Preliminary Round</button>
+              {showForm('round')}
+            {fullTab.rounds?.length>0?
+            <div className="tableScroll"><table>
+            <thead>
+                <tr style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
+                <th>Order <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "number")}>
+                    {sortStates.rounds.column === "number" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "name")}>
+                    {sortStates.rounds.column === "name" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Type <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "type")}>
+                    {sortStates.rounds.column === "type" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Limit <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "limit")}>
+                    {sortStates.rounds.column === "limit" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Breaks <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "breaks")}>
+                    {sortStates.rounds.column === "breaks" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Completed <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "completed")}>
+                    {sortStates.rounds.column === "completed" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th>Blind <button type="button" className="sortToggle" onClick={() => toggleSort("rounds", "blind")}>
+                    {sortStates.rounds.column === "blind" && sortStates.rounds.state === true ? '\u2b9d' : '\u2b9f'}
+                </button></th>
+                <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {sortedRounds.map((p,i)=>
+                <tr key={i} style={{gridTemplateColumns:'0.7fr 1.5fr 1fr 1fr 0.8fr 1fr 0.8fr 1fr'}}>
+                <td>{p.number}</td>
+                <td>{ p.name}</td>
+                <td>{p.type}</td>
+                <td>{p.timeLimit || p.wordLimit || '-'}</td>
+                <td>{p.breaks ? 'Yes' : 'No'}</td>
+                <td>{p.completed ? '\u2714' : '\u2718'}</td>
+                <td>{p.blind ? '\u2714' : '\u2718'}</td>
+                <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setRoundForm({...p, id:p.roundId});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("round", { id: p.roundId })}}/></td>
+                </tr>)}
+            </tbody>
+            </table></div>:<p>No Registered Rounds</p>}
+          </section>
+          </>
+        )
+    }
   function words(){
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.word==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, word:'review'})}>Review</button>
-        <button className={navState.word==='add'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, word:'add'})}>Add</button>
-        <button className={navState.word==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, word:'update'})}>Update</button>
-        <button className={navState.word==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, word:'delete'})}>Delete</button>
-    </div>
-    {navState.word==='review'&&
-    <section id="wordReview">
-        <h2>Words</h2>
-        {fullTab.words?.length>0?<table>
-          <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr'}}>
-              <th>Word</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {fullTab.words.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr'}}>
-              <td>{p.word}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, word:{...p}});
-                setNavState({...navState, word:'update'});
-              }}/><RiDeleteBin6Fill fill="red" onClick={()=>{
-                setDeleteItems({...deleteItems, word:{...p, status:false}});
-                setNavState({...navState, word:'delete'});}}/></td>
-            </tr>)}
-          </tbody>
-        </table>:<p>No Words Added</p>}
-    </section>}
-    {navState.word==='add'&&
-    <section id="wordAdd">
-        <form onSubmit={submitWord}>
-            <p><strong>Add word</strong></p>
-            <input type="text" placeholder="Word" required name="word" value={addItems.word.word} onChange={wordOnChange}/>
-            <button className="darkButton" disabled={wordStates.addLoading}>{wordStates.addLoading? 'Adding':'Add Word'}</button>
-            {wordStates.addError &&<p style={{color:'red'}}>{wordStates.addErrorMessage}</p>}
-            {wordStates.addSuccess &&<p style={{color:'green'}}>{wordStates.addSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.word==='update' &&
-    <section id="wordUpdate">
-        <form onSubmit={submitWord}>
-            <p><strong>Update word</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setUpdateItems({...updateItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value))}});
-                e.target.value==='' && setUpdateItems({...updateItems, word:defaultItems.word});
-                }} value={updateItems.word.id || ''}>
-                <option value="">Select a word</option>
-                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
-            </select>
-            <input type="text" placeholder="Word" required name="word" value={updateItems.word.word || ''} onChange={wordOnChange}/>
-            <button className="darkButton" disabled={wordStates.updateLoading}>{wordStates.updateLoading? 'Updating':'Update Word'}</button>
-            {wordStates.updateError &&<p style={{color:'red'}}>{wordStates.updateErrorMessage}</p>}
-            {wordStates.updateSuccess &&<p style={{color:'green'}}>{wordStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.word==='delete' &&
-    <section id="wordDelete">
-        <form onSubmit={submitWord}>
-            <p><strong>Delete word?</strong></p>
-            <select onChange={(e)=>{
-                e.target.value && setDeleteItems({...deleteItems, word:{...fullTab.words.find((s)=>s.id===parseInt(e.target.value)), status: false}});
-                e.target.value==='' && setDeleteItems({...deleteItems, word:{id:'',word:'',status:false}});
-                }} value={deleteItems.word.id || ''}>
-                <option value="">Select Word</option>
-                {fullTab.words.map((s, i)=><option key={i} value={s.id}>{s.word}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.word.status} setState={()=>setDeleteItems({...deleteItems, word:{...deleteItems.word, status:!deleteItems.word.status}})}/></label>
-            <button className="darkButton" disabled={wordStates.deleteLoading || !deleteItems.word.status}>{wordStates.deleteLoading? 'Deleting':'Delete Word'}</button>
-            {wordStates.deleteError &&<p style={{color:'red'}}>{wordStates.deleteErrorMessage}</p>}
-            {wordStates.deleteSuccess &&<p style={{color:'green'}}>{wordStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+    const sortedWords = sortItems(fullTab?.words ?? [], "words", {
+        word: (item) => item.word,
+        length: (item)=> item.word.length
+        });
+    return (
+        <>
+            <section id="Words">
+            <h2>Words</h2>
+            <button className="darkButton" onClick={()=>{dialogRef.current.open=true; setWordForm({...newItems.word});}}>Add Word</button>
+            {showForm('word')}
+            {sortedWords.length>0?
+            <div>
+                <div style={{backgroundColor:'var(--brandcolor)', color:'var(--white-color)', display:'grid', gridAutoFlow:'column', gap:'1rem', width:'fit-content', padding:'0.5rem', justifyContent:'center', justifySelf:'center', borderRadius:'1rem', margin:'0.5rem'}}>
+                    <span>Alphabetical<button type="button" className="sortToggle" onClick={() => toggleSort("words", "word")}>
+                    {sortStates.words.column === "word" && sortStates.words.state === true ? '\u2b9d' : '\u2b9f'}
+                    </button></span>
+                    <span>Length<button type="button" className="sortToggle" onClick={() => toggleSort("words", "length")}>
+                    {sortStates.words.column === "length" && sortStates.words.state === true ? '\u2b9d' : '\u2b9f'}
+                    </button></span>
+                </div>
+                <div style={{display: 'flex', gap:'1rem',flexWrap:'wrap'}}>
+                    {sortedWords.map((p,i)=>
+                    <span key={i} style={{backgroundColor:'var(--accentcolor)', borderRadius:'1rem', minWidth:'100px', padding:" 0.5rem 0.5rem"}} onClick={()=>{dialogRef.current.open=true; setWordForm({...p, id: p.id});}}>
+                        { p.word }
+                    </span>)}
+                </div>
+                
+
+            {/* <table>
+                <thead>
+                <tr style={{gridTemplateColumns:'1fr 1fr'}}>
+                    <th>Word <button type="button" className="sortToggle" onClick={() => toggleSort("word", "word")}>
+                    {sortStates.words.column === "word" && sortStates.words.state === true ? '\u2b9d' : '\u2b9f'}
+                    </button></th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {sortedWords.map((p,i)=>
+                <tr key={i} style={{gridTemplateColumns:'1fr 1fr'}}>
+                    <td>{ p.word}</td>
+                    <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setWordForm({...p});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("prompt", { id: p.id })}}/></td>
+                </tr>)}
+                </tbody>
+            </table>*/}
+            </div> 
+            :<p>No Registered Words</p> }
+
+            </section>
+        </>
+        )
+    }
+  function renderDrawCards(rounds, emptyMessage){
+  return rounds.length>0
+  ? 
+  rounds.map((round)=> {
+      const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
+      return (
+          <div key={round.roundId} style={{display:'grid', gap:'0.5rem', margin:'0.5rem', borderRadius:'1rem', padding:'0.5rem'}}>
+          <h3 style={{marginBottom:0}}>{round.name}</h3>
+          {!roundDraws.length
+              ? <p style={{margin:0}}>{emptyMessage} <br />
+              <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setDrawForm({...round, breakRoundId: round.roundId});}}>Draw Round</button>
+              </p>
+
+              :
+              <div style={{display: 'flex', flexDirection:'column', alignItems:'center', gap:'0.5rem'}}>
+                <div style={{display: 'grid', gridAutoFlow:'column', gap:'0.5rem'}}>
+                  <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setDrawForm({...round, id: round.roundId});}}>Redraw </button>
+                  <button disabled={round.completed} className="darkButton" onClick={()=>{dialogRef2.current.open=true;setDrawUpdateForm({...round});}}>Update </button>
+                  <button className="darkButton" onClick={() => deleteDraw(round.roundId)}>Delete Draw</button>
+                </div>
+              <div className="roomCard">
+                  <div className="roomHeader" style={{display:'grid',gridAutoFlow:'column', gridTemplateColumns:'1fr 1fr fr'}}>
+                      <span>Room</span>
+                      <span>Adjudicators</span>
+                      <span>Spellers</span>
+                  </div>
+                  {roundDraws.map((r,n)=>
+                  <div key={n} className="roomBody" style={{display:'flex',flexDirection:'row', width:'100%'}}>
+                      <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.room.name}</p>
+                      <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.judges.map((j,i)=><li style={{display: "block"}} key={i}>{j.name}</li>)}</p>
+                      <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.spellers.map((s,i)=><li style={{display: "block"}} key={i}>{s.name}</li>)}</p>
+                  </div>)}
+              </div>
+              </div>
+              }
+          </div>
+      );
+      })
+  : <p>{emptyMessage}</p>;
+  }
+
+  function getMissing(spellers, spellersInDraw){
+      const arr1=spellers.map(s=>s.id);
+      const arr2=spellersInDraw.map(s=>s.id);
+      const missingIds=[
+      ...arr1.filter(x => !arr2.includes(x)),
+      ...arr2.filter(x => !arr1.includes(x))
+      ]
+      const missingSpellers= missingIds.map((i)=>{
+          return spellers.find(s=> s.id===i)
+      })
+      // console.log(missingSpellers);
+      return missingSpellers; 
+  }
+  function getEmptyRooms(roundId){
+      // console.log(fullTab);
+      const rooms=[...fullTab.rooms];
+      const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+      const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+      const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+      const availableRoomIds=[...rooms.map(r=>r.id).filter(x => !occupiedRooms[0].map(r=>r.id).includes(x))];
+      const availableRooms=rooms.filter(r=>availableRoomIds.includes(r.id));
+      // console.log(availableRooms);
+      return availableRooms || [];
+  }
+  function getOccupiedRooms(roundId){
+      const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
+      const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
+      const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
+      return occupiedRooms.flat() || [];
   }
   function draws(){
     const preliminaryRounds = fullTab?.rounds?.filter((round)=>!round.breaks) || [];
     const breakRounds = fullTab?.rounds?.filter((round)=>round.breaks) || [];
-    const breakPreview = breakStates.previewData;
-    const lastBatch = breakStates.lastBatch;
-    const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
-
-        function renderDrawCards(rounds, emptyMessage){
-        return rounds.length>0
-        ? 
-        rounds.map((round)=> {
-            const roundDraws = fullTab.draws?.filter((draw)=>draw.roundId===round.roundId) || [];
-            return (
-                <div key={round.roundId} style={{display:'grid', gap:'0.75rem', marginBottom:'1rem'}}>
-                <h3 style={{marginBottom:0}}>{round.name}</h3>
-                {!roundDraws.length
-                    ? <p>{emptyMessage}</p>
-                    : 
-                    <div className="roomCard">
-                        <div className="roomHeader" style={{display:'grid',gridAutoFlow:'column', gridTemplateColumns:'1fr 1fr fr'}}>
-                            <span>Room</span>
-                            <span>Adjudicators</span>
-                            <span>Spellers</span>
-                        </div>
-                        {roundDraws.map((r,n)=>
-                        <div key={n} className="roomBody" style={{display:'flex',flexDirection:'row', width:'100%'}}>
-                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.room.name}</p>
-                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.judges.map((j,i)=><li style={{display: "block"}} key={i}>{j.name}</li>)}</p>
-                            <p style={{flex:'1', borderBottom:'1px solid #e6e6e6', margin:'0'}}>{r.spellers.map((s,i)=><li style={{display: "block"}} key={i}>{s.name}</li>)}</p>
-                        </div>)}
-                    </div>
-                    }
-                </div>
-            );
-            })
-        : <p>{emptyMessage}</p>;
-        }
-
-        function getMissing(spellers, spellersInDraw){
-            const arr1=spellers.map(s=>s.id);
-            const arr2=spellersInDraw.map(s=>s.id);
-            const missingIds=[
-            ...arr1.filter(x => !arr2.includes(x)),
-            ...arr2.filter(x => !arr1.includes(x))
-            ]
-            const missingSpellers= missingIds.map((i)=>{
-                return spellers.find(s=> s.id===i)
-            })
-            // console.log(missingSpellers);
-            return missingSpellers; 
-        }
-        function getEmptyRooms(roundId){
-            // console.log(fullTab);
-            const rooms=[...fullTab.rooms];
-            const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
-            const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
-            const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
-            const availableRoomIds=[...rooms.map(r=>r.id).filter(x => !occupiedRooms[0].map(r=>r.id).includes(x))];
-            const availableRooms=rooms.filter(r=>availableRoomIds.includes(r.id));
-            // console.log(availableRooms);
-            return availableRooms || [];
-        }
-        function getOccupiedRooms(roundId){
-            const currentRoundNumber=fullTab.rounds.find(r=>r.roundId===roundId).number;
-            const ongoingRoundIds= fullTab.rounds.filter(r=>r.number===currentRoundNumber).map(r=>r.roundId);
-            const occupiedRooms= [...ongoingRoundIds.map(i=>fullTab.draws.filter(d=> d.roundId===i).map(d=>d.room))];
-            return occupiedRooms.flat() || [];
-        }
-
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.draw==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'review'})}>Review</button>
-        <button className={navState.draw==='generate'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'generate'})}>Generate</button>
-        <button className={navState.draw==='breaks'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'breaks'})}>Breaks</button>
-        <button className={navState.draw==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'update'})}>Update</button>
-        <button className={navState.draw==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, draw:'delete'})}>Delete</button>
-    </div>
-    {navState.draw==='review'&&
-    <section id="drawReview">
-        <h2>Preliminary Draws</h2>
-        {renderDrawCards(preliminaryRounds, 'Draw for this preliminary round is not out yet')}
-        <h2>Out Draws</h2>
-        {renderDrawCards(breakRounds, 'Draw for this out round is not out yet')}
-    </section>}
-    {navState.draw==='generate'&&
-    <section id="drawGenerate">
-        <form onSubmit={submitDraw}>
-            <p><strong>Generate Draw</strong></p>
-            <select name="roundId" value={addItems.draw.roundId} onChange={drawOnChange}>
-                <option value={defaultItems.draw.roundId}>Select Round</option>
-                {preliminaryRounds.filter((d)=>!d.completed).map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
-            </select>
-            <label>Power Pair (sliding)? <ToggleButton state={addItems.draw.powerPair} setState={()=>setAddItems({...addItems, draw:{...addItems.draw, powerPair:!addItems.draw.powerPair}})}/></label>
-            <button className="darkButton" disabled={drawStates.generateLoading}>{drawStates.generateLoading? 'Generating':'Generate Draw'}</button>
-            {drawStates.generateError &&<p style={{color:'red'}}>{drawStates.generateErrorMessage}</p>}
-            {drawStates.generateSuccess &&<p style={{color:'green'}}>{drawStates.generateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.draw==='breaks' &&
-    <section id="drawBreaks" style={{display:'grid', gap:'1rem'}}>
-        <div style={{display:'grid', gridAutoFlow:'column',gridTemplateColumns:'1fr 1fr',gap:'1rem', backgroundColor:'var(--background-color)'}}>
-          <button type="button" className="darkButton" onClick={previewBreaks} disabled={breakStates.previewLoading}>
-            {breakStates.previewLoading ? 'Previewing' : 'Preview Breaks'}
-          </button>
-          <button
-            type="button"
-            className="darkButton"
-            onClick={()=>generateBreakDraws()}
-            disabled={breakStates.generateLoading}
-          >
-            {breakStates.generateLoading && breakStates.generatingRoundId===null ? 'Generating' : 'Generate All First-Phase Break Draws'}
-          </button>
-        </div>
-        {breakStates.previewError && <p style={{color:'red'}}>{breakStates.previewErrorMessage}</p>}
-        {breakStates.generateError && <p style={{color:'red'}}>{breakStates.generateErrorMessage}</p>}
-        {breakStates.generateSuccess && <p style={{color:'green'}}>{breakStates.generateSuccessMessage}</p>}
-        {lastBatch &&
-        <div className="roomCard" style={{padding:'0.75rem', display:'grid', gap:'0.5rem'}}>
-          <h2 style={{marginBottom:0}}>Judge Pool Batch</h2>
-          <p style={{margin:0}}>Shared Round Number: {lastBatch.roundNumber}</p>
-          {lastBatch.blockedRound &&
-            <p style={{margin:0, color:'darkred'}}>
-              Blocked at {lastBatch.blockedRound.name} after {lastBatch.blockedRound.previousRoundName}
-            </p>}
-          <div style={{display:'grid', gap:'0.2rem'}}>
-            <strong>Included Rounds</strong>
-            {lastBatch.includedRounds?.length
-              ? lastBatch.includedRounds.map((round)=>(
-                <span key={`included-${round.roundId}`}>
-                  {round.name} ({round.breakPhase || '-'}) - {round.reason}
-                </span>
-              ))
-              : <span>No included rounds</span>}
-          </div>
-          <div style={{display:'grid', gap:'0.2rem'}}>
-            <strong>Skipped Rounds</strong>
-            {lastBatch.skippedRounds?.length
-              ? lastBatch.skippedRounds.map((round)=>(
-                <span key={`skipped-${round.roundId}`}>
-                  {round.name} ({round.breakPhase || '-'}) - {round.reason}
-                </span>
-              ))
-              : <span>No skipped rounds</span>}
-          </div>
-        </div>}
-        {breakPreview &&
+    return (
         <>
-          <div style={{display:'grid', gap:'0.35rem'}}>
-            <h2 style={{marginBottom:0}}>Break Summary</h2>
-            <p style={{margin:0}}>Ranked Spellers: {breakPreview.summary?.totalRankedSpellers ?? 0}</p>
-            <p style={{margin:0}}>Rooms: {breakPreview.summary?.totalRooms ?? 0}</p>
-            {breakPreview.summary?.incompletePrelimRounds?.length>0 &&
-              <p style={{margin:0, color:'darkred'}}>Incomplete prelim rounds: {breakPreview.summary.incompletePrelimRounds.map((round)=>round.name).join(', ')}</p>}
-            {breakPreview.errors?.length>0 && <p style={{margin:0, color:'darkred'}}>{breakPreview.errors.join(' | ')}</p>}
-            {breakPreview.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{breakPreview.warnings.join(' | ')}</p>}
-          </div>
-
-          <div style={{display:'grid', gap:'0.75rem'}}>
-            <h2 style={{marginBottom:0}}>First-Phase Breaks</h2>
-            {breakPreview.firstPhaseRounds?.length>0
-            ? breakPreview.firstPhaseRounds.map((round)=>(
-              <div key={round.cupId} className="roomCard" style={{padding:'0.75rem'}}>
-                <div style={{display:'grid', gap:'0.35rem'}}>
-                  <strong>{round.roundName || `${round.cupCategory} First Phase`}</strong>
-                  <span>Cup: {round.cupCategory || '-'}</span>
-                  <span>Phase: {round.breakPhase || '-'}</span>
-                  <span>Expected qualifiers: {round.trueBreakCapacity}</span>
-                  <span>Qualifiers found: {round.qualifiersFound}</span>
-                  <span>Requested rooms: {round.requestedRooms}</span>
-                  <span>Assigned rooms: {round.assignedRooms}</span>
-                  <span>Status: {round.ready ? 'Ready for bulk generation' : 'Blocked / partial'}</span>
-                  {round.blockers?.length>0 && <p style={{margin:0, color:'darkred'}}>{round.blockers.join(' | ')}</p>}
-                  {round.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{round.warnings.join(' | ')}</p>}
-                  <button
-                    type="button"
-                    className="darkButton"
-                    disabled={!round.ready || breakStates.generateLoading}
-                    onClick={()=>generateBreakDraws(round.roundId)}
-                  >
-                    {breakStates.generateLoading && breakStates.generatingRoundId===round.roundId ? 'Generating' : 'Generate First-Phase Set'}
-                  </button>
+        <div className="buttonStack">
+          {drawViews.map((v,i)=><button className={drawView===v? 'lightButton':'darkButton'} onClick={()=>setDrawView(v)} key={i}>{v}</button>)}
+        </div>
+        {drawView==='prelim' &&
+          <section id="prelims">
+            <h2>Preliminary Draws</h2>
+            {showForm('generateDraw')}
+            {showForm('updateDraw')}
+            {renderDrawCards(preliminaryRounds,'Draw for this prelim round is not out yet')}
+          </section>
+        }
+        {drawView==='breaks' &&
+          <section id="breaks">
+            <h2>Preliminary Draws</h2>
+            {showForm('previewBreaks')}
+            {showForm('updateDraw')}
+            {renderDrawCards(breakRounds,'Draw for this prelim round is not out yet')}
+            {drawForm.preview && 
+              <div className="roomCard">
+                <div className="roomHeader">
+                  <h2 style={{ margin: 0 }}>{drawForm.preview.targetRound?.name}</h2>
+                </div>
+                <div className="roomBody">
+                  {(drawForm.preview.allocations ?? []).map((allocation, index) => 
+                  <p key={index} style={{ margin: 0 }}>Room {allocation.roomId}: {allocation.allocatedSpellers?.length ?? 0} spellers</p>)}
                 </div>
               </div>
-            ))
-            : <p>No first-phase break rounds found</p>}
-          </div>
-
-          <div style={{display:'grid', gap:'0.75rem'}}>
-            <h2 style={{marginBottom:0}}>Subsequent Break Rounds</h2>
-            {breakPreview.subsequentRounds?.length>0
-            ? breakPreview.subsequentRounds.map((round)=>(
-              <div key={round.roundId} className="roomCard" style={{padding:'0.75rem'}}>
-                <div style={{display:'grid', gap:'0.35rem'}}>
-                  <strong>{round.roundName}</strong>
-                  <span>Phase: {round.breakPhase}</span>
-                  <span>Previous round: {round.previousRoundName}</span>
-                  <span>Passed spellers: {round.passCount}</span>
-                  <span>Requested rooms: {round.requestedRooms}</span>
-                  <span>Assigned rooms: {round.assignedRooms}</span>
-                  <span>Status: {round.ready ? 'Ready' : 'Blocked'}</span>
-                  {round.blockers?.length>0 && <p style={{margin:0, color:'darkred'}}>{round.blockers.join(' | ')}</p>}
-                  {round.warnings?.length>0 && <p style={{margin:0, color:'#a15c00'}}>{round.warnings.join(' | ')}</p>}
-                  <button
-                    type="button"
-                    className="darkButton"
-                    disabled={!round.ready || breakStates.generateLoading}
-                    onClick={()=>generateBreakDraws(round.roundId)}
-                  >
-                    {breakStates.generateLoading && breakStates.generatingRoundId===round.roundId ? 'Generating' : 'Generate Draw'}
-                  </button>
-                </div>
-              </div>
-            ))
-            : <p>No later break rounds found</p>}
-          </div>
-        </>}
-        {!breakPreview && !breakStates.previewLoading && <p>Preview breaks to inspect first-phase allocations and later-round readiness.</p>}
-    </section>}
-    {navState.draw==='update' &&
-    <section id="drawUpdate">
-        <form onSubmit={submitDraw}>
-            <p><strong>Update Draw</strong></p>
-            <select name="roundId" value={updateItems.draw.roundId} onChange={drawOnChange}>
-                <option value={defaultItems.draw.roundId}>Select Round</option>
-                {incompleteRounds?.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
-            </select>
-            {!fullTab.draws.find((a)=>a.roundId===updateItems.draw.roundId)?
-            <p>Draw for this round is not out yet</p>
-            :            
-            <>
-            <strong>Updates</strong>
-            <select name="swapState" value={updateItems.draw.swapState} onChange={drawOnChange}>
-                <option value={0}>Select Update</option>
-                <option value={1}>Swap Spellers</option>
-                <option value={2}>Swap Judges</option>
-                <option value={3}>Move Speller</option>
-                <option value={4}>Move Judge</option>
-                <option value={5}>Add Speller</option>
-                <option value={6}>Add Judge</option>
-                <option value={7}>Swap Rooms</option>
-                <option value={8}>Move Room</option>
-            </select>
-            {updateItems.draw.swapState===1 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select First Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select Second Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
-                    <option value={0}>Select speller in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-                <select name="speller2" value={updateItems.draw.speller2} onChange={drawOnChange}>
-                    <option value={0}>Select speller in second room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-            </div>
             }
-            {updateItems.draw.swapState===2 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select First Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select Second Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
-                    <option value={0}>Select judge in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-                <select name="judge2" value={updateItems.draw.judge2} onChange={drawOnChange}>
-                    <option value={0}>Select judge in second room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room2 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-            </div>
-            }
-            {updateItems.draw.swapState===3 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select First Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select Second Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
-                    <option value={0}>Select speller in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-            </div>
-            }
-            {updateItems.draw.swapState===4 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select First Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select Second Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
-                    <option value={0}>Select judge in first room</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId)?.judges.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-            </div>
-            }            
-            {updateItems.draw.swapState===5 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="speller1" value={updateItems.draw.speller1} onChange={drawOnChange}>
-                    <option value={0}>Select speller to add to room</option>
-                    {/* {fullTab.draws.find((d)=>d.room.id===updateItems.draw.room1 && d.roundId===updateItems.draw.roundId).spellers.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)} */}
-                    {getMissing(fullTab.spellingBees,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.spellers).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-                    {/* <button type="button" onClick={()=>console.log(getMissing(fullTab.spellingBees,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.spellers).flat()))}>test</button> */}
-            </div>
-            }            
-            {updateItems.draw.swapState===6 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="judge1" value={updateItems.draw.judge1} onChange={drawOnChange}>
-                    <option value={0}>Select judge to add to room</option>                    
-                    {getMissing(fullTab.judges,fullTab.draws.filter(d=>d.roundId===updateItems.draw.roundId).map(d=>d.judges).flat()).map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-                </select>
-            </div>
-            }
-            {updateItems.draw.swapState===7 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select First Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select Second Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-            </div>
-            }            
-            {updateItems.draw.swapState===8 && 
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))'}}>
-                <select name="room1" value={updateItems.draw.room1} onChange={drawOnChange}>
-                    <option value={0}>Select Original Room</option>
-                    {getOccupiedRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-                <select name="room2" value={updateItems.draw.room2} onChange={drawOnChange}>
-                    <option value={0}>Select New Room</option>
-                    {getEmptyRooms(updateItems.draw.roundId).map((r,i)=><option key={i} value={r.id}>{r.name}</option>)}
-                </select>
-            </div>
-            }            
-            </>}
-            <button className="darkButton" disabled={drawStates.updateLoading}>{drawStates.updateLoading? 'Updating':'Update Draw'}</button>
-            {drawStates.updateError &&<p style={{color:'red'}}>{drawStates.updateErrorMessage}</p>}
-            {drawStates.updateSuccess &&<p style={{color:'green'}}>{drawStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.draw==='delete' &&
-    <section id="drawDelete">
-        <form onSubmit={submitDraw}>
-            <p><strong>Delete draw?</strong></p>
-            <select name="roundId" value={deleteItems.draw.roundId} onChange={drawOnChange}>
-                <option value={0}>Select Round</option>
-                {fullTab.rounds.map((r, i)=><option key={i} value={r.roundId}>{r.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.draw.status} setState={()=>setDeleteItems({...deleteItems, draw:{...deleteItems.draw, status:!deleteItems.draw.status}})}/></label>
-            <button className="darkButton" disabled={drawStates.deleteLoading || !deleteItems.draw.status}>{drawStates.deleteLoading? 'Deleting':'Delete Draw'}</button>
-            {drawStates.deleteError &&<p style={{color:'red'}}>{drawStates.deleteErrorMessage}</p>}
-            {drawStates.deleteSuccess &&<p style={{color:'green'}}>{drawStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+          </section>
+        }
+        </>
+      )
   }
   function results(){
-    const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
-    return(
-    <>
-    <div className="buttonStack">
-        <button className={navState.result==='review'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'review'})}>Review</button>
-        <button className={navState.result==='update'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'update'})}>Update</button>
-        <button className={navState.result==='batch'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'batch'})}>Batch</button>
-        <button className={navState.result==='delete'? 'lightButton':'darkButton'} onClick={()=>setNavState({...navState, result:'delete'})}>Delete</button>
-    </div>
-    {navState.result==='review'&&
-    <section id="resultReview">
-        <h2>Results</h2>
-        {fullTab.draws?.length>0? 
+    const sortedRounds=fullTab?.rounds || [];
+    return (
         <>
-        <select name="roundId" value={reviewItems.result.roundId} onChange={resultOnChange}>
-            <option value={0}>Select Round</option>
-            {fullTab.rounds.map((r,i)=><option key={i} value={r.roundId}>{r.name}</option>)}
-        </select>
-        {fullTab.draws.find((a)=>a.roundId===reviewItems.result.roundId)?fullTab.draws.filter((a)=>a.roundId===reviewItems.result.roundId).map((r,n)=>
-        <div className="roomCard" key={n}>
-            <div className="roomHeader">
-                <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{
-                setUpdateItems({...updateItems, batch:{roundId: reviewItems.result.roundId, roomId: r.room.id, updates: r}});
-                setNavState({...navState, result:'batch'});
-              }}/></h2>
-                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
-                }</span><p style={{display:'grid',gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
-            </div>
-            <div className="roomBody">
-                {(r.spellers ?? []).map((s,y)=>
-                <li style={{gridTemplateColumns:'4fr 1fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}>
-                    <span>{s.name}</span>
-                    <span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
-                    <span>{s.result?.score? s.result.score: s.result?.status? s.result.status : '-'}</span>
-                    <span><FaAngleDoubleUp fill="teal" onClick={()=>{
-                        setUpdateItems({...updateItems, result:{...s,spellerId: s.id ,roundId: reviewItems.result.roundId, roomId: r.room.id, score: s.result?.score}});
-                        setNavState({...navState, result:'update'});
-                        }}/>
-                        <RiDeleteBin6Fill fill="red" onClick={()=>{
-                            setDeleteItems({...deleteItems, result:{...s, confirm:false, roomId: r.room.id, roundId: reviewItems.result.roundId, spellerId: s.id}});
-                            setNavState({...navState, result:'delete'});}}/>
-                    </span>
-                </li>)}
-            </div>
-        </div>):<p>Draw for this round is not out yet</p>}
+        <section id="results">
+            <h2>Results</h2>
+            {showForm('results')}
+            <select value={resultForm.roundId} onChange={(e) =>setResultForm((prev) => ({ ...prev, roundId: Number(e.target.value), roomId: "", draft: null }))}>
+              <option value="">Select Round</option>
+              {sortedRounds.map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}
+            </select>
+            {/* <button onClick={()=>console.log(fullTab)}></button> */}
+            {fullTab.draws.find((a)=>a.roundId===resultForm.roundId)?
+              fullTab.draws.filter((a)=>a.roundId===resultForm.roundId).map((r,n)=>
+              <div className="roomCard" key={n}>
+                  <div className="roomHeader">
+                      <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setResultForm((prev)=>({ ...prev, roomId: r.room.id }))}}/></h2>
+                      <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)      
+                      }</span><p style={{display:'grid',gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
+                  </div>
+                  <div className="roomBody">
+                      {(r.spellers ?? []).map((s,y)=>
+                      <li style={{gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem'}} key={y}>
+                          <span>{s.name}</span>
+                          <span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
+                          <span>{fullTab.rounds.find(c=>c.roundId===r.roundId).breaks? s.result?.status?? '-': s.result?.score?? '-'}</span>
+                      </li>)}
+                  </div>
+              </div>):
+              <p>Draw for this round is not out yet</p>}
+        </section>
         </>
-          :<p>No Draws Made</p>}
-    </section>}
-    {navState.result==='update' &&
-    <section id="resultUpdate">
-        <form onSubmit={submitResult}>
-            <p><strong>Add/Update Result</strong></p>
-            <select name="roundId" value={updateItems.result.roundId} onChange={resultOnChange}>
-                <option value={defaultItems.result.roundId}>Select Round</option>
-                {incompleteRounds.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
-            </select>
-            {!fullTab.draws.find((a)=>a.roundId===updateItems.result.roundId)?
-            <p>Draw for this round is not out yet</p>
-            :            
-            <>
-            <select name="roomId" value={updateItems.result.roomId} onChange={resultOnChange}>
-                <option value={0}>Select Room</option>
-                {fullTab.draws
-                    .filter((d) => d.roundId === updateItems.result.roundId)
-                    .map((d, i) => (
-                        <option key={i} value={d.room.id}>{d.room.name}</option>
-                    ))}
-            </select>
-            <select name="spellerId" value={updateItems.result.spellerId} onChange={resultOnChange}>
-                    <option value={0}>Select Speller</option>
-                    {fullTab.draws.find((d)=>d.room.id===updateItems.result.roomId && d.roundId===updateItems.result.roundId)?.spellers?.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-            </select>
-            {!fullTab.rounds.find(r=>r.roundId==updateItems.result.roundId).breaks?
-                <input type="number" name="score" value={updateItems.result.score} min={0} max={20} onChange={resultOnChange} required/>
-                :
-                <select value={updateItems.result.status} name="status" onChange={resultOnChange}>
-                    <option value="Incomplete">Incomplete</option>
-                    <option value="Eliminated">Eliminated</option>
-                    <option value="Pass">Pass</option>
-                </select>
-                }
-            </>}
-            <button className="darkButton" disabled={resultStates.updateLoading}>{resultStates.updateLoading? 'Updating':'Update Result'}</button>
-            {resultStates.updateError &&<p style={{color:'red'}}>{resultStates.updateErrorMessage}</p>}
-            {resultStates.updateSuccess &&<p style={{color:'green'}}>{resultStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.result==='batch' &&
-    <section id="batchUpdate">
-        <form onSubmit={submitResult}>
-            <p><strong>Add/Update Room Results</strong></p>
-            <select name="roundId" value={updateItems.batch.roundId} onChange={resultOnChange}>
-                <option value={0}>Select Round</option>
-                {incompleteRounds.map((r)=><option key={r.roundId} value={r.roundId}>{r.name}</option>)}
-            </select>
-            {!fullTab.draws.find((a)=>a.roundId===updateItems.batch.roundId)?
-            <p>Draw for this round is not out yet</p>
-            :            
-            <>
-            <select name="roomId" value={updateItems.batch.roomId} onChange={resultOnChange}>
-                <option value={0}>Select Room</option>
-                {fullTab.draws
-                    .filter((d) => d.roundId === updateItems.batch.roundId)
-                    .map((d, i) => (
-                        <option key={i} value={d.room.id}>{d.room.name}</option>
-                    ))}
-            </select>
-            {updateItems.batch.updates && <>
-            <div className="roomCard">
-            <div className="roomHeader">
-                <h2 style={{margin:0}}>{fullTab.rounds.find(r=> r.roundId===updateItems.batch.roundId).name} {updateItems.batch.updates.room.name}</h2>
-                <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{updateItems.batch.updates.judges.map((j, x)=><span key={x}>{j.name}, </span>)       
-                }</span><p style={{display:'grid',gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
-            </div>
-            <div className="roomBody">
-                {fullTab.rounds.find(r=> r.roundId===updateItems.batch.roundId).breaks?
-                updateItems.batch.updates.spellers?.map((s,y)=>
-                <li style={{gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
-                <select value={s.result?.status?? 'Incomplete'} onChange={(status) => updateBatchStatus(s.id, status)}>
-                    {resultStatus.map((r,i)=><option key={i} value={r}>{r}</option>)}
-                </select>
-                </li>)
-                : 
-                updateItems.batch.updates.spellers?.map((s,y)=>
-                <li style={{gridTemplateColumns:'3fr 1fr 1fr', textAlign:'start', gap:'0.5rem'}} key={y}><span>{s.name}</span><span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span><Cell value={s.result?.score?? 0} onChange={(score) => updateBatchScore(s.id, score)}
-                    />
-                </li>)}
-            </div>
-        </div>
-        {/* <button type="button" onClick={()=>console.log(updateItems.batch.updates)}>Test</button> */}
-        </>}
-        </>}
-            <button className="darkButton" disabled={batchStates.updateLoading}>{batchStates.updateLoading? 'Updating':'Update Room Results'}</button>
-            {batchStates.updateError &&<p style={{color:'red'}}>{batchStates.updateErrorMessage}</p>}
-            {batchStates.updateSuccess &&<p style={{color:'green'}}>{batchStates.updateSuccessMessage}</p>}
-        </form>
-    </section>}
-    {navState.result==='delete' &&
-    <section id="resultDelete">
-        <form onSubmit={submitResult}>
-            <p><strong>Delete result?</strong></p>
-            <select name="roundId" value={deleteItems.result.roundId} onChange={resultOnChange}>
-                <option value={0}>Select Round</option>
-                {fullTab.rounds.map((r, i)=><option key={i} value={r.roundId}>{r.name}</option>)}
-            </select>
-            <select name="roomId" value={deleteItems.result.roomId} onChange={resultOnChange}>
-                <option value={0}>Select Room</option>
-                {fullTab.draws
-                    .filter((d) => d.roundId === deleteItems.result.roundId)
-                    .map((d, i) => (
-                        <option key={i} value={d.room.id}>{d.room.name}</option>
-                    ))}
-            </select>
-            <select name="spellerId" value={deleteItems.result.spellerId} onChange={resultOnChange}>
-                    <option value={0}>Select Speller</option>
-                    {fullTab.draws.find((d)=>d.room.id===deleteItems.result.roomId && d.roundId===deleteItems.result.roundId)?.spellers?.map((s,i)=><option value={s.id} key={i}>{s.name}</option>)}
-            </select>
-            <label>Are you sure?<ToggleButton state={deleteItems.result.confirm} setState={()=>setDeleteItems({...deleteItems, result:{...deleteItems.result, confirm:!deleteItems.result.confirm}})}/></label>
-            <button className="darkButton" disabled={resultStates.deleteLoading || !deleteItems.result.confirm}>{resultStates.deleteLoading? 'Deleting':'Delete Result'}</button>
-            {resultStates.deleteError &&<p style={{color:'red'}}>{resultStates.deleteErrorMessage}</p>}
-            {resultStates.deleteSuccess &&<p style={{color:'green'}}>{resultStates.deleteSuccessMessage}</p>}
-        </form>
-    </section>}
-    </>);
+      )
   }
-  const accessOptions = [
-    {option:`${tab.title}`, value:'public'},
-    ...(pageLoad.judgeAuthorized ? [{option:`${tab.title} (Judge)`, value:'judge'}] : []),
-    ...(pageLoad.adminAuthorized ? [{option:`${tab.title} (Admin)`, value:'admin'}] : []),
-  ];
 
   const adminSelectedIdx = Math.max(0, accessOptions.findIndex((option) => option.value === 'admin'));
 
@@ -2363,16 +1157,9 @@ useEffect(() => {
     <nav className="tabMenu">
           <ul>
             <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={adminSelectedIdx}/>
-            <li onClick={()=>tabChange('configuration')} className={tabItem==='configuration'?'selectedTabItem':''}>Configuration</li>
-            <li onClick={()=>tabChange('institutions')} className={tabItem==='institutions'?'selectedTabItem':''}>Institutions</li>
-            <li onClick={()=>tabChange('tabMasters')} className={tabItem==='tabMasters'?'selectedTabItem':''}>Tab Masters</li>
-            <li onClick={()=>tabChange('spellers')} className={tabItem==='spellers'?'selectedTabItem':''}>Spellers</li>
-            <li onClick={()=>tabChange('judges')} className={tabItem==='judges'?'selectedTabItem':''}>Judges</li>
-            <li onClick={()=>tabChange('rooms')} className={tabItem==='rooms'?'selectedTabItem':''}>Rooms</li>
-            <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
-            <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
-            <li onClick={()=>tabChange('draws')} className={tabItem==='draws'?'selectedTabItem':''}>Draws</li>
-            <li onClick={()=>tabChange('results')} className={tabItem==='results'?'selectedTabItem':''}>Results</li>
+            {["configuration", "institutions", "tabMasters", "spellers", "judges", "rooms", "rounds", "words", "draws", "results"].map((item) => (
+                <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
+            ))}
           </ul>
         </nav>
         <div className="tabSideMenu">
@@ -2383,20 +1170,15 @@ useEffect(() => {
           <nav className={`tSideMenu ${menuOpen? 'Open':'Closed'}`}>
             <ul>
             <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>
-            <li onClick={()=>tabChange('configuration')} className={tabItem==='configuration'?'selectedTabItem':''}>Configuration</li>
-            <li onClick={()=>tabChange('institutions')} className={tabItem==='institutions'?'selectedTabItem':''}>Institutions</li>
-            <li onClick={()=>tabChange('tabMasters')} className={tabItem==='tabMasters'?'selectedTabItem':''}>Tab Masters</li>
-            <li onClick={()=>tabChange('spellers')} className={tabItem==='spellers'?'selectedTabItem':''}>Spellers</li>
-            <li onClick={()=>tabChange('judges')} className={tabItem==='judges'?'selectedTabItem':''}>Judges</li>
-            <li onClick={()=>tabChange('rooms')} className={tabItem==='rooms'?'selectedTabItem':''}>Rooms</li>
-            <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
-            <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
-            <li onClick={()=>tabChange('draws')} className={tabItem==='draws'?'selectedTabItem':''}>Draws</li>
-            <li onClick={()=>tabChange('results')} className={tabItem==='results'?'selectedTabItem':''}>Results</li>
+            {["configuration", "institutions", "tabMasters", "spellers", "judges", "rooms", "rounds", "words", "draws", "results"].map((item) => (
+              <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
+            ))}
           </ul>
           </nav>
         </div>
         {menuOpen&& <div className="aoe" onClick={()=>setMenuOpen(false)}></div>}
+        <Toast toasts={toasts} setToasts={setToasts}/>
+        {/* <button onClick={()=>console.log(fullTab)}></button> */}
         {
         tabItem==='configuration'? configuration():tabItem==='home'? home():tabItem==='institutions'? institutions():tabItem==='spellers'? spellers():tabItem==='judges'? judges():tabItem==='tabMasters'? tabMasters():tabItem==='rooms'? rooms():tabItem==='rounds'? rounds():tabItem==='words'? words():tabItem==='draws'? draws():tabItem==='results'? results():''
         }
@@ -2405,4 +1187,3 @@ useEffect(() => {
     <SpellingBeePublicTab tab={tab} event={event}/>:<Loading/>
   )
 }
-

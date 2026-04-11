@@ -129,7 +129,7 @@ async function replaceExistingDrawsForRound(
 }
 
 export async function generateDraw(req: Request, res: Response){
-    // console.log(req.body);
+    console.log(req.body);
     try {
     const {roundId, tabId, powerPair}=req.body as{
         roundId?: number;
@@ -497,7 +497,7 @@ export async function updateDraw(req: Request, res: Response){
 
       });
       return res.status(201).json({
-      message: "Spellerrs swapped successfully",
+      message: "Spellers swapped successfully",
       data: updated,
       });
     }
@@ -1074,6 +1074,7 @@ export async function updateDraw(req: Request, res: Response){
     }
 }
 export async function deleteDraw(req: Request, res: Response){
+  console.log('called');
   try {
     const {roundId, tabId}=req.body as{
       roundId: number;

@@ -722,7 +722,7 @@ export async function updateTab(req:Request, res: Response){
 }
 //institution
 export async function addInstitution(req: Request, res: Response) {
-    // console.log('Add institution');
+    console.log('Add institution');
     try {
         const {name, code, tabId}=req.body as {
             name: string;
