@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as psResultsController from '../../controllers/public speaking/ps.results.controller';
+import * as psResultsController from '../../controllers/publicSpeaking/ps.results.controller';
 
 const router = Router();
 

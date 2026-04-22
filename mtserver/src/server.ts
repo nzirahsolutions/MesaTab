@@ -6,9 +6,9 @@ import eventRoutes from './routes/events.route';
 import sbTabRoutes from './routes/spelling/sb.tab.route';
 import sbDrawRoutes from './routes/spelling/sb.draw.route';
 import sbResultRoutes from './routes/spelling/sb.result.route';
-import psTabRoutes from './routes/Public Speaking/ps.tab.route';
-import psDrawRoutes from './routes/Public Speaking/ps.draw.route';
-import psResultRoutes from './routes/Public Speaking/ps.result.route';
+import psTabRoutes from './routes/publicSpeaking/ps.tab.route';
+import psDrawRoutes from './routes/publicSpeaking/ps.draw.route';
+import psResultRoutes from './routes/publicSpeaking/ps.result.route';
 
 const app = express();
 

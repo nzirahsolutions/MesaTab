@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as psDrawController from '../../controllers/public speaking/ps.draw.controller';
+import * as psDrawController from '../../controllers/publicSpeaking/ps.draw.controller';
 
 const router = Router();
 
