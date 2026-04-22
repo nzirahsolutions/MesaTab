@@ -17,6 +17,14 @@ app.use(cors(corsOptions));
 app.use(express.json()); //parses JSON request bodies
 app.use(express.urlencoded({extended: false})); //parses form data (like HTML forms)
 
+app.get('/', (_req, res) => {
+  res.status(200).json({ status: 'ok', service: 'mtserver' });
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 //routes
 app.use('/user',userRoutes);
 app.use('/event',eventRoutes);
