@@ -77,7 +77,7 @@ export default function LogIn() {
         setError(true);
         localStorage.removeItem('token');
         setErrorMessage("Google Log in failed. Check your connection and try again.");
-      }}/>
+      }} shape="pill" text="Sign in with Google"/>
       {error && <p style={{color:'red'}}>{errorMessage}</p>}
       {success && <p style={{color:'green'}}>Log in successful</p>}
       <p>Don't have an account? <span onClick={()=>navigate('/signup')}>Sign Up</span></p>  

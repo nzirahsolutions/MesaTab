@@ -4,13 +4,12 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "build": "tsc",
-    "prestart": "npm run build",
-    "start": "node dist/server.js",
-    "db:generate": "drizzle-kit generate --config src/drizzle.config.ts",
-    "db:migrate": "drizzle-kit migrate --config src/drizzle.config.ts",
-    "db:push": "drizzle-kit push --config src/drizzle.config.ts",
-    "db:studio": "drizzle-kit studio --config src/drizzle.config.ts"
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",

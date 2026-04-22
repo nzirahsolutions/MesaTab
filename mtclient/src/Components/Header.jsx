@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from "../Context/AuthContext";
+import {googleLogout} from '@react-oauth/google';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function Header() {
   function logout(){
         const token=localStorage.getItem('token');
         if(token) localStorage.removeItem('token');
+        googleLogout();
         setUser(null);
         setMenuOpen(false);
     }
