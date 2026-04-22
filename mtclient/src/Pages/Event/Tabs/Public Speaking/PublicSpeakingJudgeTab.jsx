@@ -248,7 +248,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
                   <div className="roomHeader">
                     <h2 style={{ margin: 0 }}>{draw.room.name}</h2>
                     <p style={{ margin: "0.3rem 0" }}>
-                      Speech Duration: <strong>{currentRound.speechDuration}s</strong>
+                      Speech Duration: <strong>{currentRound.speechDuration} min</strong>
                     </p>
                     {draw.prompt && (
                       <p style={{ margin: "0.3rem 0" }}>
@@ -263,14 +263,14 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
                     </p>
                   </div>
                   <div className="roomBody">
-                    <li style={{ gridTemplateColumns: currentRound.breaks ? "3fr 2fr 1fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
+                    <li style={{ gridTemplateColumns: currentRound.breaks ? "1fr 0.5fr 0.5fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
                       <strong>Speaker</strong>
                       <strong>Institution</strong>
                       <strong>Score</strong>
                       {currentRound.breaks && <strong>Status</strong>}
                     </li>
                     {(roomData.speakers ?? []).map((speaker) => (
-                      <li key={speaker.id} style={{ gridTemplateColumns: currentRound.breaks ? "3fr 2fr 1fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
+                      <li key={speaker.id} style={{ gridTemplateColumns: currentRound.breaks ? "1fr 0.5fr 0.5fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
                         <span>{speaker.name}</span>
                         <span>{fullTab?.institutions?.find((item) => item.id === speaker.institutionId)?.code ?? "-"}</span>
                         <Cell
@@ -320,7 +320,7 @@ export default function PublicSpeakingJudgeTab({ tab, event, accessOptions }) {
       <div className="tabSideMenu">
         <nav className="tTitle">
           <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
-          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
+          <span className="☰" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "☰"}</span>
         </nav>
         <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
           <ul>

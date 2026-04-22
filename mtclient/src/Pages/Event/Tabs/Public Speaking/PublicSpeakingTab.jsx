@@ -194,14 +194,14 @@ export default function PublicSpeakingTab({ tab, event }) {
                 </p>
               </div>
               <div className="roomBody">
-                <li style={{ gridTemplateColumns: currentRound.breaks && !currentRound.blind ? "3fr 2fr 1fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
+                <li style={{ gridTemplateColumns: currentRound.breaks && !currentRound.blind ? "2fr 2fr 1fr 1fr" : "2fr 2fr 1fr", gap: "0.5rem" }}>
                   <strong>Speaker</strong>
                   <strong>Institution</strong>
                   {!currentRound.blind && <strong>Score</strong>}
                   {currentRound.breaks && !currentRound.blind && <strong>Status</strong>}
                 </li>
                 {(draw.speakers ?? []).map((speaker) => (
-                  <li key={speaker.id} style={{ gridTemplateColumns: currentRound.breaks && !currentRound.blind ? "3fr 2fr 1fr 1fr" : "3fr 2fr 1fr", gap: "0.5rem" }}>
+                  <li key={speaker.id} style={{ gridTemplateColumns: currentRound.breaks && !currentRound.blind ? "2fr 2fr 1fr 1fr" : "2fr 2fr 1fr", gap: "0.5rem" }}>
                     <span>{speaker.name}</span>
                     <span>{fullTab?.institutions?.find((entry) => entry.id === speaker.institutionId)?.name ?? "-"}</span>
                     {!currentRound.blind && <span>{speaker.result?.score ?? "-"}</span>}
@@ -289,13 +289,13 @@ export default function PublicSpeakingTab({ tab, event }) {
           const roundInfo = sortedRounds.find((item) => item.roundId === prompt.roundId);
           const canShow = !!fullTab?.completed || !!prompt.visible;
           return (
-            <div key={prompt.id} className="roomCard">
+            <div key={prompt.id} className="roomCard" style={{padding:'0.2rem'}}>
               <div className="roomHeader">
                 <h2 style={{ margin: 0 }}>{roundInfo?.name ?? "Round"}</h2>
                 <p style={{ margin: "0.5rem" }}>Type: <strong>{prompt.speechType}</strong></p>
               </div>
-              <div className="roomBody">
-                <p style={{ margin: 0 }}>{canShow ? prompt.speechPrompt : "Prompt not yet visible"}</p>
+              <div className="roomBody" style={{width:'100%', textAlign:'center'}}>
+                <p style={{ padding: '0 0.2rem 0 0.2rem', margin:0 }}>{canShow ? prompt.speechPrompt : "Prompt not yet visible"}</p>
               </div>
             </div>
           );
@@ -381,7 +381,7 @@ export default function PublicSpeakingTab({ tab, event }) {
         <h2>Institutions</h2>
         {sortedParticipants.length > 0 ? <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 0.5fr 1fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort('participants', 'name')}>
                   {sortStates.participants.column === 'name' && sortStates.participants.state === true ? '\u2b9d' : '\u2b9f'}
                 </button>
@@ -398,7 +398,7 @@ export default function PublicSpeakingTab({ tab, event }) {
           </thead>
           <tbody>
             {sortedParticipants.map((p,i)=>(
-            <tr key={i} style={{gridTemplateColumns:'2fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 0.5fr 1fr'}}>
               <td>{p.name}</td>
               <td>{p.code}</td>
               <td>{p.speakers}</td>
@@ -432,7 +432,7 @@ export default function PublicSpeakingTab({ tab, event }) {
       <div className="tabSideMenu">
         <nav className="tTitle">
           {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
-          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "Menu"}</span>
+          <span className="☰" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "☰"}</span>
         </nav>
         <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
           <ul>

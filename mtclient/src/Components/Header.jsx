@@ -36,7 +36,7 @@ export default function Header() {
           <li><NavLink to="/prompts" className={({isActive})=>isActive?'activeLink':''}>Prompts</NavLink></li>
           <li><NavLink to="/resources" className={({isActive})=>isActive?'activeLink':''}>Resources</NavLink></li> */}
           {user? 
-          <li><NavLink to="/" onClick={logout}>Log Out ({user.name})</NavLink></li>
+          <li><NavLink to="/" onClick={logout}>Log Out ({user.name.split(' ')[0]})</NavLink></li>
           :
           <li><NavLink to="/login" onClick={()=>setMenuOpen(false)} className={({isActive})=>isActive?'activeLink':''}>Log In</NavLink></li>
           }
@@ -52,7 +52,7 @@ export default function Header() {
           <li onClick={()=>setMenuOpen(false)}><NavLink  to="/prompts" className={({isActive})=>isActive?'activeLink':''}>Prompts</NavLink></li>
           <li onClick={()=>setMenuOpen(false)}><NavLink to="/resources" className={({isActive})=>isActive?'activeLink':''}>Resources</NavLink></li> */}
           {user? 
-          <li><NavLink to="/" onClick={logout}>Log Out ({user.name})</NavLink></li>
+          <li><NavLink to="/" onClick={logout}>Log Out ({user.name.split(' ')[0]})</NavLink></li>
           :
           <li><NavLink to="/login" onClick={()=>setMenuOpen(false)} className={({isActive})=>isActive?'activeLink':''}>Log In</NavLink></li>
           }

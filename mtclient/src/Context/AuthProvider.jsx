@@ -3,7 +3,30 @@ import { AuthContext } from './AuthContext';
 import {jwtDecode} from 'jwt-decode';
 
 export const AuthProvider = ({ children }) => {
-  
+  function checkToken(){
+    const token = localStorage.getItem('token');
+    if (!token) {
+      localStorage.removeItem('user');
+      return;
+    }
+    try {
+      const decoded = jwtDecode(token);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (!decoded?.exp || decoded.exp <= now || !decoded?.userInfo) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        console.log('expired token');
+        return;
+      }
+      // else console.log('Welcome ', decoded.userInfo.name);
+
+    } catch {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    }
+  checkToken();  
   // Initialize from localStorage
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
@@ -43,29 +66,6 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('tab', JSON.stringify(tab));
   }, [tab]);
-
-    // Rehydrate user from token on app start
-  useEffect(() => {
-    if (user) return;
-
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const decoded = jwtDecode(token);
-      const now = Math.floor(Date.now() / 1000);
-
-      if (!decoded?.exp || decoded.exp <= now || !decoded?.userInfo) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        return;
-      }
-      setUser(decoded.userInfo);
-    
-    } catch {
-      localStorage.removeItem('token');
-    }
-  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, setUser, tab, setTab , isEvent, setIsEvent, access, setAccess}}>

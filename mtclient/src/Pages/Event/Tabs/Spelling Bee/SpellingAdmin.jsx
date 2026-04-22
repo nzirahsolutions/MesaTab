@@ -13,6 +13,7 @@ import Loading from "../../../../Components/Loading";
 import Cell from "../../../../Components/Cell";
 import ToggleButton from "../../../../Components/ToggleButton";
 import Toast from "../../../../Components/Toast";
+import Input from "../../../../Components/Input";
 
 export default function SpellingAdmin({tab, event}) {
   const [tabItem, setTabItem]=useState('home');
@@ -305,8 +306,8 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("institution", institutionForm, () => setInstitutionForm({ id: null, name: "", code: "" })); }} method="modal">
             <p><strong>Institution</strong></p>
-            <input placeholder="Institution Name" value={institutionForm.name} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input placeholder="Code" value={institutionForm.code} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, code: e.target.value }))} />
+            <Input placeholder="Institution Name" value={institutionForm.name} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input placeholder="Code" value={institutionForm.code} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, code: e.target.value }))} />
             <button className="darkButton">{institutionForm.id ? "Update" : "Add"} Institution</button>
             <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
           </form>
@@ -317,8 +318,8 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("tabMaster", tabMasterForm, () => setTabMasterForm({ id: null, name: "", institutionId: 0, email: "" })); }}>
             <h2>Tab Masters</h2>
-            <input placeholder="Name" value={tabMasterForm.name} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input type="email" placeholder="Email" value={tabMasterForm.email} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <Input placeholder="Name" value={tabMasterForm.name} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input type="email" placeholder="Email" value={tabMasterForm.email} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, email: e.target.value }))} />
             <select value={tabMasterForm.institutionId} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <button className="darkButton">{tabMasterForm.id ? "Update" : "Add"} Tab Master</button>
             <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
@@ -330,8 +331,8 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("judge", judgeForm, () => setJudgeForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
             <h2>Judges</h2>
-            <input placeholder="Name" value={judgeForm.name} onChange={(e) => setJudgeForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input type="email" placeholder="Email" value={judgeForm.email} onChange={(e) => setJudgeForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <Input placeholder="Name" value={judgeForm.name} onChange={(e) => setJudgeForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input type="email" placeholder="Email" value={judgeForm.email} onChange={(e) => setJudgeForm((prev) => ({ ...prev, email: e.target.value }))} />
             <select value={judgeForm.institutionId} onChange={(e) => setJudgeForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={judgeForm.available} setState={() => setJudgeForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
             <button className="darkButton">{judgeForm.id ? "Update" : "Add"} Judge</button>
@@ -344,8 +345,8 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("speller", spellerForm, () => setSpellerForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
             <h2>Spellers</h2>
-            <input placeholder="Name" value={spellerForm.name} onChange={(e) => setSpellerForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input type="email" placeholder="Email" value={spellerForm.email} onChange={(e) => setSpellerForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <Input placeholder="Name" value={spellerForm.name} onChange={(e) => setSpellerForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input type="email" placeholder="Email" value={spellerForm.email} onChange={(e) => setSpellerForm((prev) => ({ ...prev, email: e.target.value }))} />
             <select value={spellerForm.institutionId} onChange={(e) => setSpellerForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={spellerForm.available} setState={() => setSpellerForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
             <button className="darkButton">{spellerForm.id ? "Update" : "Add"} Speller</button>
@@ -358,7 +359,7 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("room", roomForm, () => setRoomForm({ id: null, name: "", available: true })); }}>
             <h2>Rooms</h2>
-            <input placeholder="Name" value={roomForm.name} onChange={(e) => setRoomForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input placeholder="Name" value={roomForm.name} onChange={(e) => setRoomForm((prev) => ({ ...prev, name: e.target.value }))} />
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={roomForm.available} setState={() => setRoomForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
             <button className="darkButton">{roomForm.id ? "Update" : "Add"} Room</button>
             <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
@@ -370,14 +371,14 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("round", roundForm, () => setRoundForm({ id: null, name:'', number:'', breaks:false, type:'Timed', timeLimit:'',wordLimit:'', completed:false, blind:false })); }}>
             <h2>Rounds</h2>
-            <input placeholder="Name" value={roundForm.name} onChange={(e) => setRoundForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input placeholder="Number" type="number" value={roundForm.number} onChange={(e) => setRoundForm((prev) => ({ ...prev, number: e.target.value }))} />
+            <Input placeholder="Name" value={roundForm.name} onChange={(e) => setRoundForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input placeholder="Number" type="number" value={roundForm.number} onChange={(e) => setRoundForm((prev) => ({ ...prev, number: e.target.value }))} />
             {!roundForm.breaks &&<select required name="type" value={roundForm.type} onChange={(e) => setRoundForm((prev) => ({ ...prev, type: e.target.value }))}>
                 <option value="">Select round type</option>
               {roundTypes.map((t, i)=><option key={i} value={t}>{t}</option>)}
             </select>}
-            {roundForm.type==='Timed' && <input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={roundForm.timeLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, timeLimit: e.target.value }))} required/>}
-            {roundForm.type==='Word Limit' && <input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={roundForm.wordLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, wordLimit: e.target.value }))} required/>}
+            {roundForm.type==='Timed' && <Input type="number" min="15" name="timeLimit" placeholder="Time Limit (seconds)" value={roundForm.timeLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, timeLimit: e.target.value }))} required/>}
+            {roundForm.type==='Word Limit' && <Input type="number" min="5" name="wordLimit" placeholder="Word Limit" value={roundForm.wordLimit || ''} onChange={(e) => setRoundForm((prev) => ({ ...prev, wordLimit: e.target.value }))} required/>}
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Blind <ToggleButton state={roundForm.blind} setState={() => setRoundForm((prev) => ({ ...prev, blind: !prev.blind }))} /></label>
             {roundForm.id &&<label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Completed <ToggleButton state={roundForm.completed} setState={() => setRoundForm((prev) => ({ ...prev, completed: !prev.completed }))} /></label>}
             <button className="darkButton">{roundForm.id ? "Update" : "Add Prelim"} Round</button>
@@ -390,7 +391,7 @@ function showForm(entity){
           <dialog ref={dialogRef}>
             <form onSubmit={(e) => { e.preventDefault(); submitEntity("word", wordForm, () => setWordForm({ id: null, word: ""})); }}>
             <h2>Words</h2>
-            <input placeholder="Word" value={wordForm.word} onChange={(e) => setWordForm((prev) => ({ ...prev, word: e.target.value }))} />
+            <Input placeholder="Word" value={wordForm.word} onChange={(e) => setWordForm((prev) => ({ ...prev, word: e.target.value }))} />
             <button className="darkButton">{wordForm.id ? "Update" : "Add"} Word</button>
             {wordForm.id && <button type="button" className="darkButton" onClick={()=>{dialogRef.current.close(); deleteEntity("word", { id: wordForm.id })}}>Delete Word</button>}
             <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
@@ -581,7 +582,7 @@ function showForm(entity){
               {resultForm.draft && (
                 <div className="roomCard">
                   <div className="roomHeader"><h2 style={{ margin: 0 }}>{resultForm.draft.room.name}</h2></div>
-                  <div className="roomBody">
+                  <div className="roomBody" style={{width:'auto'}}>
                     {resultForm.draft.spellers.map((speller) => (
                       <li key={speller.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr", gap: "0.5rem" }}>
                         <span>{speller.name}</span>
@@ -641,10 +642,10 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
             <h3>Cups</h3>
             {configForm.cups.map((cup, index) => (
               <div key={cup.id ?? `cup-${index}`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "0.5rem" }}>
-                <input value={cup.cupCategory} placeholder="Cup Name, e.g.: Gold" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
-                <input type="number" value={cup.cupOrder} placeholder="Cup Order e.g.: 1 for Gold, 2 for Silver" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
-                <input type="number" value={cup.breakNumber} placeholder="No of break rounds" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
-                <input type="number" value={cup.breakCapacity} placeholder="Min Spellers per break Room" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakCapacity: Number(e.target.value) } : item) }))} />
+                <Input value={cup.cupCategory} placeholder="Cup Name" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
+                <Input type="number" value={cup.cupOrder} placeholder="Cup Order" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
+                <Input type="number" value={cup.breakNumber} placeholder="Break rounds" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
+                <Input type="number" value={cup.breakCapacity} placeholder="Min Spellers per break Room" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakCapacity: Number(e.target.value) } : item) }))} />
                 <RiDeleteBin6Fill onClick={() => setConfigForm((prev) => ({ ...prev, cups: prev.cups.filter((_, itemIdx) => itemIdx !== index) }))}/>
               </div>
             ))}
@@ -725,7 +726,7 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
         <div className="tableScroll">
         <table>
             <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 0.5fr 0.5fr'}}>
                 <th>Name 
                 <button type="button" className="sortToggle" onClick={() => toggleSort("spellers", "name")}>
                     {sortStates.spellers.column === "name" && sortStates.spellers.state === true
@@ -752,7 +753,7 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
             </thead>
             <tbody>
             {sortedSpellers.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 0.5fr 0.5fr'}}>
                 <td>{p.name}</td>
                 <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
                 <td>{p.available? '\u2714': '\u2718'}</td>
@@ -780,7 +781,7 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
         {fullTab.judges?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 0.6fr 0.5fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("judges", "name")}>
                 {sortStates.judges.column === "name" && sortStates.judges.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
@@ -798,7 +799,7 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
           </thead>
           <tbody>
             {sortedJudges.map((p,i)=>
-            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr'}}>
+            <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 0.6fr 0.5fr'}}>
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
@@ -1132,11 +1133,11 @@ setToasts((prev)=>[...prev, {id: Date.now(),type, message}]);
                   <div className="roomHeader">
                       <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setResultForm((prev)=>({ ...prev, roomId: r.room.id }))}}/></h2>
                       <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)      
-                      }</span><p style={{display:'grid',gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem', marginLeft:'0.5rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
+                      }</span><p style={{display:'grid',gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem'}}><span>Speller</span><span>School</span><span>Result</span><span></span></p></div>
                   </div>
-                  <div className="roomBody">
+                  <div className="roomBody" style={{width:'auto'}}>
                       {(r.spellers ?? []).map((s,y)=>
-                      <li style={{gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem'}} key={y}>
+                      <li style={{display:'grid',gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem'}} key={y}>
                           <span>{s.name}</span>
                           <span>{fullTab.institutions.find((i)=>i.id===s.institutionId).code}</span>
                           <span>{fullTab.rounds.find(c=>c.roundId===r.roundId).breaks? s.result?.status?? '-': s.result?.score?? '-'}</span>

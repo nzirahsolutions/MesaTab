@@ -1,17 +1,26 @@
 import type { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
+import { OAuth2Client } from "google-auth-library";
 import { db } from "../db/db";
 import { users } from "../db/schema";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const BCRYPT_ROUNDS = 12;
-const ACCESS_TOKEN_TTL = "60s";
+const ACCESS_TOKEN_TTL = "24h";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 type JwtUserInfo = {
   id: string;
   name: string;
   email: string;
+};
+
+type VerifiedGoogleUser = {
+  email: string;
+  name: string;
 };
 
 function signJwt(userInfo: JwtUserInfo): string {
@@ -31,6 +40,30 @@ async function hashPassword(plainPassword: string): Promise<string> {
 
 async function verifyPassword(plainPassword: string, passwordHash: string): Promise<boolean> {
   return bcrypt.compare(plainPassword, passwordHash);
+}
+
+async function verifyGoogleToken(idToken: string): Promise<VerifiedGoogleUser> {
+  if (!GOOGLE_CLIENT_ID || !googleClient) {
+    throw new Error("GOOGLE_CLIENT_ID is not configured");
+  }
+
+  const ticket = await googleClient.verifyIdToken({
+    idToken,
+    audience: GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+  const email = payload?.email?.trim().toLowerCase();
+  const name = payload?.name?.trim();
+
+  if (!payload?.sub || !email || !payload.email_verified) {
+    throw new Error("invalid google token");
+  }
+
+  return {
+    email,
+    name: name || email,
+  };
 }
 
 export async function signup(req: Request, res: Response) {
@@ -139,5 +172,80 @@ export async function login(req: Request, res: Response) {
   } catch (error) {
     console.error("login error:", error);
     return res.status(500).json({ message: "failed to log in" });
+  }
+}
+export async function glogin(req: Request, res: Response) {
+  try {
+    const { gtoken } = req.body as {
+      gtoken?: string;
+    };
+
+    if (!gtoken) {
+      return res
+        .status(400)
+        .json({ message: "google token required" });
+    }
+
+    const guser = await verifyGoogleToken(gtoken);
+
+    const [found] = await db
+      .select({
+        userId: users.userId,
+        name: users.name,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.email, guser.email))
+      .limit(1);
+
+    if (found) {
+      const token = signJwt({
+        id: found.userId,
+        name: found.name,
+        email: found.email,
+      });
+      return res.status(200).json({
+        message: "login successful",
+        token,
+      });
+    }
+
+    const created = await db
+      .insert(users)
+      .values({
+        name: guser.name,
+        email: guser.email,
+        password_hash: await hashPassword(randomUUID()),
+      })
+      .returning({
+        userId: users.userId,
+        name: users.name,
+        email: users.email,
+      });
+
+    const createdUser = created[0];
+    const token = signJwt({
+      id: createdUser.userId,
+      name: createdUser.name,
+      email: createdUser.email,
+    });
+
+    return res.status(201).json({
+      message: "google sign up successful",
+      token,
+    });
+  }
+  catch (error) {
+    console.error("google login error:", error);
+
+    if (error instanceof Error && error.message === "GOOGLE_CLIENT_ID is not configured") {
+      return res.status(500).json({ message: "google login is not configured" });
+    }
+
+    if (error instanceof Error && error.message === "invalid google token") {
+      return res.status(401).json({ message: "invalid google account" });
+    }
+
+    return res.status(401).json({ message: "failed to verify google login" });
   }
 }
