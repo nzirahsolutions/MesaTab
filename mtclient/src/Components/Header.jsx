@@ -1,12 +1,17 @@
-import { useContext, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useContext, useState, useEffect, useRef } from 'react';
+import { NavLink, useNavigate, useParams} from 'react-router-dom';
 import { AuthContext } from "../Context/AuthContext";
 import {googleLogout} from '@react-oauth/google';
+import {IoIosArrowDropdown, IoIosArrowDropup} from 'react-icons/io';
 
 export default function Header() {
   const navigate = useNavigate();
   const {selectedEvent, setSelectedEvent, user, setUser} = useContext(AuthContext);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [isTool, setIsTool] = useState(false);
+  const toolRef=useRef(null);
+  const params=useParams();
 
   function logout(){
         const token=localStorage.getItem('token');
@@ -19,6 +24,15 @@ export default function Header() {
     setMenuOpen(false);
     navigate(to);
   }
+  useEffect(() => {
+          function handlePointerDown(event) {
+              if (!toolRef.current?.contains(event.target)) {
+                  setToolsOpen(false);
+              }
+          }
+          document.addEventListener('mousedown', handlePointerDown);
+          return () => document.removeEventListener('mousedown', handlePointerDown);
+      }, []);
   return (
     <>
     {!selectedEvent?
@@ -34,6 +48,12 @@ export default function Header() {
         <ul>
           <li><NavLink to="/" className={({isActive})=>isActive?'activeLink':''}>Home</NavLink></li>
           <li><NavLink to="/events" className={({isActive})=>isActive?'activeLink':''}>Events</NavLink></li>
+          <li><span onClick={()=>setToolsOpen(!toolsOpen)}>Tools {toolsOpen? <IoIosArrowDropup/>: <IoIosArrowDropdown/>}</span>
+            <ul className={toolsOpen? 'open':'close'} onClick={()=>setToolsOpen(false)} ref={toolRef}>
+              <li><NavLink to="/debatekeeper" className={({isActive})=>isActive?'activeLink':''}>Debate Keeper</NavLink></li>
+              <li><NavLink to="/speechkeeper" className={({isActive})=>isActive?'activeLink':''}>Speech Keeper</NavLink></li>
+            </ul>
+          </li>
           {/* <li><NavLink to="/motions" className={({isActive})=>isActive?'activeLink':''}>Motions</NavLink></li>
           <li><NavLink to="/prompts" className={({isActive})=>isActive?'activeLink':''}>Prompts</NavLink></li>
           <li><NavLink to="/resources" className={({isActive})=>isActive?'activeLink':''}>Resources</NavLink></li> */}
@@ -50,6 +70,12 @@ export default function Header() {
           {/* <li onClick={()=>setMenuOpen(false)}>X</li> */}
           <li onClick={()=>setMenuOpen(false)}><NavLink  to="/" className={({isActive})=>isActive?'activeLink':''}>Home</NavLink></li>
           <li onClick={()=>setMenuOpen(false)}><NavLink  to="/events" className={({isActive})=>isActive?'activeLink':''}>Events</NavLink></li>
+          <li><span onClick={()=>setToolsOpen(!toolsOpen)}>Tools {toolsOpen? <IoIosArrowDropup/>: <IoIosArrowDropdown/>}</span>
+            <ul className={toolsOpen? 'open':'close'} onClick={()=>{setToolsOpen(false); setMenuOpen(false)}} ref={toolRef}>
+              <li><NavLink to="/debatekeeper" className={({isActive})=>isActive?'activeLink':''}>Debate Keeper</NavLink></li>
+              <li><NavLink to="/speechkeeper" className={({isActive})=>isActive?'activeLink':''}>Speech Keeper</NavLink></li>
+            </ul>
+          </li>
           {/* <li onClick={()=>setMenuOpen(false)}><NavLink  to="/motions" className={({isActive})=>isActive?'activeLink':''}>Motions</NavLink></li>
           <li onClick={()=>setMenuOpen(false)}><NavLink  to="/prompts" className={({isActive})=>isActive?'activeLink':''}>Prompts</NavLink></li>
           <li onClick={()=>setMenuOpen(false)}><NavLink to="/resources" className={({isActive})=>isActive?'activeLink':''}>Resources</NavLink></li> */}

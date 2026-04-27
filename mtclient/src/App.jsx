@@ -10,6 +10,8 @@ import LogIn from "./Pages/User/LogIn";
 import SignUp from "./Pages/User/SignUp";
 import Profile from "./Pages/User/Profile";
 import Motions from "./Pages/Motions";
+import DebateKeeper from "./Pages/DebateKeeper";
+import SpeechKeeper from "./Pages/SpeechKeeper";
 import {BrowserRouter as Router, Route, Routes} from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -34,6 +36,8 @@ function App() {
           <Route path="/:eventUrl" element={<Event/>}/>
           <Route path="/:eventUrl/:tab" element={<Tab/>}/>
           <Route path="/:eventUrl/:tab/*" element={<Tab/>}/>
+          <Route path="/debatekeeper" element={<DebateKeeper/>}/>
+          <Route path="/speechkeeper" element={<SpeechKeeper/>}/>
           <Route path="/*" element={<Home/>}/>
         </Routes>
         </main>

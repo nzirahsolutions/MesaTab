@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {IoIosArrowDropdown, IoIosArrowDropup} from 'react-icons/io'
+import {IoIosArrowDropdown, IoIosArrowDropup} from 'react-icons/io';
 
 export default function Dropdown({options, selectedIdx,setValue}) {
     const [dropdown, setDropdown]=useState({dropped:false, selected:options[selectedIdx]});
