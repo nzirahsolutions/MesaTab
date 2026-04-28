@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import Input from '../Components/Input';
+import Input from '../../Components/Input';
 import bellSound from '/bell.mp3';
 import { FaBell, FaPause, FaPlay, FaRedo, FaStepBackward, FaStepForward } from 'react-icons/fa';
 
@@ -95,6 +95,9 @@ export default function DebateKeeper() {
     const [currentSpeeches, setCurrentSpeeches]=useState({index:0, format: getFormat(defaultValues.speeches.format)});
     const [color, setColor]=useState('blue');
     const [complete, setComplete]=useState(0);
+    //scroll wheel
+    const minRef=useRef(null);
+    const secRef=useRef(null);
 
     useEffect(() => {
             function handlePointerDown(event) {
@@ -299,6 +302,40 @@ export default function DebateKeeper() {
             },1000);
         }
         }
+    //scroll
+    function infiniteScroll(e){
+        // console.log(e.target.dataset.name);
+        if(e.target.dataset.name=='min'){
+            const { scrollTop, scrollHeight, clientHeight } = minRef.current;
+            const itemHeight = scrollHeight / 3;
+
+            // If we've scrolled into the top buffer or bottom buffer, jump to middle
+            if (scrollTop <= 0) {
+            minRef.current.scrollTop = itemHeight;
+            } else if (scrollTop >= itemHeight * 2) {
+            minRef.current.scrollTop = itemHeight;
+            }
+        }
+        if(e.target.dataset.name=='sec'){
+            const { scrollTop, scrollHeight, clientHeight } = secRef.current;
+            const itemHeight = scrollHeight / 3;
+
+            // If we've scrolled into the top buffer or bottom buffer, jump to middle
+            if (scrollTop <= 0) {
+            secRef.current.scrollTop = itemHeight;
+            } else if (scrollTop >= itemHeight * 2) {
+            secRef.current.scrollTop = itemHeight;
+            }
+        }
+    }
+    //start scroll in the middle
+    useEffect(()=>{
+        if (minRef.current){
+            minRef.current.scrollTop = 59*3*50;
+        }
+        if (secRef.current)
+            secRef.current.scrollTop = 59*3*50;
+    },[isSetting])
   return (
     <>
     <div className='debateKeeper'>
@@ -327,11 +364,15 @@ export default function DebateKeeper() {
                 <div className='time' style={{'--kcolor':color, '--completion': complete}} onClick={()=>setIsSetting(true)} onBlur={()=>setIsSetting(false)}>
                     {isSetting? 
                         <div className='timeSet' ref={setRef}>
-                            <ul>
+                            <ul data-name='min' ref={minRef} onScroll={infiniteScroll}>
+                                {timeArray.min.map((m,i)=><li key={i} value={m} onClick={(e)=>setTime({...time, min: zero(e.target.value)})}>{m}</li>)}
+                                {timeArray.min.map((m,i)=><li key={i} value={m} onClick={(e)=>setTime({...time, min: zero(e.target.value)})}>{m}</li>)}
                                 {timeArray.min.map((m,i)=><li key={i} value={m} onClick={(e)=>setTime({...time, min: zero(e.target.value)})}>{m}</li>)}
                             </ul>
                             <span>:</span>
-                            <ul>
+                            <ul data-name='sec' ref={secRef} onScroll={infiniteScroll}>
+                                {timeArray.sec.map((s,i)=><li key={i} value={s} onClick={(e)=>setTime({...time, sec: zero(e.target.value)})}>{s}</li>)}
+                                {timeArray.sec.map((s,i)=><li key={i} value={s} onClick={(e)=>setTime({...time, sec: zero(e.target.value)})}>{s}</li>)}
                                 {timeArray.sec.map((s,i)=><li key={i} value={s} onClick={(e)=>setTime({...time, sec: zero(e.target.value)})}>{s}</li>)}
                             </ul>
                         </div>

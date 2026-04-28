@@ -900,45 +900,38 @@ table{
   }
 .debateKeeper{
   display: flex;
-  --kcolor:var(--white-color);
-  width: clamp(200px, 95%, 600px);
-  border-radius: 1.5rem;
+  --kcolor:var(--background-color);
+  width: clamp(200px, 90%, 600px);
   justify-self: center;
   padding: 1rem;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--brandcolor) 96%, white 4%), var(--brandcolor-dark));
-  box-shadow: 0 1.5rem 3rem color-mix(in srgb, var(--brandcolor-dark) 50%, transparent);
+  border-radius: 0.5rem;
+  background-color:var(--white-color);
   flex-direction: column;
+  align-items: center;
   gap: 1rem;
   color: var(--white-color);
   input{
     width: auto;
   }
-  align-items: center;
   h3{
     margin: 0;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-size: 0.95rem;
-    color: var(--accentcolor-light);
+    color: var(--brandcolor);
   }
   .keeperSettings{
     width: 100%;
     display: grid;
-    gap: 0.75rem;
+    grid-auto-flow: column;
+    gap: 0.3rem;
     select, .customInput input{
       width: 100%;
-      border: 1px solid color-mix(in srgb, var(--accentcolor) 30%, transparent);
-      background-color: color-mix(in srgb, var(--brandcolor-light) 70%, white 30%);
-      color: var(--white-color);
+      color: var(--brandcolor-dark);
+      padding: 0.3rem;
+      text-align: center;
+      background-color: var(--background-color);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--white-color) 8%, transparent);
-    }
-    select{
-      appearance: none;
-      padding: 0.8rem 1rem;
-      border-radius: 999px;
-      font-weight: 600;
-      outline: none;
     }
   }
   .display{ 
@@ -948,18 +941,16 @@ table{
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
-    filter: drop-shadow(0 1rem 1.25rem color-mix(in srgb, var(--brandcolor-dark) 50%, transparent));
     .frame, .face{
       grid-area: 1/1;
       border-radius: 50%;
     }
     .frame{
-      background: conic-gradient(var(--kcolor) 0% calc(var(--completion,0)*1%), var(--white-color) calc(var(--completion,0)*1%) 100%);
+      background: conic-gradient(var(--kcolor) 0% calc(var(--completion,0)*1%), var(--background-color) calc(var(--completion,0)*1%) 100%);
       transition: all 0.5s linear;
     }
     .face{
-      background:
-        radial-gradient(circle at top, color-mix(in srgb, white 85%, var(--background-color) 15%), var(--background-color));
+      background-color: var(--white-color);
       scale: 0.93;
       display: grid;
       grid-template-columns: repeat(3, 1fr);  
@@ -985,8 +976,7 @@ table{
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          border-radius: 1.25rem;
+          padding: 0.75rem;
           background-color: color-mix(in srgb, white 78%, var(--background-color) 22%);
           box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--brandcolor-dark) 20%, transparent);
           *{
@@ -1002,6 +992,14 @@ table{
             display: inline-flex;
             flex-direction: column;
             scrollbar-width: none;
+            scroll-snap-type: y mandatory;
+            li{
+              scroll-snap-align: center;
+              cursor: pointer;
+            }
+            li.selected{
+              font-size: 3rem;
+            }
           }
         }
       }
@@ -1044,18 +1042,16 @@ table{
   .keeperControls{
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 0.5rem;
   }
   .keeperButton{
     display: grid;
-    padding: 0.5rem;
+    padding: 0.3rem;
     place-items: center;
-    gap: 0.3rem;
     border: none;
     border-radius: 1rem;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--brandcolor-light) 84%, white 16%), color-mix(in srgb, var(--brandcolor) 92%, black 8%));
+    background: linear-gradient(180deg,var(--brandcolor), var(--brandcolor-light));
     color: var(--white-color);
     cursor: pointer;
     transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -1081,9 +1077,6 @@ table{
     padding: 0.85rem;
     .display .face .time{
       font-size: 4.5rem;
-    }
-    .keeperControls{
-      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
   .header nav{
