@@ -17,13 +17,12 @@ app.use(cors(corsOptions));
 app.use(express.json()); //parses JSON request bodies
 app.use(express.urlencoded({extended: false})); //parses form data (like HTML forms)
 
-app.get('/', (_req, res) => {
-  res.status(200).json({ status: 'ok', service: 'mtserver' });
+// A simple "ping" route
+app.get('/ping', (req, res) => {
+  console.log('Alive ping received');
+  res.status(200).send('Server is awake');
 });
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
 
 //routes
 app.use('/user',userRoutes);
