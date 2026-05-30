@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db/db";
-import { events, users, tabsBP, tabsChess, tabsPS, tabsSB, tabsWSDC} from "../db/schema";
+import { events, users, tabsBP, tabsChess, tabsPS, tabsSB, tabsWSDC, judgesPS, judgesSB, tabMastersPS, tabMastersSB} from "../db/schema";
 import bcrypt from 'bcryptjs';
 
 export async function createEvent(req: Request, res: Response){
@@ -71,6 +71,14 @@ export async function getUserEvents(req: Request, res: Response){
     if(!ownerIdFromParams){
       return res.status(400).json({message: 'ownerId is required'});
     }
+
+    const [user]=await db
+    .select({
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.userId, ownerIdFromParams))
+    .limit(1);
 
     const ownedEvents= await db
     .select({
@@ -145,10 +153,70 @@ export async function getUserEvents(req: Request, res: Response){
       tabsByEventId.set(tab.eventId, arr);
     }
 
-    const data = ownedEvents.map((event) => ({
+    const [psTabIds, sbTabIds, tabMasterPSIds, tabMasterSBIds]= await Promise.all([
+      db.select({tabId: judgesPS.tabId,})
+      .from(judgesPS)
+      .where(eq(judgesPS.email, user.email)),
+
+      db.select({tabId: judgesSB.tabId,})
+      .from(judgesSB)
+      .where(eq(judgesSB.email, user.email)), 
+
+      db.select({tabId: tabMastersPS.tabId,})
+      .from(tabMastersPS)
+      .where(eq(tabMastersPS.email, user.email)),
+
+      db.select({tabId: tabMastersSB.tabId,})
+      .from(tabMastersSB)
+      .where(eq(tabMastersSB.email, user.email)),       
+      ]);
+
+    const [psJudgeTabs, sbJudgeTabs, psTMasterTabs, sbTMasterTabs]=await Promise.all([
+      db.select({url: tabsPS.slug, eventId: tabsPS.eventId, title: tabsPS.title, track: tabsPS.track})
+        .from(tabsPS)
+        .where(inArray(tabsPS.tabId, psTabIds.map(i=>i.tabId))),
+      db.select({url: tabsSB.slug, eventId: tabsSB.eventId, title: tabsSB.title, track: tabsSB.track})
+        .from(tabsSB)
+        .where(inArray(tabsSB.tabId, sbTabIds.map(i=>i.tabId))),
+      db.select({url: tabsPS.slug, eventId: tabsPS.eventId, title: tabsPS.title, track: tabsPS.track})
+        .from(tabsPS)
+        .where(inArray(tabsPS.tabId, tabMasterPSIds.map(i=>i.tabId))),
+      db.select({url: tabsSB.slug, eventId: tabsSB.eventId, title: tabsSB.title, track: tabsSB.track})
+        .from(tabsSB)
+        .where(inArray(tabsSB.tabId, tabMasterSBIds.map(i=>i.tabId))),
+      ]);
+    
+    const eventsJudged=await db
+      .select({title: events.title, slug: events.slug, organizer: events.organizer,eventId: events.eventId})
+      .from(events)
+      .where(inArray(events.eventId, [...psJudgeTabs.map(p=>p.eventId),...sbJudgeTabs.map(p=>p.eventId)]));
+    
+    const whereJudge= eventsJudged.map(e=>{
+      let tabs=[...psJudgeTabs.filter(t=>t.eventId===e.eventId), ...sbJudgeTabs.filter(t=>t.eventId===e.eventId)];
+      // console.log(tabs);
+      return {...e, tabs}
+    });
+
+    const eventsTabbed=await db
+      .select({title: events.title, slug: events.slug, organizer: events.organizer,eventId: events.eventId})
+      .from(events)
+      .where(inArray(events.eventId, [...psTMasterTabs.map(p=>p.eventId),...sbTMasterTabs.map(p=>p.eventId)]));
+    
+    const whereTab= eventsTabbed.map(e=>{
+      let tabs=[...psTMasterTabs.filter(t=>t.eventId===e.eventId), ...sbTMasterTabs.filter(t=>t.eventId===e.eventId)];
+      // console.log(tabs);
+      return {...e, tabs}
+    });
+
+    const owned = ownedEvents.map((event) => ({
       ...event,
       tabs: tabsByEventId.get(event.eventId) ?? [],
     }));
+    const data={
+      owned: owned,
+      judged: whereJudge,
+      tabbed: whereTab,
+    }
 
     return res.status(200).json({
       message: "User events fetched successfully",

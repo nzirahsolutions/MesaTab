@@ -584,18 +584,17 @@ function showForm(entity){
                   <div className="roomHeader"><h2 style={{ margin: 0 }}>{resultForm.draft.room.name}</h2></div>
                   <div className="roomBody" style={{width:'auto'}}>
                     {resultForm.draft.spellers.map((speller) => (
-                      <li key={speller.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr", gap: "0.5rem" }}>
+                      <li key={speller.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr 0.5fr", gap: "0.5rem" }}>
                         <span>{speller.name}</span>
                         <span>{fullTab?.institutions?.find((entry) => entry.id === speller.institutionId)?.code ?? "-"}</span>
-                        {sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks ?(
+                        {sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks &&(
                           <select value={speller.result?.status ?? "Incomplete"} onChange={(e) => updateResultDraft(speller.id, { status: e.target.value })}>
                             <option value="Incomplete">Incomplete</option>
                             <option value="Eliminated">Eliminated</option>
                             <option value="Pass">Pass</option>
                           </select>
-                        ):(
-                        <Cell value={speller.result?.score ?? fullTab.minScore} min={0} max={selectedRound.type==='Word Limit'? selectedRound.wordLimit :30} onChange={(score) => updateResultDraft(speller.id, { score })} />
                         )}
+                        <Cell value={speller.result?.score ?? fullTab.minScore} min={0} max={selectedRound.type==='Word Limit'? selectedRound.wordLimit :30} onChange={(score) => updateResultDraft(speller.id, { score })} />
                       </li>
                     ))}
                   </div>

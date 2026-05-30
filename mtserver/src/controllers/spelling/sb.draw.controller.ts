@@ -15,7 +15,7 @@ function shuffle<T>(array: T[]): T[] {
 function allocateSlidingPowerPair<T>(
   rooms: Array<{ roomId: number }>,
   rankedItems: T[]
-): Array<{ roomId: number; allocatedBees: T[] }> {
+  ): Array<{ roomId: number; allocatedBees: T[] }> {
   const basePerRoom = Math.floor(rankedItems.length / rooms.length);
   const extra = rankedItems.length % rooms.length;
   const capacities = rooms.map((_, i) => basePerRoom + (i < extra ? 1 : 0));

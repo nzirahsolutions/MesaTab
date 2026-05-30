@@ -218,6 +218,13 @@
       "when": 1775606318628,
       "tag": "0030_misty_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1780101506422,
+      "tag": "0031_nappy_big_bertha",
+      "breakpoints": true
     }
   ]
 }

@@ -33,11 +33,12 @@ export default function Events() {
         try{
           const res=await axios.get(`${currentServer}/event/user/${user.id}`);
           // console.log(res.data.data);
-          setUserEvents([...res.data.data]);
+          setUserEvents(res.data.data);
           setLoadPage(false);
         }
         catch(err){
           setUserEvents([]);
+          console.log(err.response.data);
           toast.error(err?.response?.data?.message || "Failed to load your events");
         }
     }
@@ -109,21 +110,51 @@ export default function Events() {
   function reviewEvents(){
     if (user && !loadPage)
     return(
-      <section id="userEvent">
-        <h2>User's Events</h2>
-        <div className="eventList">
-          {userEvents.length===0 ? 
-          <div className="eventCard"><p>You have not started any events</p></div> 
-          : 
-          userEvents.map((event)=>(
-            <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
-              <h3>{event.title}</h3>
-              <p style={{margin:'0.3rem'}}><strong>Url: </strong>{event.slug}</p>
-              {event.tabs && event.tabs.length!==0?<div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
-            </div>
-          ))}
-        </div>
-    </section>
+      <>
+        <section id="userEvent">
+          <h2>User's Events</h2>
+          <div className="eventList">
+            {userEvents?.owned.length===0 ? 
+            <div className="eventCard"><p>You have not started any events</p></div> 
+            : 
+            userEvents?.owned.map((event)=>(
+              <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
+                <h3>{event.title}</h3>
+                <p style={{margin:'0.3rem'}}><strong>Url: </strong>{event.slug}</p>
+                {event.tabs && event.tabs.length!==0?<div>{[...new Set(event.tabs.map(t=>t.track))].map((e,i)=><span key={i}>{e}</span>)}</div>:<p>No Tabs Assigned</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+        <section id="userEvent">
+          <h2>Events as Tab Master</h2>
+          <div className="eventList">
+            {userEvents?.tabbed.length===0 ? 
+            <div className="eventCard"><p>You have not tabbed any events</p></div> 
+            : 
+            userEvents?.tabbed.map((event)=>(
+              <div key={event.eventId} className="eventCard">
+                <h3>{event.title}</h3>
+                {event.tabs && event.tabs.length!==0?<div>{event.tabs.map((e,i)=><span style={{cursor:'pointer'}} key={i} onClick={()=>navigate(`/${event.slug}/${e.url}`)}>{e.title} ({e.track})</span>)}</div>:<p>No Tabs Assigned</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+        <section id="userEvent">
+          <h2>Events as Judge</h2>
+          <div className="eventList">
+            {userEvents?.judged.length===0 ? 
+            <div className="eventCard"><p>You have not judged any events</p></div> 
+            : 
+            userEvents?.judged.map((event)=>(
+              <div key={event.eventId} className="eventCard">
+                <h3>{event.title}</h3>
+                {event.tabs && event.tabs.length!==0?<div>{event.tabs.map((e,i)=><span style={{cursor:'pointer'}} key={i} onClick={()=>navigate(`/${event.slug}/${e.url}`)}>{e.title} ({e.track})</span>)}</div>:<p>No Tabs Assigned</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      </>
     );
     if(user && loadPage) return <Loading/>
     return (
@@ -160,7 +191,7 @@ export default function Events() {
     <section id="otherEvents">
       <h2>Find Event</h2>
       <div className="textBlock">
-        <p>Enter the exact event slug</p>
+        <p>Enter the exact event url (ask event owner)</p>
         <Findbar placeholder='e.g: "PAUDC-2023"' onSearch={findEvent} />
       {foundEvent.slug &&
         <div className="eventCard" onClick={()=>navigate(`/${foundEvent.slug}`)}>
