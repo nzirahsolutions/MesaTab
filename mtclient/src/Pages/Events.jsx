@@ -114,10 +114,10 @@ export default function Events() {
         <section id="userEvent">
           <h2>User's Events</h2>
           <div className="eventList">
-            {userEvents?.owned.length===0 ? 
+            {!userEvents?.owned? 
             <div className="eventCard"><p>You have not started any events</p></div> 
             : 
-            userEvents?.owned.map((event)=>(
+            userEvents?.owned?.map((event)=>(
               <div key={event.eventId} className="eventCard" onClick={()=>navigate(`/${event.slug}`)}>
                 <h3>{event.title}</h3>
                 <p style={{margin:'0.3rem'}}><strong>Url: </strong>{event.slug}</p>
@@ -129,10 +129,10 @@ export default function Events() {
         <section id="userEvent">
           <h2>Events as Tab Master</h2>
           <div className="eventList">
-            {userEvents?.tabbed.length===0 ? 
+            {!userEvents?.tabbed? 
             <div className="eventCard"><p>You have not tabbed any events</p></div> 
             : 
-            userEvents?.tabbed.map((event)=>(
+            userEvents?.tabbed?.map((event)=>(
               <div key={event.eventId} className="eventCard">
                 <h3>{event.title}</h3>
                 {event.tabs && event.tabs.length!==0?<div>{event.tabs.map((e,i)=><span style={{cursor:'pointer'}} key={i} onClick={()=>navigate(`/${event.slug}/${e.url}`)}>{e.title} ({e.track})</span>)}</div>:<p>No Tabs Assigned</p>}
@@ -143,10 +143,10 @@ export default function Events() {
         <section id="userEvent">
           <h2>Events as Judge</h2>
           <div className="eventList">
-            {userEvents?.judged.length===0 ? 
+            {!userEvents?.judged ? 
             <div className="eventCard"><p>You have not judged any events</p></div> 
             : 
-            userEvents?.judged.map((event)=>(
+            userEvents?.judged?.map((event)=>(
               <div key={event.eventId} className="eventCard">
                 <h3>{event.title}</h3>
                 {event.tabs && event.tabs.length!==0?<div>{event.tabs.map((e,i)=><span style={{cursor:'pointer'}} key={i} onClick={()=>navigate(`/${event.slug}/${e.url}`)}>{e.title} ({e.track})</span>)}</div>:<p>No Tabs Assigned</p>}
