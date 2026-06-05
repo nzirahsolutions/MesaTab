@@ -1,0 +1,3 @@
+ALTER TABLE "tab_masters_ps" ADD COLUMN "institution_id" integer;--> statement-breakpoint
+ALTER TABLE "tab_masters_ps" ADD CONSTRAINT "tab_masters_ps_institution_id_institutions_ps_institution_id_fk" FOREIGN KEY ("institution_id") REFERENCES "public"."institutions_ps"("institution_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "tab_masters_ps_institutionId_idx" ON "tab_masters_ps" USING btree ("institution_id");

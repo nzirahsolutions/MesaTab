@@ -225,6 +225,13 @@
       "when": 1780101506422,
       "tag": "0031_nappy_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780622092260,
+      "tag": "0032_shocking_robin_chapel",
+      "breakpoints": true
     }
   ]
 }

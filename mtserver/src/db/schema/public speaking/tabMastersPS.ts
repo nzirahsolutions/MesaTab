@@ -8,7 +8,7 @@ export const tabMastersPS = pgTable(
   {
     tabMasterId: serial('tab_master_id').primaryKey(),
     tabId: uuid('tab_id').notNull().references(() => tabsPS.tabId, { onDelete: 'cascade' }),
-    institutionId: integer('institution_id').notNull().references(() => institutionsPS.institutionId, { onDelete: 'cascade' }),
+    institutionId: integer('institution_id').references(() => institutionsPS.institutionId, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     email: text('email').notNull(),
   },
