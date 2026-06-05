@@ -319,10 +319,16 @@ footer{
   .otherOptions{
     background-color: var(--brandcolor);}
 }
+input::file-selector-button{
+  background-color: var(--brandcolor);
+  color: white;
+  border: none;
+  border-radius: 5rem;
+}
 .customInput{
   position: relative;
   input{
-    width: 100%;
+    width: 95%;
     position: relative;
     border: none;
     padding: 0.5rem;
@@ -515,18 +521,40 @@ form{
 dialog{
   border: 2px solid var(--accentcolor);
   border-radius: 1rem;
-  padding: 0;
+  padding: 0.2rem;
   top: 50%;
   bottom: 50%;
   max-height: 90vh;
   overflow-y: auto;
   position: fixed;
   z-index: 1;
+  display: grid;
+  scrollbar-width: none;
+
   form{
     background-color: var(--transparent);
     width: 80vw;
+    display: grid;
+    grid-auto-flow: row;
     max-width: 500px;
+    scrollbar-width: none;
+    p{
+      margin: 0.5rem;
+    }
+    div:not(.customInput, .importXCL, .roomCard, .roomBody){
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 0.5rem;
+      .customInput input{
+        width: 90%;
+      }
+    }
   }
+}
+.importXCL{
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 select{
     outline: none;
@@ -556,7 +584,6 @@ select{
     text-align: center;
   }
 }
-
 .buttonStack{
   display: grid;
   grid-auto-flow: column;
@@ -568,7 +595,10 @@ select{
   overflow: hidden;
   overflow-x: scroll;
   scrollbar-width: none;
+  position: relative;
   margin-bottom: 0.5rem;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
   button{
     border-radius: 2rem;
     transition: background-color 0.3s ease;
@@ -579,12 +609,14 @@ select{
   .lightButton{
     anchor-name: --anch;
     background-color: transparent;
+    scroll-snap-align: center;
     color: var(--brandcolor);
     z-index: 1;
   }
   .darkButton{
+    background-color: transparent;
     &:hover{
-      background-color: var(--brandcolor);
+      background-color: transparent;
       font-weight: bold;
     }
   }
@@ -615,7 +647,6 @@ select{
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  align-items:flex-start;
   h3{
     display: inline;
     margin: 0;
@@ -689,70 +720,6 @@ select{
       list-style: none;
       &:hover{
         cursor: pointer;
-      }
-    }
-  }
-}
-.tabSideMenu{
-  position: relative;
-  left:-0.5rem;
-  top: -0.5rem;
-  width: 100vw;
-
-  .tTitle{
-    display: none;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--brandcolor);
-    color: var(--background-color);
-    span{
-      background-color: var(--accentcolor);
-      color: var(--brandcolor);
-      padding: 0.3rem;
-      margin: 0.2rem;
-      border-radius: 2rem;
-      &:hover{
-        cursor: pointer;
-      }
-    }
-  }
-  .tSideMenu{
-    display: none;
-    flex-direction: row;
-    margin: 0;
-    background-color: var(--brandcolor);
-    color: var(--background-color);
-    padding: 0;
-    position: fixed;
-    top: 0;
-    z-index: 2;
-    min-width: 30%;
-    height: 100%;
-    span{
-      background-color: var(--accentcolor);
-      color: var(--brandcolor);
-      padding: 0.3rem;
-      margin: 0.2rem;
-      border-radius: 2rem;
-      &:hover{
-        cursor: pointer;
-      }
-    }
-    ul{
-      display: flex;
-      flex-direction: column;
-      align-items: start;
-      gap:0.3rem;
-      padding: 0.5em;
-      margin: 0;
-      li{
-        min-width: fit-content;
-        list-style: none;
-        border-bottom: 1px solid var(--accentcolor);
-        &:hover{
-          cursor: pointer;
-        }
       }
     }
   }
@@ -1094,9 +1061,6 @@ table{
   }
   .Open, .Closed{
     display: block;
-  }
-  .tabMenu{
-    display: none;
   }
   .tabSideMenu{
     display: block;

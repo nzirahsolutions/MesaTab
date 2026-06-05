@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "../../db/db";
-import { tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
+import { tabsSB,tabsBP,tabsChess,tabsPS,tabsWSDC, cupCategoriesSB, institutionsSB, spellers as spellersSB,tabMastersSB, roomsSB, roundsSB, judgesSB, wordsSB, drawsSB, drawJudgesSB, drawSpellers, resultsSB, standingsSB} from "../../db/schema";
 import { rebuildStandingsForTab } from "./sb.results.controller";
 
 type cup={
@@ -19,6 +19,25 @@ type normalizedCup = {
   breakNumber: number;
   breakCapacity: number;
 }
+type Institution={
+  id: string|null;
+  name: string;
+  code: string;
+}
+type Judge={
+  id: number|null;
+  name: string;
+  email: string|null;
+  institutionId: number;
+  available: boolean;
+}
+type Speller={
+  id: number|null;
+  name: string;
+  email: string|null;
+  institutionId: number;
+  available: boolean;
+}
 
 function parseBooleanInput(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -28,7 +47,12 @@ function parseBooleanInput(value: unknown): boolean | undefined {
   }
   return undefined;
 }
-
+function parsePositiveIntOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return Number.NaN;
+  return parsed;
+}
 function parseIntOrNull(value: unknown): number | null {
   if (value === undefined) return null;
   if (value === null || value === "") return null;
@@ -50,6 +74,14 @@ function validateRoundShape(type: unknown, timeLimit: number | null, wordLimit: 
     return { ok: true as const, timeLimit: null, wordLimit };
   }
   return { ok: true as const, timeLimit: null, wordLimit: null };
+}
+async function ensureInstitutionExists(tabId: string, institutionId: number) {
+  const rows = await db
+    .select({ id: institutionsSB.institutionId })
+    .from(institutionsSB)
+    .where(and(eq(institutionsSB.tabId, tabId), eq(institutionsSB.institutionId, institutionId)))
+    .limit(1);
+  return rows.length > 0;
 }
 
 const allowedBreakPhases = new Set(['Triples','Doubles','Octos','Quarters','Semis','Finals']);
@@ -116,14 +148,14 @@ export async function getFullTab(req: Request, res: Response) {
 
         db
           .select({
-            id: spellers.spellerId,
-            name: spellers.name,
-            email: spellers.email,
-            institutionId: spellers.institutionId,
-            available: spellers.available,
+            id: spellersSB.spellerId,
+            name: spellersSB.name,
+            email: spellersSB.email,
+            institutionId: spellersSB.institutionId,
+            available: spellersSB.available,
           })
-          .from(spellers)
-          .where(eq(spellers.tabId, tab.tabId)),
+          .from(spellersSB)
+          .where(eq(spellersSB.tabId, tab.tabId)),
 
         db
           .select({
@@ -721,121 +753,96 @@ export async function updateTab(req:Request, res: Response){
     }
 }
 //institution
-export async function addInstitution(req: Request, res: Response) {
-    console.log('Add institution');
-    try {
-        const {name, code, tabId}=req.body as {
-            name: string;
-            code: string;
-            tabId: string;
-        }
-        const normalizedCode=code.trim().toUpperCase();
-        
-        if (!name || !normalizedCode || !tabId) {
-            return res
-            .status(400)
-            .json({ message: "School name and code are required" });
-        }
-        const existing = await db
-                    .select({ code: institutionsSB.code })
-                    .from(institutionsSB)
-                    .where(and(eq(institutionsSB.code, normalizedCode),eq(institutionsSB.tabId, tabId)))
-                    .limit(1);
-      
-        if (existing.length > 0) {
-            return res.status(409).json({ message: "Institute code is already in tab" });
-        }
+export async function updateInstitutions(req: Request, res: Response) {
+  try {
+    const { tabId, institutions } = req.body as { institutions: Array<Institution> ,tabId: string };
+    if (!tabId || !institutions || institutions.length===0) {
+      return res.status(400).json({ message: 'tabId and at least one institution are required' });
+    }
 
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-        
-        const added = await db
-            .insert(institutionsSB)
-            .values({
-            name: name,
-            code: normalizedCode,
-            tabId: tabId,
-            })
-            .returning({
+    for (const inst of institutions){
+      const code2=inst.code.toUpperCase().trim();
+      const name2=inst.name.trim();
+      if( !name2 || !code2)
+        throw new Error('Institution Names and Codes must not be blank');
+
+      const data={
+        name: name2,
+        code: code2,
+        tabId: tabId,
+      }
+      //insert
+      if(inst.id===null){        
+      //check unique institution code
+      const existing = await db
+        .select({ id: institutionsSB.institutionId })
+        .from(institutionsSB)
+        .where(and(eq(institutionsSB.tabId, tabId), eq(institutionsSB.code, code2)))
+        .limit(1);
+      
+      if(existing.length){
+        throw new Error(`Institution code ${code2} already exists`);
+      }    
+        await db
+          .insert(institutionsSB)
+          .values(data)
+          .returning({
+            id: institutionsSB.institutionId,
             name: institutionsSB.name,
             code: institutionsSB.code,
             tabId: institutionsSB.tabId,
             });
-
-        const addedInstitution = added[0];
-
-        return res.status(201).json({
-            message: "Institution Added Successfully",
-            data: addedInstitution,
-        });
+      }
+      //update
+      else {
+        //check inst of this id exists
+        const found=await db
+        .select()
+        .from(institutionsSB)
+        .where(and(eq(institutionsSB.tabId, tabId), eq(institutionsSB.institutionId, Number(inst.id))))
+        .limit(1);
         
-    } 
-    catch(error){
-        console.error("addInstitution error:", error);
-        return res.status(500).json({ message: "failed to add Instituition" });
-    }
-}
-export async function updateInstitution(req: Request, res: Response) {
-    // console.log('Update Institution');
-    try {
-        const {name, code, tabId, id}=req.body as {
-            name: string;
-            code: string;
-            tabId: string;
-            id: number;
+        if(!found.length){
+          throw new Error(`Institution not found`);
         }
 
-        if((!name && !code) || !tabId || !id)
-            return res.status(400).json({message:'Provide at least code  or name'});
-        const updates:{name?: string; code?: string}={};
-        if(name) updates.name=name;
-        if(code) updates.code=code.trim().toUpperCase();
-
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-
-        //ensure code is unique in the same tab
-        if(updates.code){
-          const existing=await db
-            .select({id: institutionsSB.institutionId})
+        //check unique institution code
+        if(found[0].code!==inst.code){
+          const existing = await db
+            .select({ id: institutionsSB.institutionId })
             .from(institutionsSB)
-            .where(and(eq(institutionsSB.tabId, tabId),eq(institutionsSB.code,updates.code )))
+            .where(and(eq(institutionsSB.tabId, tabId), eq(institutionsSB.code, code2), ne(institutionsSB.institutionId, found[0].institutionId)))
             .limit(1);
-            if(existing.length && existing[0].id !==id){
-              return res.status(409).json({message:'Instituion code is already in tab'});
-            }
+          
+          if(existing.length){
+            throw new Error(`Institution code ${code2} already exists`);
+          }
         }
-        const updated= await db
-        .update(institutionsSB)
-        .set(updates)
-        .where(and(eq(institutionsSB.tabId, tabId),eq(institutionsSB.institutionId, id)))
-        .returning({
-          institutionId: institutionsSB.institutionId,
-          name: institutionsSB.name,
-          code: institutionsSB.code,
-          tabId: institutionsSB.tabId,
-        });
-        if(!updated.length) return res.status(404).json({message:'Institution not found'});
 
-        return res.status(200).json({message:'Institution updated successfully',
-          data: updated[0],
-        })
+        const updated = await db
+          .update(institutionsSB)
+          .set(data)
+          .where(and(eq(institutionsSB.tabId, tabId), eq(institutionsSB.institutionId, Number(inst.id))))
+          .returning({
+            id: institutionsSB.institutionId,
+            name: institutionsSB.name,
+            code: institutionsSB.code,
+            tabId: institutionsSB.tabId,
+          });
 
-    } 
-    catch(error){
-    console.error("updateInstitution error:", error);
-    return res.status(500).json({ message: "failed to update Instituition" });
+        if (!updated.length) {
+          throw new Error(`Institution ${inst.name} not found in tab for update`);
+        }
+      }
     }
+
+    return res.status(201).json({ message: 'Institutions updated successfully'});
+  } 
+  catch (error) {
+    console.error('sb updateInstitutions error::', error);
+    const message = error instanceof Error ? error.message : 'Failed to update Institutions';
+    return res.status(500).json({ message });
+  }
 }
 export async function deleteInstitution(req: Request, res: Response) {
     try {
@@ -901,133 +908,60 @@ export async function deleteInstitution(req: Request, res: Response) {
     }
 }
 //speller
-export async function addSpeller(req: Request, res: Response) {
-    // console.log('Add institution');
-    try {
-        const {name, email, tabId, institutionId}=req.body as {
-            name?: string;
-            email?: string;
-            tabId?: string;
-            institutionId?: number;
-        }
-        const normalizedEmail=email?.trim().toLowerCase();       
-        if (!name || !institutionId || !tabId) {
-            return res
-            .status(400)
-            .json({ message: "Speller name and institution are required" });
-        }
-        // console.log('Email:',normalizedEmail);
-        if(normalizedEmail){
-          const existing = await db
-                    .select({ email: spellers.email })
-                    .from(spellers)
-                    .where(and(eq(spellers.email, normalizedEmail),eq(spellers.tabId, tabId)))
-                    .limit(1);
-      
-        if (existing.length > 0) {
-            return res.status(409).json({ message: "Student with that email is already in tab" });
-        }}
-
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-
-        const added = await db
-            .insert(spellers)
-            .values({
-            name: name,
-            email: normalizedEmail? normalizedEmail:null,
-            tabId: tabId,
-            institutionId: institutionId
-            })
-            .returning({
-            name: spellers.name,
-            email: spellers.email,
-            tabId: spellers.tabId,
-            institutionId: spellers.institutionId
-            });
-
-        const addedSpeller = added[0];
-        await rebuildStandingsForTab(tabId);
-
-        return res.status(201).json({
-            message: "Speller Registered Successfully",
-            data: addedSpeller,
-        });
-        
-    } 
-    catch(error)
-    {
-    console.error("addSpeller error:", error);
-    return res.status(500).json({ message: "failed to add speller" });
+export async function updateSpellers(req: Request, res: Response) {
+  try {
+    const { spellers,tabId } = req.body as {
+      spellers: Array<Speller>;
+      tabId?: string;
+    };
+    if (!tabId || !spellers || spellers.length===0) {
+      return res.status(400).json({ message: 'tabId and at least one speller are required' });
     }
-}
-export async function updateSpeller(req: Request, res: Response) {
-    // console.log('Update Institution');
-    try {
-        const {name, email, tabId, id, institutionId, available}=req.body as {
-            name: string;
-            email: string;
-            tabId: string;
-            id: number;
-            institutionId: number;
-            available: boolean;
+
+    for (const spk of spellers){
+      const name=spk.name.trim();
+      const email=spk.email?.trim()? spk.email?.trim().toLocaleLowerCase() : null;
+      const institutionId= Number(spk.institutionId);
+
+      if(!name || !tabId || institutionId===null || Number.isNaN(institutionId)){
+        throw new Error(`name, institutionId and tabId are required`);
+      }
+      if (!(await ensureInstitutionExists(tabId, institutionId))) {
+        throw new Error(`Institution for ${name} not found in this tab`);
+      }
+
+      const data={
+        tabId: tabId,
+        institutionId: institutionId,
+        name: name,
+        email: email,
+        available: spk.available,
+      }
+      if(spk.id===null){
+        await db
+        .insert(spellersSB)
+        .values(data)
+      }
+      else{
+        //check if speller of this id exists and update
+        const updated = await db
+          .update(spellersSB)
+          .set(data)
+          .where(and(eq(spellersSB.tabId, tabId), eq(spellersSB.spellerId, spk.id)))
+          .returning();
+          
+        if (!updated.length) {
+          throw new Error(`Speller ${name} not found`);
         }
-
-        if((!id && !tabId) || !tabId || !id)
-            return res.status(400).json({message:'Provide tabId and spellerId'});
-
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-
-        const updates:{name?: string; email?: string, institutionId?:number, available?: boolean}={};
-        if(name) updates.name=name;
-        if(email) updates.email=email.trim().toLocaleLowerCase();
-        if(institutionId) updates.institutionId=institutionId;
-        updates.available=available;
-
-        //ensure email is unique in the same tab
-        if(updates.email){
-          const existing=await db
-            .select({id: spellers.spellerId})
-            .from(spellers)
-            .where(and(eq(spellers.tabId, tabId),eq(spellers.email,updates.email )))
-            .limit(1);
-            if(existing.length && existing[0].id !==id){
-              return res.status(409).json({message:'Student with that email is already in tab'});
-            }
-        }
-        const updated= await db
-        .update(spellers)
-        .set(updates)
-        .where(and(eq(spellers.tabId, tabId),eq(spellers.spellerId, id)))
-        .returning({
-          spellerId: spellers.spellerId,
-          name: spellers.name,
-          email: spellers.email,
-          institutionId: spellers.institutionId,
-          tabId: spellers.tabId,
-          available: spellers.available,
-        });
-        if(!updated.length) return res.status(404).json({message:'Speller not found'});
-
-        return res.status(200).json({message:'Speller updated successfully',
-          data: updated[0],
-        })
-    } 
-    catch(error){
-    console.error("updateSpeller error:", error);
-    return res.status(500).json({ message: "failed to update speller" });
+      }
     }
+    return res.status(201).json({ message: 'Spellers updated successfully'});
+  } 
+  catch (error) {
+    console.error('ps updateSpellers error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update Spellers';
+    return res.status(500).json({ message });
+  }
 }
 export async function deleteSpeller(req: Request, res: Response) {
     try {
@@ -1047,17 +981,17 @@ export async function deleteSpeller(req: Request, res: Response) {
         if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
 
     const deleted = await db
-      .delete(spellers)
+      .delete(spellersSB)
       .where(and(
-        eq(spellers.spellerId, id),
-        eq(spellers.tabId, tabId)
+        eq(spellersSB.spellerId, id),
+        eq(spellersSB.tabId, tabId)
       ))
       .returning({
-        spellerId: spellers.spellerId,
-        name: spellers.name,
-        email: spellers.email,
-        institutionId: spellers.institutionId,
-        tabId: spellers.tabId,
+        spellerId: spellersSB.spellerId,
+        name: spellersSB.name,
+        email: spellersSB.email,
+        institutionId: spellersSB.institutionId,
+        tabId: spellersSB.tabId,
       });
 
     if (!deleted.length) {
@@ -1236,126 +1170,60 @@ export async function deleteTabMaster(req: Request, res: Response) {
     }
 }
 //judge
-export async function addJudge(req: Request, res: Response) {
-    try {
-        const {name, email, tabId, institutionId}=req.body as {
-            name?: string;
-            email?: string;
-            tabId?: string;
-            institutionId?: number;
-        }
-        const normalizedEmail=email?.trim().toLocaleLowerCase();
-        if (!name || !institutionId || !tabId) {
-            return res
-            .status(400)
-            .json({ message: "Judge name and institution are required" });
-        }
-        if (normalizedEmail) {
-          const existing = await db
-                      .select({ email: judgesSB.email })
-                      .from(judgesSB)
-                      .where(and(eq(judgesSB.email, normalizedEmail),eq(judgesSB.tabId, tabId)))
-                      .limit(1);
-        
-          if (existing.length > 0) {
-              return res.status(409).json({ message: "Judge with that email is already in tab" });
-          }
-        }
-
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-        const added = await db
-            .insert(judgesSB)
-            .values({
-            name: name,
-            email: normalizedEmail? normalizedEmail:null,
-            tabId: tabId,
-            institutionId: institutionId
-            })
-            .returning({
-            id: judgesSB.judgeId,
-            name: judgesSB.name,
-            email: judgesSB.email,
-            tabId: judgesSB.tabId,
-            institutionId: judgesSB.institutionId
-            });
-
-        return res.status(201).json({
-            message: "Judge Added Successfully",
-            data: added[0],
-        });
-    } 
-    catch(error){
-    console.error("addJudge error:", error);
-    return res.status(500).json({ message: "failed to add judge" });
+export async function updateJudges(req: Request, res: Response) {
+  try {
+    const { judges,tabId } = req.body as {
+      judges: Array<Judge>;
+      tabId?: string;
+    };
+    if (!tabId || !judges || judges.length===0) {
+      return res.status(400).json({ message: 'tabId and at least one judge are required' });
     }
-}
-export async function updateJudge(req: Request, res: Response) {
-    try {
-        const {name, email, tabId, id, institutionId, available}=req.body as {
-            name?: string;
-            email?: string;
-            tabId?: string;
-            id?: number;
-            institutionId?: number;
-            available?: boolean;
+
+    for (const spk of judges){
+      const name=spk.name.trim();
+      const email=spk.email?.trim()? spk.email?.trim().toLocaleLowerCase() : null;
+      const institutionId= parsePositiveIntOrNull(spk.institutionId);
+
+      if(!name || !tabId || institutionId===null || Number.isNaN(institutionId)){
+        throw new Error(`name, institutionId and tabId are required`);
+      }
+      if (!(await ensureInstitutionExists(tabId, institutionId))) {
+        throw new Error(`Institution for ${name} not found in this tab`);
+      }
+
+      const data={
+        tabId: tabId,
+        institutionId: institutionId,
+        name: name,
+        email: email,
+        available: spk.available,
+      }
+      if(spk.id===null){
+        await db
+        .insert(judgesSB)
+        .values(data)
+      }
+      else{
+        //check if judge of this id exists and update
+        const updated = await db
+          .update(judgesSB)
+          .set(data)
+          .where(and(eq(judgesSB.tabId, tabId), eq(judgesSB.judgeId, spk.id)))
+          .returning();
+
+        if (!updated.length) {
+          throw new Error(`Judge ${name} not found`);
         }
-
-        if(!tabId || !id)
-            return res.status(400).json({message:'Provide tabId and judgeId'});
-
-        //confirm tab isn't completed
-        const [tab]= await db
-          .select({completed: tabsSB.completed})
-          .from(tabsSB)
-          .where(eq(tabsSB.tabId, tabId));
-        
-        if(tab.completed) return res.status(400).json({message:'Tab marked as completed'});
-
-        const updates:{name?: string; email?: string; institutionId?:number; available?:boolean;}={};
-        if(name) updates.name=name;
-        if(email) updates.email=email.trim().toLocaleLowerCase();
-        if(institutionId) updates.institutionId=institutionId;
-        updates.available=available;
-
-        if(updates.email){
-          const existing=await db
-            .select({id: judgesSB.judgeId})
-            .from(judgesSB)
-            .where(and(eq(judgesSB.tabId, tabId),eq(judgesSB.email,updates.email )))
-            .limit(1);
-            if(existing.length && existing[0].id !==id){
-              return res.status(409).json({message:'Judge with that email is already in tab'});
-            }
-        }
-        const updated= await db
-        .update(judgesSB)
-        .set(updates)
-        .where(and(eq(judgesSB.tabId, tabId),eq(judgesSB.judgeId, id)))
-        .returning({
-          id: judgesSB.judgeId,
-          name: judgesSB.name,
-          email: judgesSB.email,
-          institutionId: judgesSB.institutionId,
-          tabId: judgesSB.tabId,
-          available: judgesSB.available,
-        });
-        if(!updated.length) return res.status(404).json({message:'Judge not found'});
-
-        return res.status(200).json({
-          message:'Judge updated successfully',
-          data: updated[0],
-        });
-    } 
-    catch(error){
-    console.error("updateJudge error:", error);
-    return res.status(500).json({ message: "failed to update judge" });
+      }
     }
+    return res.status(201).json({ message: 'Judges updated successfully'});
+  } 
+  catch (error) {
+    console.error('ps updateJudges error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update Judges';
+    return res.status(500).json({ message });
+  }
 }
 export async function deleteJudge(req: Request, res: Response) {
     try {

@@ -12,6 +12,7 @@ import Cell from "../../../../Components/Cell";
 import Toast from "../../../../Components/Toast";
 import { currentServer } from "../../../../Context/urls";
 import Input from "../../../../Components/Input";
+import ExcelReader from "../../../../Components/ExcelReader";
 
 const speechTypes = [
   "narrative",
@@ -28,25 +29,17 @@ const speechTypes = [
 
 export default function PublicSpeakingAdmin({ tab, event }) {
   const { user, access, setAccess } = useContext(AuthContext);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [tabItem, setTabItem] = useState("home");
-  const tabHistoryRef = useRef(false);
+  const [tabItem, setTabItem] = useState("Configuration");
+  const [regItem, setRegItem] = useState("Institutions");
   const [pageLoad, setPageLoad] = useState({ loading: true, adminAuthorized: false, judgeAuthorized: false });
   const [fullTab, setFullTab] = useState(null);
   const [configForm, setConfigForm] = useState({ title: "", slug: "", minScore: 30, maxScore: 90, completed: false, cups: [] });
-  const [institutionForm, setInstitutionForm] = useState({ id: null, name: "", code: "" });
-  const [tabMasterForm, setTabMasterForm] = useState({ id: null, name: "", institutionId: 0, email: "" });
-  const [speakerForm, setSpeakerForm] = useState({ id: null, name: "", institutionId: 0, email: "", available: true });
-  const [judgeForm, setJudgeForm] = useState({ id: null, name: "", institutionId: 0, email: "", available: true });
-  const [roomForm, setRoomForm] = useState({ id: null, name: "", available: true });
-  const [roundForm, setRoundForm] = useState({ id: null, name: "", number: "", speechDuration: "", breaks: false, blind: false, completed: false, breakCategory: "", breakPhase: "" });
-  const [promptForm, setPromptForm] = useState({ id: null, roundId: "", speechPrompt: "", speechType: "narrative", visible: false });
-  const [drawForm, setDrawForm] = useState({ roundId: "", powerPair: true, breakRoundId: "", preview: null });
-  const [drawUpdateForm, setDrawUpdateForm]= useState({roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speaker1:0, speaker2:0})
-  const [resultForm, setResultForm] = useState({ roundId: "", roomId: "", draft: null });
   const newItems={
+    institutionForm:{institutions:[{ id: null, name: "", code: "" }]},
+    speakerForm:{speakers:[{ id: null, name: "", institutionId: 0, email: "", available: true}]},
+    judgeForm:{judges:[{ id: null, name: "", institutionId: 0, email: "", available: true}]},
     institution:{id: null, name: "", code: ""}, 
-    tabMaster:{id: null, name: "", institutionId: 0, email: ""}, 
+    tabMaster:{id: null, name: "", email: ""}, 
     speaker:{id: null, name: "", institutionId: 0, email: "", available: true},
     judge:{id: null, name: "", institutionId: 0, email: "", available: true},
     room:{id: null, name: "", available: true}, 
@@ -56,35 +49,51 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     drawUpdate: {roundId:0, room1:0, room2:0, swapState:0, judge1:0, judge2:0, speaker1:0, speaker2:0},
     result:{roundId: "", roomId: "", draft: null}
   };
+  const [institutionForm, setInstitutionForm] = useState({...newItems.institutionForm});
+  const [newInst, setNewInst]=useState({...newItems.institution});
+  const [tabMasterForm, setTabMasterForm] = useState({ id: null, name: "", email: "" });
+  const [speakerForm, setSpeakerForm] = useState({...newItems.speakerForm});
+  const [newSpeaker, setNewSpeaker]= useState({...newItems.speaker});
+  const [judgeForm, setJudgeForm] = useState({...newItems.judgeForm});
+  const [newJudge, setNewJudge]= useState({...newItems.judge});
+  const [roomForm, setRoomForm] = useState({ id: null, name: "", available: true });
+  const [roundForm, setRoundForm] = useState({ id: null, name: "", number: "", speechDuration: "", breaks: false, blind: false, completed: false, breakCategory: "", breakPhase: "" });
+  const [promptForm, setPromptForm] = useState({ id: null, roundId: "", speechPrompt: "", speechType: "narrative", visible: false });
+  const [drawForm, setDrawForm] = useState({ roundId: "", powerPair: true, breakRoundId: "", preview: null });
+  const [drawUpdateForm, setDrawUpdateForm]= useState({roundId:0,room1:0, room2:0, swapState:0, judge1:0, judge2:0, speaker1:0, speaker2:0})
+  const [resultForm, setResultForm] = useState({ roundId: "", roomId: "", draft: null });
   const [toasts, setToasts]=useState([]);
   const [sortStates, setSortStates]=useState({institutions:{column:'name', state:true}, tabMasters:{column:'name', state:true}, judges:{column:'name', state:true}, speakers:{column:'name', state:true}, rooms:{column:'name', state:true}, rounds:{column:'number', state:true}, prompts:{column:'round', state:true}});
     // state true for ascending, false for desc
+  const [importedData, setImportedData]=useState({institutions:null, speakers:null, judges:null})
   const dialogRef=useRef(null);
-  const dialogRef2=useRef(null);
+  const tabRef=useRef(null);
   const [drawView, setDrawView]=useState('prelim');
   const drawViews=['prelim', 'breaks'];
+  const [form, setForm]=useState(null);
   
 
   async function getFullTab() {
     try {
       const res = await axios.get(`${currentServer}/ps/tab/${tab.tabId}`);
-      const fetchedTab = res.data?.data ?? null;
-      setFullTab(fetchedTab);
+      tabRef.current = res.data?.data ?? null;
+      setFullTab(tabRef.current);
       setConfigForm({
-        title: fetchedTab.title,
-        slug: fetchedTab.slug,
-        minScore: fetchedTab.minScore,
-        maxScore: fetchedTab.maxScore,
-        completed: fetchedTab.completed,
-        cups: fetchedTab.cups ?? [],
+        title: tabRef.current.title,
+        slug: tabRef.current.slug,
+        minScore: tabRef.current.minScore,
+        maxScore: tabRef.current.maxScore,
+        completed: tabRef.current.completed,
+        cups: tabRef.current.cups ?? [],
       });
       const isOwner = !!user && user.id === event?.ownerId;
-      const isTabMaster = !!user && (fetchedTab?.tabMasters ?? []).some((entry) => entry.email === user.email);
-      const isJudge = !!user && (fetchedTab?.judges ?? []).some((entry) => entry.email === user.email);
+      const isTabMaster = !!user && (tabRef.current?.tabMasters ?? []).some((entry) => entry.email === user.email);
+      const isJudge = !!user && (tabRef.current?.judges ?? []).some((entry) => entry.email === user.email);
       const adminAuthorized = isOwner || isTabMaster;
       setPageLoad({ loading: false, adminAuthorized, judgeAuthorized: isJudge });
       if (!adminAuthorized && access === "admin") setAccess("public");
-    } catch (error) {
+    } 
+    catch (error) {
       console.error(error);
       setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
     }
@@ -92,23 +101,21 @@ export default function PublicSpeakingAdmin({ tab, event }) {
 
   useEffect(() => {
     getFullTab();
-  }, [tab.tabId, event?.ownerId, user]);
+  }, []);
 
-  useEffect(() => {
-    if (tabItem !== "home" && !tabHistoryRef.current) {
-      window.history.pushState({ internalTab: true }, "", window.location.href);
-      tabHistoryRef.current = true;
+  useEffect(()=>{
+    function closeDialog(e){
+      if(dialogRef.current && !dialogRef.current.contains(e.target)){
+          setForm(null);
+      }
     }
-    if (tabItem === "home") tabHistoryRef.current = false;
-  }, [tabItem]);
-
-  useEffect(() => {
-    const onPopState = () => {
-      if (tabItem !== "home") setTabItem("home");
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [tabItem]);
+    document.addEventListener('mousedown', closeDialog);
+    document.addEventListener('touchstart', closeDialog);
+    return()=>{
+      document.removeEventListener('mousedown', closeDialog);
+      document.removeEventListener('touchstart', closeDialog);
+    }
+    },[]);
 
   const accessOptions = [
     { option: `${tab.title}`, value: "public" },
@@ -136,6 +143,18 @@ export default function PublicSpeakingAdmin({ tab, event }) {
     }
   }
 
+  async function updateEntity(endpoint, form, resetForm){
+    try {
+      const res =await axios.put(`${currentServer}/ps/${endpoint}`, { ...form, tabId: tab.tabId });
+      setToast("success", res.data?.message ?? "Saved");
+      resetForm();
+      await getFullTab();
+      setForm(null);
+    } 
+    catch (error) {
+      setToast("error", error?.response?.data?.message ?? "Failed to save");
+    }
+  }
   async function submitEntity(endpoint, form, resetForm) {
     try {
       const res = form.id
@@ -144,6 +163,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       setToast("success", res.data?.message ?? "Saved");
       resetForm();
       await getFullTab();
+      setForm(null);
     } catch (error) {
       setToast("error", error?.response?.data?.message ?? "Failed to save");
     }
@@ -166,6 +186,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       const res = await axios.post(`${currentServer}/ps/draw/generate`, { tabId: tab.tabId, roundId: Number(drawForm.roundId), powerPair: drawForm.powerPair });
       setToast("success", res.data?.message ?? "Draw generated");
       await getFullTab();
+      setForm(null);
     } catch (error) {
       setToast("error", error?.response?.data?.message ?? "Failed to generate draw");
     }
@@ -177,6 +198,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       const res = await axios.post(`${currentServer}/ps/draw/update`, { tabId: tab.tabId,...drawUpdateForm });
       setToast("success", res.data?.message ?? "Draw updated");
       await getFullTab();
+      setForm(null);
     } catch (error) {
       setToast("error", error?.response?.data?.message ?? "Failed to update draw");
     }
@@ -198,6 +220,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       const res = await axios.post(`${currentServer}/ps/draw/break-generate`, { tabId: tab.tabId, roundId: Number(drawForm.breakRoundId) });
       setToast("success", res.data?.message ?? "Break draw generated");
       await getFullTab();
+      setForm(null);
     } catch (error) {
       setToast("error", error?.response?.data?.message ?? "Failed to generate break draw");
     }
@@ -249,6 +272,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
       const res = await axios.post(`${currentServer}/ps/result/batch`, payload);
       setToast("success", res.data?.message ?? "Results saved");
       await getFullTab();
+      setForm(null);
     } catch (error) {
       setToast("error", error?.response?.data?.message ?? "Failed to save results");
     }
@@ -306,21 +330,115 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         : String(bVal ?? "").localeCompare(String(aVal ?? ""));
     });
   }
-  function showForm(entity){
+  function showForm(){
     const sortedRounds=fullTab?.rounds|| [];
     const sortedInstitutions=fullTab?.institutions||[];
     const selectedRound= sortedRounds.find(r=> r.roundId===resultForm.roundId)?.name || '';
     const incompleteRounds=fullTab.rounds.filter(r=> r.completed===false) || [];
-    switch(entity){
+    switch(form){
+      case null: 
+        return;
       case 'institution':
         return(
           <dialog ref={dialogRef}>
-            <form onSubmit={(e) => { e.preventDefault(); submitEntity("institution", institutionForm, () => setInstitutionForm({ id: null, name: "", code: "" })); }} method="modal">
-            <p><strong>Institution</strong></p>
-            <Input placeholder="Institution Name" value={institutionForm.name} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <Input placeholder="Code" value={institutionForm.code} onChange={(e) => setInstitutionForm((prev) => ({ ...prev, code: e.target.value }))} />
-            <button className="darkButton">{institutionForm.id ? "Update" : "Add"} Institution</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <form onSubmit={(e) => { e.preventDefault(); updateEntity("institution", institutionForm, () => setInstitutionForm(newItems.institutionForm)); }}>
+            <p><strong>Update Institutions</strong></p>
+            <div style={{gridTemplateColumns: 'auto 1fr'}}>
+              <strong style={{textAlign:'left', paddingLeft:'1rem'}}>Name</strong>
+              <strong style={{textAlign:'right', paddingRight:'1rem'}}>Code</strong>
+            </div>            
+            {institutionForm.institutions?.map((s,i)=>
+            <div key={i} style={{gridTemplateColumns: '1fr 0.3fr'}}>
+              <Input placeholder="Institution Name" value={s.name} onChange={(e) => setInstitutionForm((p) =>{
+                let institutions2=p.institutions;
+                institutions2[i].name=e.target.value;
+                return {...p, institutions: institutions2 }
+              })}  />
+              <Input placeholder="Code" value={s.code} onChange={(e) => setInstitutionForm((p) =>{
+                let institutions2=p.institutions;
+                institutions2[i].code=e.target.value;
+                return {...p, institutions: institutions2}
+              })}  />
+            </div>)}<div style={{display: 'flex', width:'100%', alignItems:'center', }}>
+              <Input type='text' placeholder="Name" style={{flexGrow:'1'}} value={newInst.name} onChange={(e)=>setNewInst((p)=>({...p, name: e.target.value}))}/>
+              <Input type='text' placeholder="Code" style={{flexGrow:'1'}} value={newInst.code} onChange={(e)=>setNewInst((p)=>({...p, code: e.target.value}))}/>              
+              <button type="button"  className="darkButton" onClick={()=>{setInstitutionForm(p=>({...p,institutions: [...p.institutions, newInst]})); setNewInst({...newItems.institution})}}>+</button>
+            </div>
+            <div className="importXCL">
+              <ExcelReader setData={(n)=>setImportedData(p=>({...p, institutions: n}))} data={importedData.institutions} headers={['name','code']} sheet='institutions'/>
+              <button type="button" className="darkButton" disabled={importedData.institutions===null} onClick={()=>setInstitutionForm(p=>{
+                let reg= importedData.institutions?.map(d=>({name: d.name, code: d.code, id: null})) || [];
+                let reg2= [...p.institutions, ...reg];
+                return {...p, institutions: reg2}
+              })}>Import</button>
+            </div>        
+            <button className="darkButton">Update Institutions</button>
+            <button type="button" className="darkButton" onClick={()=>{setForm(null)}}>Cancel</button>
+          </form>
+          </dialog>
+        )
+      case 'speaker':
+        return(
+          <dialog ref={dialogRef}>
+            <form onSubmit={(e) => { e.preventDefault(); updateEntity("speaker", speakerForm, () => setSpeakerForm(newItems.speakerForm)); }}>
+            <p><strong>Update Speakers</strong></p>
+            <div style={{gridTemplateColumns: '1fr 1fr 1fr 0.5fr'}}>
+              <strong>Name</strong>
+              <strong>Email</strong>
+              <strong>Institution</strong>
+              <strong>Available</strong>
+            </div>          
+            {speakerForm.speakers?.map((s,i)=>
+            <div key={i} style={{gridTemplateColumns: '1fr 1fr 1fr 0.5fr'}}>
+              <Input placeholder="Name" required value={s.name} onChange={(e) => setSpeakerForm((p) =>{
+                let speakers2=p.speakers;
+                speakers2[i].name=e.target.value;
+                return {...p, speakers: speakers2 }
+              })}  />
+              <Input placeholder="Email" type='email' value={s.email} onChange={(e) => setSpeakerForm((p) =>{
+                let speakers2=p.speakers;
+                speakers2[i].email=e.target.value;
+                return {...p, speakers: speakers2}
+              })}/>
+              <select name="institution" required value={s.institutionId} onChange={(e) => setSpeakerForm((p) =>{
+                let speakers2=p.speakers;
+                speakers2[i].institutionId= parseInt(e.target.value);
+                return {...p, speakers: speakers2}
+              })}>
+                <option value="">Select Institution</option>
+                {sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <ToggleButton state={s.available} setState={() => setSpeakerForm(prev => ({
+                ...prev,
+                speakers: prev.speakers.map((sp, idx) => idx === i ? { ...sp, available: !sp.available } : sp)
+              }))} />
+            </div>)}
+
+            <div style={{display: 'flex', width:'100%', alignItems:'center', }}>
+              <Input type='text' placeholder="Name" style={{flexGrow:'1'}} value={newSpeaker.name} onChange={(e)=>setNewSpeaker((p)=>({...p, name: e.target.value}))}/>
+              <Input type='text' placeholder="Email" style={{flexGrow:'1'}} value={newSpeaker.email} onChange={(e)=>setNewSpeaker((p)=>({...p, email: e.target.value}))}/>
+              <select name="institution" value={newSpeaker.institutionId} onChange={(e) => setNewSpeaker((p)=>({...p, institutionId: parseInt(e.target.value)}))}>
+                <option value="">Select Institution</option>
+                {sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <label>Available? <ToggleButton state={newSpeaker.available} setState={() => setNewSpeaker(prev => ({ ...prev, available: !prev.available }))}/></label>              
+              <button type="button"  className="darkButton" onClick={()=>{setSpeakerForm(p=>({...p,speakers: [...p.speakers, newSpeaker]})); setNewSpeaker({...newItems.speaker})}}>+</button>
+            </div>
+            <div className="importXCL">
+              <ExcelReader setData={(n)=>setImportedData(p=>({...p, speakers: n}))} data={importedData.speakers} headers={['name','email','institution']} sheet='speakers'/>
+              <button type="button" className="darkButton" disabled={importedData.speakers===null} onClick={()=>{setSpeakerForm(p=>{
+                let reg= importedData.speakers?.map(d=>{
+                  let institutionId= sortedInstitutions.find(i=>i.name===d.institution)?.id;
+                  return {id: null, name: d.name, email: d.email, institutionId: institutionId, available: true}
+                }) || [];
+                let reg2= [...p.speakers, ...reg];
+                return {...p, speakers: reg2}
+              });
+              setImportedData(p=>({...p, speakers: null}));
+              }}>Import</button>
+            </div>        
+            <button className="darkButton">Update Speakers</button>
+            <button type="button" className="darkButton" onClick={()=>{setForm(null)}}>Cancel</button>
           </form>
           </dialog>
         )
@@ -331,37 +449,74 @@ export default function PublicSpeakingAdmin({ tab, event }) {
             <h2>Tab Masters</h2>
             <Input placeholder="Name" value={tabMasterForm.name} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, name: e.target.value }))} />
             <Input type="email" placeholder="Email" value={tabMasterForm.email} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, email: e.target.value }))} />
-            <select value={tabMasterForm.institutionId} onChange={(e) => setTabMasterForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
             <button className="darkButton">{tabMasterForm.id ? "Update" : "Add"} Tab Master</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
           </form>
           </dialog>
         )
       case 'judge':
         return(
           <dialog ref={dialogRef}>
-            <form onSubmit={(e) => { e.preventDefault(); submitEntity("judge", judgeForm, () => setJudgeForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
-            <h2>Judges</h2>
-            <Input placeholder="Name" value={judgeForm.name} onChange={(e) => setJudgeForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <Input type="email" placeholder="Email" value={judgeForm.email} onChange={(e) => setJudgeForm((prev) => ({ ...prev, email: e.target.value }))} />
-            <select value={judgeForm.institutionId} onChange={(e) => setJudgeForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={judgeForm.available} setState={() => setJudgeForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
-            <button className="darkButton">{judgeForm.id ? "Update" : "Add"} Judge</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
-          </form>
-          </dialog>
-        )
-      case 'speaker':
-        return(
-          <dialog ref={dialogRef}>
-            <form onSubmit={(e) => { e.preventDefault(); submitEntity("speaker", speakerForm, () => setSpeakerForm({ id: null, name: "", institutionId: 0, email: "", available: true })); }}>
-            <h2>Speakers</h2>
-            <Input placeholder="Name" value={speakerForm.name} onChange={(e) => setSpeakerForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <Input type="email" placeholder="Email" value={speakerForm.email} onChange={(e) => setSpeakerForm((prev) => ({ ...prev, email: e.target.value }))} />
-            <select value={speakerForm.institutionId} onChange={(e) => setSpeakerForm((prev) => ({ ...prev, institutionId: Number(e.target.value) }))}><option value={0}>Select Institution</option>{sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={speakerForm.available} setState={() => setSpeakerForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
-            <button className="darkButton">{speakerForm.id ? "Update" : "Add"} Speaker</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <form onSubmit={(e) => { e.preventDefault(); updateEntity("judge", judgeForm, () => setJudgeForm(newItems.judgeForm)); }}>
+            <p><strong>Update Judges</strong></p>
+            <div style={{gridTemplateColumns: '1fr 1fr 1fr 0.5fr'}}>
+              <strong>Name</strong>
+              <strong>Email</strong>
+              <strong>Institution</strong>
+              <strong>Available</strong>
+            </div>          
+            {judgeForm.judges?.map((s,i)=>
+            <div key={i} style={{gridTemplateColumns: '1fr 1fr 1fr 0.5fr'}}>
+              <Input placeholder="Name" required value={s.name} onChange={(e) => setJudgeForm((p) =>{
+                let judges2=p.judges;
+                judges2[i].name=e.target.value;
+                return {...p, judges: judges2 }
+              })}  />
+              <Input placeholder="Email" type='email' value={s.email} onChange={(e) => setJudgeForm((p) =>{
+                let judges2=p.judges;
+                judges2[i].email=e.target.value;
+                return {...p, judges: judges2}
+              })}/>
+              <select name="institution" required value={s.institutionId} onChange={(e) => setJudgeForm((p) =>{
+                let judges2=p.judges;
+                judges2[i].institutionId= parseInt(e.target.value);
+                return {...p, judges: judges2}
+              })}>
+                <option value="">Select Institution</option>
+                {sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <ToggleButton state={s.available} setState={() => setJudgeForm(prev => ({
+                ...prev,
+                judges: prev.judges.map((j, idx) => idx === i ? { ...j, available: !j.available } : j)
+              }))} />
+            </div>)}
+
+            <div style={{display: 'flex', width:'100%', alignItems:'center', }}>
+              <Input type='text' placeholder="Name" style={{flexGrow:'1'}} value={newJudge.name} onChange={(e)=>setNewJudge((p)=>({...p, name: e.target.value}))}/>
+              <Input type='text' placeholder="Email" style={{flexGrow:'1'}} value={newJudge.email} onChange={(e)=>setNewJudge((p)=>({...p, email: e.target.value}))}/>
+              <select name="institution" value={newJudge.institutionId} onChange={(e) => setNewJudge((p)=>({...p, institutionId: parseInt(e.target.value)}))}>
+                <option value="">Select Institution</option>
+                {sortedInstitutions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <label>Available? <ToggleButton state={newJudge.available} setState={() => setNewJudge(prev => ({ ...prev, available: !prev.available }))}/></label>              
+              <button type="button"  className="darkButton" onClick={()=>{setJudgeForm(p=>({...p,judges: [...p.judges, newJudge]})); setNewJudge({...newItems.judge})}}>+</button>
+            </div>
+            <div className="importXCL">
+              <ExcelReader setData={(n)=>setImportedData(p=>({...p, judges: n}))} data={importedData.judges} headers={['name','email','institution']} sheet='judges'/>
+              <button type="button" className="darkButton" disabled={importedData.judges===null} onClick={()=>{setJudgeForm(p=>{
+                let reg= importedData.judges?.map(d=>{
+                  let institutionId= sortedInstitutions.find(i=>i.name===d.institution)?.id;
+                  return {id: null, name: d.name, email: d.email, institutionId: institutionId, available: true}
+                }) || [];
+                let reg2= [...p.judges, ...reg];
+                return {...p, judges: reg2}
+              });
+              setImportedData(p=>({...p, judges: null}));
+              }}>Import</button>
+            </div>        
+            <button className="darkButton">Update Judges</button>
+            {/* <button type="button" className="darkButton" onClick={()=>{console.log(judgeForm)}}>test</button> */}
+            <button type="button" className="darkButton" onClick={()=>{setForm(null)}}>Cancel</button>
           </form>
           </dialog>
         )
@@ -373,7 +528,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
             <Input placeholder="Name" value={roomForm.name} onChange={(e) => setRoomForm((prev) => ({ ...prev, name: e.target.value }))} />
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Available <ToggleButton state={roomForm.available} setState={() => setRoomForm((prev) => ({ ...prev, available: !prev.available }))} /></label>
             <button className="darkButton">{roomForm.id ? "Update" : "Add"} Room</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
           </form>
           </dialog>
         )
@@ -388,7 +543,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Blind <ToggleButton state={roundForm.blind} setState={() => setRoundForm((prev) => ({ ...prev, blind: !prev.blind }))} /></label>
             {roundForm.id &&<label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Completed <ToggleButton state={roundForm.completed} setState={() => setRoundForm((prev) => ({ ...prev, completed: !prev.completed }))} /></label>}
             <button className="darkButton">{roundForm.id ? "Update" : "Add Prelim"} Round</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
           </form>
           </dialog>
         )
@@ -402,7 +557,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
             <Input placeholder="Speech Prompt" value={promptForm.speechPrompt} onChange={(e) => setPromptForm((prev) => ({ ...prev, speechPrompt: e.target.value }))} />
             <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Visible <ToggleButton state={promptForm.visible} setState={() => setPromptForm((prev) => ({ ...prev, visible: !prev.visible }))} /></label>
             <button className="darkButton">{promptForm.id ? "Update" : "Add"} Prompt</button>
-            <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+            <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
           </form>
           </dialog>
         )
@@ -414,7 +569,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               <select value={drawForm.roundId} onChange={(e) => setDrawForm((prev) => ({ ...prev, roundId: e.target.value }))}><option value="">Select Round</option>{sortedRounds.filter((item) => !item.breaks).map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}</select>
               <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Power Pair <ToggleButton state={drawForm.powerPair} setState={() => setDrawForm((prev) => ({ ...prev, powerPair: !prev.powerPair }))} /></label>
               <button className="darkButton">Generate Draw</button>
-              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+              <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
             </form>
           </dialog>
         )
@@ -426,13 +581,13 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               <select value={drawForm.breakRoundId} onChange={(e) => setDrawForm((prev) => ({ ...prev, breakRoundId: e.target.value }))}><option value="">Select Break Round</option>{sortedRounds.filter((item) => item.breaks).map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}</select>
               <button className="lightButton">Preview Break Draw</button>
               <button type="button" className="darkButton" onClick={generateBreakDraw}>Generate Break Draw</button>
-              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+              <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
             </form>
           </dialog>
         )
       case 'updateDraw':
         return(
-          <dialog ref={dialogRef2}>
+          <dialog ref={dialogRef}>
             <form onSubmit={updateDraw}>
               <p><strong>Update Draw</strong></p>
               <select name="roundId" value={drawUpdateForm.roundId} onChange={(e)=>setDrawUpdateForm({...drawUpdateForm, [e.target.name]:Number(e.target.value)})}>
@@ -577,7 +732,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               }            
               </>}
               <button className="darkButton">Save Draw Updates</button>
-              <button type="button" className="darkButton" onClick={()=>dialogRef2.current.close()}>Cancel</button>
+              <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
           </form>
           </dialog>
         )
@@ -592,41 +747,31 @@ export default function PublicSpeakingAdmin({ tab, event }) {
                   <div className="roomHeader"><h2 style={{ margin: 0 }}>{resultForm.draft.room.name}</h2></div>
                   <div className="roomBody" style={{width:'auto'}}>
                     {resultForm.draft.speakers.map((speaker) => (
-                      <li key={speaker.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr", gap: "0.5rem" }}>
+                      <li key={speaker.id} style={{ gridTemplateColumns: "1fr 0.5fr 0.5fr 0.5fr", gap: "0.5rem" }}>
                         <span>{speaker.name}</span>
                         <span>{fullTab?.institutions?.find((entry) => entry.id === speaker.institutionId)?.code ?? "-"}</span>
-                        {sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks ?(
+                        <Cell value={speaker.result?.score ?? fullTab.minScore} min={fullTab.minScore} max={fullTab.maxScore} onChange={(score) => updateResultDraft(speaker.id, { score })} />
+                        {sortedRounds.find((round) => round.roundId === Number(resultForm.roundId))?.breaks &&(
                           <select value={speaker.result?.status ?? "Incomplete"} onChange={(e) => updateResultDraft(speaker.id, { status: e.target.value })}>
                             <option value="Incomplete">Incomplete</option>
                             <option value="Eliminated">Eliminated</option>
                             <option value="Pass">Pass</option>
                           </select>
-                        ):(
-                        <Cell value={speaker.result?.score ?? fullTab.minScore} min={fullTab.minScore} max={fullTab.maxScore} onChange={(score) => updateResultDraft(speaker.id, { score })} />
-                        )}
+                        )}                        
                       </li>
                     ))}
                   </div>
                 </div>
               )}
               <button className="darkButton">Save Room Results</button>
-              <button type="button" className="darkButton" onClick={()=>dialogRef.current.close()}>Cancel</button>
+              <button type="button" className="darkButton" onClick={()=>setForm(null)}>Cancel</button>
             </form>
           </dialog>
         )
-      default: console.log('No form to show'); 
+      default: console.log('No form to show');
     }
   }
-
-  function home(){
-    return(
-      <div className="tabHome">
-        {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
-            <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
-          ))}
-      </div>
-    )
-  }
+  
   function configuration(){
     return(
         <form onSubmit={saveConfig}>
@@ -638,7 +783,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>Completed <ToggleButton state={configForm.completed} setState={() => setConfigForm((prev) => ({ ...prev, completed: !prev.completed }))} /></label>
           <h3>Cups</h3>
           {configForm.cups.map((cup, index) => (
-            <div key={cup.id ?? `cup-${index}`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "0.5rem" }}>
+            <div key={cup.id ?? `cup-${index}`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(90px,1fr))", gap: "0.5rem", placeItems:'center' }}>
               <Input value={cup.cupCategory} placeholder="Cup Name" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupCategory: e.target.value } : item) }))} />
               <Input type="number" value={cup.cupOrder} placeholder="Cup Order" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, cupOrder: Number(e.target.value) } : item) }))} />
               <Input type="number" value={cup.breakNumber} placeholder="Break rounds" onChange={(e) => setConfigForm((prev) => ({ ...prev, cups: prev.cups.map((item, itemIdx) => itemIdx === index ? { ...item, breakNumber: Number(e.target.value) } : item) }))} />
@@ -651,6 +796,23 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         </form>
       )
   }
+  function registration(){
+    return(
+      <>
+      <div className="buttonStack" style={{width:'98%'}}>
+        {["Institutions", "Tab", "Speakers", "Judges", "Rooms", "Rounds", "Prompts"].map((t,i)=>
+        <button className={regItem===t? 'lightButton': 'darkButton'} onClick={()=>setRegItem(t)} key={i}>{t}</button>)}
+      </div>
+      {regItem === "Institutions" && institutions()}
+      {regItem === "Tab" && tabMasters()}
+      {regItem === "Speakers" && speakers()}
+      {regItem === "Judges" && judges()}
+      {regItem === "Rooms" && rooms()}
+      {regItem === "Rounds" && rounds()}
+      {regItem === "Prompts" && prompts()}   
+      </>
+    )
+  }
   function institutions(){
     const sortedInstitutions = sortItems(fullTab.institutions ?? [], "institutions", {
         name: (item) => item.name,
@@ -662,8 +824,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           <section id="institutions">
             {/* <button onClick={console.log(fullTab)}>Log Full Tab</button> */}
             <h2>Registered Institutions</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setInstitutionForm({...newItems.institution});}}>Add Institution</button>
-            {showForm('institution')}
+            <button className="darkButton" onClick={()=>{setInstitutionForm({institutions: tabRef.current.institutions});setForm('institution');}}>Add/Update Institutions</button>
             {sortedInstitutions.length>0?
                     <div className="tableScroll">
                     <table>
@@ -699,7 +860,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
                           <td>{p.name}</td>
                           <td>{p.code}</td>
                           <td>{p.speakers}</td>
-                          <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setInstitutionForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("institution", { id: p.id })}}/></td>
+                          <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('institution'); setInstitutionForm(f=>({...f,institutions:[p]}));}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("institution", { id: p.id })}}/></td>
                         </tr>)}
                       </tbody>
                     </table></div>:<p>No Registered Institutions</p>}
@@ -710,24 +871,19 @@ export default function PublicSpeakingAdmin({ tab, event }) {
   function tabMasters(){
     const sortedTabMasters = sortItems(fullTab.tabMasters ?? [], "tabMasters", {
         name: (item) => item.name,
-        institution: (item) => fullTab.institutions.find((i)=>i.id===item.institutionId)?.name || '',
         email: (item) => item.email,
         });
     return(
         <>
           <section id="tabMasters">
             <h2>Registered Tab Masters ({sortedTabMasters.length})</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setTabMasterForm({...newItems.tabMaster});}}>Add Tab Master</button>
-            {showForm('tabMaster')}
+            <button className="darkButton" onClick={()=>{setTabMasterForm({...newItems.tabMaster});setForm('tabMaster')}}>Add Tab Master</button>
         {fullTab.tabMasters?.length>0?
         <div className="tableScroll"><table>
           <thead>
-            <tr style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
+            <tr style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
               <th>Name <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "name")}>
                 {sortStates.tabMasters.column === "name" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
-              </button></th>
-              <th>Institution <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "institution")}>
-                {sortStates.tabMasters.column === "institution" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
               </button></th>
               <th>Email <button type="button" className="sortToggle" onClick={() => toggleSort("tabMasters", "email")}>
                 {sortStates.tabMasters.column === "email" && sortStates.tabMasters.state === true ? '\u2b9d' : '\u2b9f'}
@@ -739,9 +895,8 @@ export default function PublicSpeakingAdmin({ tab, event }) {
             {sortedTabMasters.map((p,i)=>
             <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr 1fr'}}>
               <td>{p.name}</td>
-              <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setTabMasterForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("tabMaster", { id: p.id })}}/></td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('tabMaster'); setTabMasterForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("tabMaster", { id: p.id })}}/></td>
             </tr>)}
           </tbody>
         </table></div>:<p>No Registered Tab Masters</p>}
@@ -760,8 +915,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
           <section id="judges">
             <h2>Registered Judges ({sortedJudges.length})</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setJudgeForm({...newItems.judge});}}>Add Judge</button>
-            {showForm('judge')}
+            <button className="darkButton" onClick={()=>{setJudgeForm({judges: tabRef.current.judges});setForm('judge')}}>Add/Update Judges</button>
         {fullTab.judges?.length>0?
         <div className="tableScroll"><table>
           <thead>
@@ -788,10 +942,10 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               <td>{fullTab.institutions.find((inst)=>inst.id===p.institutionId)?.name || '-'}</td>
               <td>{p.email}</td>
               <td>{p.available? '\u2714': '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setJudgeForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("judge", { id: p.id })}}/></td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('judge'); setJudgeForm(f=>({...f, judges:[p]}))}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("judge", { id: p.id })}}/></td>
             </tr>)}
           </tbody>
-        </table></div>:<p>No Registered Tab Masters</p>}
+        </table></div>:<p>No Registered Judges</p>}
           </section>
         </>
       )
@@ -806,8 +960,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
           <section id="speakers">
             <h2>Registered Speakers ({sortedSpeakers.length})</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setSpeakerForm({...newItems.speaker});}}>Add Speaker</button>
-            {showForm('speaker')}
+            <button className="darkButton" onClick={()=>{setSpeakerForm({speakers: tabRef.current.speakers});setForm('speaker')}}>Add/Update Speakers</button>
         {sortedSpeakers.length>0?
         <div className="tableScroll">
         <table>
@@ -843,7 +996,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               <td>{p.name}</td>
               <td>{fullTab.institutions.find((i)=>i.id===p.institutionId).name}</td>
               <td>{p.available? '\u2714': '\u2718'}</td>
-              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setSpeakerForm(p);}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("speaker", { id: p.id })}}/></td>
+              <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('speaker'); setSpeakerForm(f=>({...f,speakers:[p]}));}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("speaker", { id: p.id })}}/></td>
             </tr>)}
           </tbody>
         </table></div>:<p>No Registered Speakers</p>}
@@ -860,8 +1013,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
         <section id="rooms">
             <h2>Registered Rooms</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setRoomForm({...newItems.room});}}>Add Room</button>
-            {showForm('room')}
+            <button className="darkButton" onClick={()=>{setForm('room');setRoomForm({...newItems.room});}}>Add Room</button>
             {fullTab.rooms?.length>0?
             <div className="tableScroll"><table>
               <thead>
@@ -880,7 +1032,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
                 <tr key={i} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>
                   <td>{p.name}</td>
                   <td>{p.available? '\u2714': '\u2718'}</td>
-                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setRoomForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("room", { id: p.id })}}/></td>
+                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('room'); setRoomForm(p)}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("room", { id: p.id })}}/></td>
                 </tr>)}
               </tbody>
             </table></div>:<p>No Registered Rooms</p>}
@@ -900,8 +1052,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
         <section id="rounds">
             <h2>Registered Rounds</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setRoundForm({...newItems.round});}}>Add Preliminary Round</button>
-            {showForm('round')}
+            <button className="darkButton" onClick={()=>{setForm('round');setRoundForm({...newItems.round});}}>Add Preliminary Round</button>
             {sortedRounds.length>0?
             <div className="tableScroll"><table>
               <thead>
@@ -934,7 +1085,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
                   <td>{p.breaks ? 'Yes' : 'No'}</td>
                   <td>{p.completed ? '\u2714' : '\u2718'}</td>
                   <td>{p.blind ? '\u2714' : '\u2718'}</td>
-                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setRoundForm({...p, id:p.roundId,breakCategory: p.cupCategoryId ?? "", breakPhase: p.breakPhase ?? ""});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("round", { id: p.roundId })}}/></td>
+                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('round'); setRoundForm({...p, id:p.roundId,breakCategory: p.cupCategoryId ?? "", breakPhase: p.breakPhase ?? ""});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("round", { id: p.roundId })}}/></td>
                 </tr>)}
               </tbody>
             </table></div>:<p>No Registered Rounds</p>}
@@ -953,8 +1104,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
           <section id="speechPrompts">
             <h2>Registered Prompts</h2>
-            <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setPromptForm({...newItems.prompt});}}>Add Speech Prompt</button>
-            {showForm('prompt')}
+            <button className="darkButton" onClick={()=>{setForm('prompt');setPromptForm({...newItems.prompt});}}>Add Speech Prompt</button>
             {sortedPrompts.length>0?
             <div className="tableScroll"><table>
               <thead>
@@ -980,7 +1130,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
                   <td style={{maxWidth:'250px'}}>{ p.speechPrompt}</td>
                   <td>{p.speechType}</td>
                   <td>{p.visible ? '\u2714' : '\u2718'}</td>
-                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setPromptForm({...p});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("prompt", { id: p.id })}}/></td>
+                  <td style={{display: 'grid', gridAutoFlow:'column', gridAutoColumns:'1rem', justifySelf:'center', gap:'1rem'}}><FaAngleDoubleUp fill="teal" onClick={()=>{setForm('prompt'); setPromptForm({...p});}}/><RiDeleteBin6Fill fill="red" onClick={()=>{deleteEntity("prompt", { id: p.id })}}/></td>
                 </tr>)}
               </tbody>
             </table></div>:<p>No Registered Rounds</p> }
@@ -999,14 +1149,13 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           <h3 style={{marginBottom:0}}>{round.name}</h3>
           {!roundDraws.length
               ? <p style={{margin:0}}>{emptyMessage} <br />
-              <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setDrawForm({...round, breakRoundId: round.roundId});}}>Draw Round</button>
-              </p>
-
+              <button className="darkButton" onClick={()=>{setForm('generateDraw');setDrawForm({...round, breakRoundId: round.roundId});}}>Draw Round</button>
+              </p>              
               :
               <div style={{display: 'flex', flexDirection:'column', alignItems:'center', gap:'0.5rem'}}>
                 <div style={{display: 'grid', gridAutoFlow:'column', gap:'0.5rem'}}>
-                  <button className="darkButton" onClick={()=>{dialogRef.current.open=true;setDrawForm({...round, id: round.roundId});}}>Redraw </button>
-                  <button disabled={round.completed} className="darkButton" onClick={()=>{dialogRef2.current.open=true;setDrawUpdateForm({...round});}}>Update </button>
+                  <button className="darkButton" onClick={()=>{round.breaks? setForm('previewBreaks'): setForm('generateDraw'); setDrawForm({...round, id: round.roundId, breakRoundId: round.roundId});}}>Redraw </button>
+                  <button disabled={round.completed} className="darkButton" onClick={()=>{setForm('updateDraw');setDrawUpdateForm({...round});}}>Update </button>
                   <button className="darkButton" onClick={() => deleteDraw(round.roundId)}>Delete Draw</button>
                 </div>
               <div className="roomCard">
@@ -1071,17 +1220,13 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         {drawView==='prelim' &&
           <section id="prelims">
             <h2>Preliminary Draws</h2>
-            {showForm('generateDraw')}
-            {showForm('updateDraw')}
             {renderDrawCards(preliminaryRounds,'Draw for this prelim round is not out yet')}
           </section>
         }
         {drawView==='breaks' &&
           <section id="breaks">
             <h2>Preliminary Draws</h2>
-            {showForm('previewBreaks')}
-            {showForm('updateDraw')}
-            {renderDrawCards(breakRounds,'Draw for this prelim round is not out yet')}
+            {renderDrawCards(breakRounds,'Draw for this round is not out yet')}
             {drawForm.preview && 
               <div className="roomCard">
                 <div className="roomHeader">
@@ -1104,7 +1249,6 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         <>
         <section id="results">
             <h2>Results</h2>
-            {showForm('results')}
             <select value={resultForm.roundId} onChange={(e) =>setResultForm((prev) => ({ ...prev, roundId: Number(e.target.value), roomId: "", draft: null }))}>
               <option value="">Select Round</option>
               {sortedRounds.map((item) => <option key={item.roundId} value={item.roundId}>{item.name}</option>)}
@@ -1114,7 +1258,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
               fullTab.draws.filter((a)=>a.roundId===resultForm.roundId).map((r,n)=>
               <div className="roomCard" key={n}>
                   <div className="roomHeader">
-                      <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{dialogRef.current.open=true; setResultForm((prev)=>({ ...prev, roomId: r.room.id }))}}/></h2>
+                      <h2 style={{margin:0}}>{r.room.name}<FaAngleDoubleUp fill="teal" onClick={()=>{setForm('results'); setResultForm((prev)=>({ ...prev, roomId: r.room.id }))}}/></h2>
                       <div style={{margin:0}}><strong>Judge(s): </strong><span style={{margin:0}}>{r.judges.map((j, x)=><span key={x}>{j.name}, </span>)      
                       }</span><p style={{display:'grid',gridTemplateColumns:'1fr 0.5fr 0.5fr', textAlign:'start', gap:'0.5rem', marginTop:"0.3rem",marginBottom:'0.3rem',}}><span>Speaker</span><span>School</span><span>Result</span></p></div>
                   </div>
@@ -1137,41 +1281,21 @@ export default function PublicSpeakingAdmin({ tab, event }) {
 
   return (
     <>
-      <nav className="tabMenu">
+      <div className="tabMenu">
         <ul>
           <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
-          {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
-            <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
-          ))}
         </ul>
-      </nav>
-      <div className="tabSideMenu">
-        <nav className="tTitle">
-          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={Math.max(0, accessOptions.findIndex((option) => option.value === "admin"))} />
-          <span className="☰" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "☰"}</span>
-        </nav>
-        <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
-          <ul>
-            <span onClick={() => setTabItem("configuration")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>
-            {["configuration", "institutions", "tabMasters", "speakers", "judges", "rooms", "rounds", "prompts", "draws", "results"].map((item) => (
-              <li key={item} onClick={() => setTabItem(item)} className={tabItem === item ? "selectedTabItem" : ""}>{item[0].toUpperCase() + item.slice(1)}</li>
-            ))}
-          </ul>
-        </nav>
       </div>
-      {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
+      <div style={{display: 'flex', gap:'0.5rem', justifyContent:'center',justifySelf:'center', flexWrap:'wrap', margin:'0 0 0.5rem 0'}}>
+        {["Configuration", "Registrations", "Draws", "Results"].map((t,i)=>
+        <button className={tabItem===t? 'lightButton': 'darkButton'} onClick={()=>setTabItem(t)} key={i}>{t}</button>)}
+      </div>
       <Toast toasts={toasts} setToasts={setToasts}/>
-      {tabItem === "home" && home()}
-      {tabItem === "configuration" && configuration()}
-      {tabItem === "institutions" && institutions()}
-      {tabItem === "tabMasters" && tabMasters()}
-      {tabItem === "speakers" && speakers()}
-      {tabItem === "judges" && judges()}
-      {tabItem === "rooms" && rooms()}
-      {tabItem === "rounds" && rounds()}
-      {tabItem === "prompts" && prompts()}
-      {tabItem === "draws" && draws()}
-      {tabItem === "results" && results()}
+      {tabItem === "Configuration" && configuration()}
+      {tabItem === "Registrations" && registration()}
+      {tabItem === "Draws" && draws()}
+      {tabItem === "Results" && results()}
+      {showForm()}
     </>
   );
 }

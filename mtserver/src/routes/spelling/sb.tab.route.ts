@@ -6,20 +6,17 @@ const router= Router();
 router.get('/tab/:tabId', sbController.getFullTab);
 router.put('/tab/update',sbController.updateTab);
 //institution
-router.post('/institution',sbController.addInstitution);
-router.put('/institution',sbController.updateInstitution);
+router.put('/institution',sbController.updateInstitutions);
 router.delete('/institution',sbController.deleteInstitution);
 //tabMaster
 router.post('/tabMaster',sbController.addTabMaster);
 router.put('/tabMaster',sbController.updateTabMaster);
 router.delete('/tabMaster',sbController.deleteTabMaster);
 //speller
-router.post('/speller',sbController.addSpeller);
-router.put('/speller',sbController.updateSpeller);
+router.put('/speller',sbController.updateSpellers);
 router.delete('/speller',sbController.deleteSpeller);
 //judge
-router.post('/judge',sbController.addJudge);
-router.put('/judge',sbController.updateJudge);
+router.put('/judge',sbController.updateJudges);
 router.delete('/judge',sbController.deleteJudge);
 //room
 router.post('/room',sbController.addRoom);

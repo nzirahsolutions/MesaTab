@@ -1,21 +1,17 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import {GiBee} from 'react-icons/gi';
 import {IoClose} from 'react-icons/io5';
 import {AuthContext} from '../../../../Context/AuthContext';
 import Dropdown from "../../../../Components/Dropdown";
 import SpellingAdmin from "./SpellingAdmin";
 import SpellingJudgeTab from "./SpellingJudgeTab";
-import { useEffect, useRef } from "react";
 import { currentServer } from "../../../../Context/urls";
 import Loading from "../../../../Components/Loading";
 import axios from "axios";
 
 export default function SpellingBeePublicTab({tab, event}) {
-  // console.log(tab.title);
-  const [tabItem, setTabItem]=useState('home');
-  const tabHistoryRef=useRef(false);
+  const [tabItem, setTabItem]=useState('Rounds');
   const [participant, setParticipant]=useState('spellers');
-  const [menuOpen, setMenuOpen]=useState(false);
   const [viewRound, setViewRound]=useState(null);
   const {user, access, setAccess}= useContext(AuthContext);
   const [pageLoad, setPageLoad]=useState({loading: true, adminAuthorized:false, judgeAuthorized:false});
@@ -47,7 +43,8 @@ export default function SpellingBeePublicTab({tab, event}) {
           adminAuthorized: isOwner || isTabMaster,
           judgeAuthorized: isJudge,
         });
-      } catch (error) {
+      } 
+      catch (error) {
         console.error(error);
         if (!isMounted) return;
         setPageLoad({ loading: false, adminAuthorized: false, judgeAuthorized: false });
@@ -59,34 +56,6 @@ export default function SpellingBeePublicTab({tab, event}) {
       isMounted = false;
     };
   }, [tab.tabId, event?.ownerId, user]);
-
-   //tab-level navigation
-    useEffect(() => {
-    // Add one same-route history entry only when entering a non-home tab
-    if (tabItem !== "home" && !tabHistoryRef.current) {
-      window.history.pushState({ internalTab: true }, "", window.location.href);
-      tabHistoryRef.current = true;
-    }
-  
-    // Reset so next time user enters a sub-tab we can add again
-    if (tabItem === "home") {
-      tabHistoryRef.current = false;
-    }
-  }, [tabItem]);
-  
-  useEffect(() => {
-    const onPopState = () => {
-      // If currently in sub-tab, first back should only return to home tab
-      if (tabItem !== "home") {
-        setTabItem("home");
-        // IMPORTANT: do not pushState here
-      }
-      // If already home, do nothing; browser back will leave page normally
-    };
-  
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [tabItem, setTabItem]);
 
   const [sortStates, setSortStates] = useState({
     spellerTab: { column: 'rank', state: true },
@@ -128,22 +97,6 @@ export default function SpellingBeePublicTab({tab, event}) {
     });
   }
 
-  function tabChange(t){
-    setTabItem(t);
-    setMenuOpen(false);
-  }
-  function home(){
-    return(
-      <>
-      <div className="tabHome">
-        <li onClick={()=>tabChange('rounds')}>Rounds</li>
-        <li onClick={()=>tabChange('spellerTab')}>Speller Tab</li>
-        <li onClick={()=>tabChange('words')}>Words</li>
-        <li onClick={()=>tabChange('participants')}>Participants</li>
-      </div>
-      </>
-    )
-  }
   function rounds(){
     const roundsList = fullTab?.rounds ?? [];
     return(
@@ -151,10 +104,13 @@ export default function SpellingBeePublicTab({tab, event}) {
       {roundsList.length===0?
       <p>No Rounds Have Been Added</p>:
       <div className="results">
-      {roundsList.map((r,i)=><li key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</li>)}
+      {roundsList.map((r,i)=><li key={i} onClick={()=>{setTabItem('round');setViewRound(r)}}>{r.name}</li>)}
       </div>}
       </>
     )
+  }
+  function outRoundSort(e){
+    return e.sort((a,b)=>(b.result?.status ?? "").localeCompare(a.result?.status ?? "")).sort((a,b)=>b.result?.score-a.result?.score)
   }
   function round(){
     const roundsList = fullTab?.rounds ?? [];
@@ -173,7 +129,7 @@ export default function SpellingBeePublicTab({tab, event}) {
       ) : (
       <div className="round-buttons">
         {roundsList.map((r,i)=>(
-        <button className={r.name===currentRound.name? 'darkButton':'lightButton'} key={i} onClick={()=>{tabChange('round');setViewRound(r)}}>{r.name}</button>))}
+        <button className={r.name===currentRound.name? 'darkButton':'lightButton'} key={i} onClick={()=>{setTabItem('round');setViewRound(r)}}>{r.name}</button>))}
       </div>) }
       </section>
       <section id="intro-section">
@@ -194,7 +150,7 @@ export default function SpellingBeePublicTab({tab, event}) {
             </div>
             <div className="roomBody">
               <li><strong>Speller</strong><strong>Institution</strong> {currentRound.breaks && !currentRound.blind?<strong>Status</strong>:!currentRound.breaks && !currentRound.blind?<strong>Score</strong>:''} </li>
-              {(draw.spellers ?? []).map((sp, index) => (
+              {(outRoundSort(draw.spellers) ?? []).map((sp, index) => (
                 <li key={index}>
                   <span>{sp?.name ?? 'Unknown'}</span>
                   <span>{fullTab.institutions.find((inst)=>inst.id===sp.institutionId)?.name || '-'}</span>
@@ -399,33 +355,19 @@ export default function SpellingBeePublicTab({tab, event}) {
       <ul>
         {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? 
         <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess}/>:
-        <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
-        <li onClick={()=>tabChange('rounds')} className={tabItem==='rounds'?'selectedTabItem':''}>Rounds</li>
-        <li onClick={()=>tabChange('spellerTab')} className={tabItem==='spellerTab'?'selectedTabItem':''}>Speller Tab</li>
-        <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
-        <li onClick={()=>tabChange('participants')} className={tabItem==='participants'?'selectedTabItem':''}>Participants</li>
+        <span onClick={()=>setTabItem('Rounds')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
       </ul>
     </nav>
-    <div className="tabSideMenu">
-      <nav className="tTitle">
-          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess}/>:
-        <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>}
-        <span className='☰' onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen? <IoClose/>:'☰'}</span>
-      </nav>
-      <nav className={`tSideMenu ${menuOpen? 'Open':'Closed'}`}>
-        <ul>
-          <span onClick={()=>tabChange('home')}><GiBee fill="teal"/><strong>{tab.title}</strong></span>
-          <li onClick={()=>tabChange('rounds')} className={tabItem==='results'?'selectedTabItem':''}>Rounds</li>
-        <li onClick={()=>tabChange('spellerTab')} className={tabItem==='spellerTab'?'selectedTabItem':''}>Speller Tab</li>
-        <li onClick={()=>tabChange('words')} className={tabItem==='words'?'selectedTabItem':''}>Words</li>
-        <li onClick={()=>tabChange('participants')} className={tabItem==='participants'?'selectedTabItem':''}>Participants</li>
-        </ul>
-      </nav>
+    <div className="buttonStack" style={{width:'98%'}}>
+      <button className={tabItem==='Rounds' || tabItem==='round'? 'lightButton': 'darkButton'} onClick={()=>setTabItem('Rounds')} >Rounds</button>
+      {["Standings", "Words", "Participants"].map((t,i)=>
+      <button className={tabItem===t? 'lightButton': 'darkButton'} onClick={()=>setTabItem(t)} key={i}>{t}</button>)}
     </div>
-    {menuOpen&& <div className="aoe" onClick={()=>setMenuOpen(false)}></div>}
-    {
-      tabItem==='home'? home():tabItem==='rounds'? rounds():tabItem==='round'? round():tabItem==='spellerTab'? spellerTab():tabItem==='participants'? participants():tabItem==='words'? words():''
-    }
+      {tabItem === "Rounds" && rounds()}
+      {tabItem === "round" && round()}
+      {tabItem === "Standings" && spellerTab()}
+      {tabItem === "Words" && words()}
+      {tabItem === "Participants" && participants()}
     </>:!pageLoad.loading && access==='judge'?<SpellingJudgeTab tab={tab} event={event} accessOptions={accessOptions} onAccessChange={setAccess}/>:!pageLoad.loading && access==='admin'?<SpellingAdmin tab={tab} event={event}/>:<Loading/>
   )
 }

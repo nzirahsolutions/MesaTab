@@ -1,18 +1,18 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { GiBee } from "react-icons/gi";
 import { IoClose } from "react-icons/io5";
 import axios from "axios";
 import { AuthContext } from "../../../../Context/AuthContext";
 import Dropdown from "../../../../Components/Dropdown";
 import Loading from "../../../../Components/Loading";
+import Toast from "../../../../Components/Toast";
 import Cell from "../../../../Components/Cell";
 import { currentServer } from "../../../../Context/urls";
 
 export default function SpellingJudgeTab({ tab, event, accessOptions }) {
   const { user,setAccess } = useContext(AuthContext);
-  const [tabItem, setTabItem] = useState("home");
-  const tabHistoryRef = useRef(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [tabItem, setTabItem] = useState("Rounds");
+  const [toasts, setToasts] = useState([]);
   const [viewRoundId, setViewRoundId] = useState(0);
   const [pageLoad, setPageLoad] = useState({ loading: true, authorized: false });
   const [fullTab, setFullTab] = useState(null);
@@ -47,28 +47,6 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
     getFullTab();
   }, [tab.tabId, event?.ownerId, user]);
 
-  useEffect(() => {
-    if (tabItem !== "home" && !tabHistoryRef.current) {
-      window.history.pushState({ internalTab: true }, "", window.location.href);
-      tabHistoryRef.current = true;
-    }
-
-    if (tabItem === "home") {
-      tabHistoryRef.current = false;
-    }
-  }, [tabItem]);
-
-  useEffect(() => {
-    const onPopState = () => {
-      if (tabItem !== "home") {
-        setTabItem("home");
-      }
-    };
-
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [tabItem]);
-
   const judge = useMemo(() => {
     if (!user || !Array.isArray(fullTab?.judges)) return null;
     return fullTab.judges.find((item) => item.email === user.email) ?? null;
@@ -93,11 +71,6 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
       setViewRoundId(allocatedRounds[0].roundId);
     }
   }, [allocatedRounds, viewRoundId]);
-
-  function tabChange(nextTab) {
-    setTabItem(nextTab);
-    setMenuOpen(false);
-  }
 
   function updateRoomDraft(roundId, roomId, spellerId, patch) {
     const roomKey = `${roundId}-${roomId}`;
@@ -157,14 +130,17 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
         delete next[roomKey];
         return next;
       });
+      const successMessage=res.data?.message ?? "Ballot submitted";
       setSaveState({
         loading: false,
         success: true,
         error: false,
-        message: res.data?.message ?? "Ballot submitted",
+        message: successMessage,
         roomKey,
       });
-    } catch (error) {
+      setToasts((prev) => [...prev, { id: Date.now(), type: "success", message: successMessage }]);
+    } 
+    catch (error) {
       const message = error?.response?.data?.message ?? "Something went wrong";
       setSaveState({
         loading: false,
@@ -173,16 +149,8 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
         message,
         roomKey,
       });
+      setToasts((prev) => [...prev, { id: Date.now(), type: "error", message }]);
     }
-  }
-
-  function home() {
-    return (
-      <div className="tabHome">
-        <li onClick={() => tabChange("ballots")}>My Ballots</li>
-        <li onClick={() => tabChange("rounds")}>My Rounds</li>
-      </div>
-    );
   }
 
   function rounds() {
@@ -195,7 +163,7 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
             key={round.roundId}
             onClick={() => {
               setViewRoundId(round.roundId);
-              tabChange("ballots");
+              setTabItem("Ballots");
             }}
           >
             {round.name}
@@ -334,41 +302,17 @@ export default function SpellingJudgeTab({ tab, event, accessOptions }) {
 
   return (
     <>
-      <nav className="tabMenu">
-        <ul>
-          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
-          <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>
-            My Rounds
-          </li>
-          <li onClick={() => tabChange("ballots")} className={tabItem === "ballots" ? "selectedTabItem" : ""}>
-            My Ballots
-          </li>
-        </ul>
-      </nav>
-      <div className="tabSideMenu">
-        <nav className="tTitle">
-          <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
-          <span className="menuToggle" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <IoClose /> : "Menu"}
-          </span>
-        </nav>
-        <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
-          <ul>
-            <span onClick={() => tabChange("home")}>
-              <GiBee fill="teal" />
-              <strong>{tab.title}</strong>
-            </span>
-            <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>
-              My Rounds
-            </li>
-            <li onClick={() => tabChange("ballots")} className={tabItem === "ballots" ? "selectedTabItem" : ""}>
-              My Ballots
-            </li>
-          </ul>
-        </nav>
-      </div>
-      {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
-      {tabItem === "home" ? home() : tabItem === "rounds" ? rounds() : ballots()}
-    </>
+          <nav className="tabMenu">
+            <ul>
+              <Dropdown options={accessOptions} setValue={setAccess} selectedIdx={selectedIdx} />
+            </ul>
+          </nav>
+          <div className="buttonStack">
+            {['Rounds', 'Ballots'].map((t,i)=><button key={i} className={tabItem ===t ? "lightButton" : "darkButton"} onClick={() => setTabItem(t)}>{t}</button>)}
+          </div>
+          {tabItem === "Rounds" && rounds()}
+          {tabItem === "Ballots" && ballots()}
+          <Toast toasts={toasts} setToasts={setToasts} />
+        </>
   );
 }

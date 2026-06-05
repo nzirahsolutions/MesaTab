@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, useRef, useMemo } from "react";
+import { useState, useContext, useEffect, useMemo } from "react";
 import { GiMicrophone } from "react-icons/gi";
 import { IoClose } from "react-icons/io5";
 import { AuthContext } from "../../../../Context/AuthContext";
@@ -10,11 +10,8 @@ import Loading from "../../../../Components/Loading";
 import axios from "axios";
 
 export default function PublicSpeakingTab({ tab, event }) {
-  const [tabItem, setTabItem] = useState("home");
-  const tabHistoryRef = useRef(false);
+  const [tabItem, setTabItem] = useState("Rounds");
   const [participant, setParticipant] = useState("speakers");
-  const [participantSort, setParticipantSort] = useState("name-asc");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [viewRoundId, setViewRoundId] = useState(0);
   const { user, access, setAccess } = useContext(AuthContext);
   const [pageLoad, setPageLoad] = useState({ loading: true, adminAuthorized: false, judgeAuthorized: false });
@@ -43,22 +40,6 @@ export default function PublicSpeakingTab({ tab, event }) {
       isMounted = false;
     };
   }, [tab.tabId, event?.ownerId, user]);
-
-  useEffect(() => {
-    if (tabItem !== "home" && !tabHistoryRef.current) {
-      window.history.pushState({ internalTab: true }, "", window.location.href);
-      tabHistoryRef.current = true;
-    }
-    if (tabItem === "home") tabHistoryRef.current = false;
-  }, [tabItem]);
-
-  useEffect(() => {
-    const onPopState = () => {
-      if (tabItem !== "home") setTabItem("home");
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [tabItem]);
 
   //sort function
   const [sortStates, setSortStates] = useState({
@@ -121,38 +102,22 @@ export default function PublicSpeakingTab({ tab, event }) {
     }
   }, [sortedRounds, viewRoundId]);
 
-  useEffect(() => {
-    setParticipantSort("name-asc");
-  }, [participant]);
-
-  function tabChange(nextTab) {
-    setTabItem(nextTab);
-    setMenuOpen(false);
-  }
-
-  function home() {
-    return (
-      <div className="tabHome">
-        <li onClick={() => tabChange("rounds")}>Rounds</li>
-        <li onClick={() => tabChange("speakerTab")}>Speaker Tab</li>
-        <li onClick={() => tabChange("prompts")}>Speech Prompts</li>
-        <li onClick={() => tabChange("participants")}>Participants</li>
-      </div>
-    );
-  }
-
   function rounds() {
     return sortedRounds.length === 0 ? (
       <p>No Rounds Have Been Added</p>
     ) : (
       <div className="results">
         {sortedRounds.map((round) => (
-          <li key={round.roundId} onClick={() => { setViewRoundId(round.roundId); tabChange("round"); }}>
+          <li key={round.roundId} onClick={() => { setViewRoundId(round.roundId); setTabItem("round"); }}>
             {round.name}
           </li>
         ))}
       </div>
     );
+  }
+
+  function outRoundSort(e){
+    return e.sort((a,b)=>(b.result?.status ?? "").localeCompare(a.result?.status ?? "")).sort((a,b)=>b.result?.score-a.result?.score)
   }
 
   function round() {
@@ -200,7 +165,7 @@ export default function PublicSpeakingTab({ tab, event }) {
                   {!currentRound.blind && <strong>Score</strong>}
                   {currentRound.breaks && !currentRound.blind && <strong>Status</strong>}
                 </li>
-                {(draw.speakers ?? []).map((speaker) => (
+                {(outRoundSort(draw.speakers) ?? []).map((speaker) => (
                   <li key={speaker.id} style={{ gridTemplateColumns: currentRound.breaks && !currentRound.blind ? "2fr 2fr 1fr 1fr" : "2fr 2fr 1fr", gap: "0.5rem" }}>
                     <span>{speaker.name}</span>
                     <span>{fullTab?.institutions?.find((entry) => entry.id === speaker.institutionId)?.name ?? "-"}</span>
@@ -422,30 +387,19 @@ export default function PublicSpeakingTab({ tab, event }) {
     <>
       <nav className="tabMenu">
         <ul>
-          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
-          <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>Rounds</li>
-          <li onClick={() => tabChange("speakerTab")} className={tabItem === "speakerTab" ? "selectedTabItem" : ""}>Speaker Tab</li>
-          <li onClick={() => tabChange("prompts")} className={tabItem === "prompts" ? "selectedTabItem" : ""}>Speech Prompts</li>
-          <li onClick={() => tabChange("participants")} className={tabItem === "participants" ? "selectedTabItem" : ""}>Participants</li>
+          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => setTabItem("Home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
         </ul>
       </nav>
-      <div className="tabSideMenu">
-        <nav className="tTitle">
-          {pageLoad.adminAuthorized || pageLoad.judgeAuthorized ? <Dropdown selectedIdx={0} options={accessOptions} setValue={setAccess} /> : <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>}
-          <span className="☰" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <IoClose /> : "☰"}</span>
-        </nav>
-        <nav className={`tSideMenu ${menuOpen ? "Open" : "Closed"}`}>
-          <ul>
-            <span onClick={() => tabChange("home")}><GiMicrophone fill="teal" /><strong>{tab.title}</strong></span>
-            <li onClick={() => tabChange("rounds")} className={tabItem === "rounds" ? "selectedTabItem" : ""}>Rounds</li>
-            <li onClick={() => tabChange("speakerTab")} className={tabItem === "speakerTab" ? "selectedTabItem" : ""}>Speaker Tab</li>
-            <li onClick={() => tabChange("prompts")} className={tabItem === "prompts" ? "selectedTabItem" : ""}>Speech Prompts</li>
-            <li onClick={() => tabChange("participants")} className={tabItem === "participants" ? "selectedTabItem" : ""}>Participants</li>
-          </ul>
-        </nav>
+      <div className="buttonStack" style={{width:'98%'}}>
+        <button className={tabItem==='Rounds' || tabItem==='round'? 'lightButton': 'darkButton'} onClick={()=>setTabItem('Rounds')} >Rounds</button>
+        {["Standings", "Prompts", "Participants"].map((t,i)=>
+        <button className={tabItem===t? 'lightButton': 'darkButton'} onClick={()=>setTabItem(t)} key={i}>{t}</button>)}
       </div>
-      {menuOpen && <div className="aoe" onClick={() => setMenuOpen(false)}></div>}
-      {tabItem === "home" ? home() : tabItem === "rounds" ? rounds() : tabItem === "round" ? round() : tabItem === "speakerTab" ? speakerTab() : tabItem === "prompts" ? prompts() : participants()}
+      {tabItem === "Rounds" && rounds()}
+      {tabItem === "round" && round()}
+      {tabItem === "Standings" && speakerTab()}
+      {tabItem === "Prompts" && prompts()}
+      {tabItem === "Participants" && participants()}
     </>
   ) : <Loading />;
 }
