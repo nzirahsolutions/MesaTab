@@ -538,6 +538,7 @@ dialog{
     grid-auto-flow: row;
     max-width: 500px;
     scrollbar-width: none;
+    justify-content:start;
     p{
       margin: 0.5rem;
     }

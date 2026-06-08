@@ -1139,7 +1139,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         </>
       )
   }
-  function renderDrawCards(rounds, emptyMessage){
+  function renderDrawCards(rounds, emptyMessage, breaks){
   return rounds.length>0
   ? 
   rounds.map((round)=> {
@@ -1149,7 +1149,7 @@ export default function PublicSpeakingAdmin({ tab, event }) {
           <h3 style={{marginBottom:0}}>{round.name}</h3>
           {!roundDraws.length
               ? <p style={{margin:0}}>{emptyMessage} <br />
-              <button className="darkButton" onClick={()=>{setForm('generateDraw');setDrawForm({...round, breakRoundId: round.roundId});}}>Draw Round</button>
+              <button className="darkButton" onClick={()=>{breaks? setForm('previewBreaks') : setForm('generateDraw');setDrawForm({...round, breakRoundId: round.roundId});}}>Draw Round</button>
               </p>              
               :
               <div style={{display: 'flex', flexDirection:'column', alignItems:'center', gap:'0.5rem'}}>
@@ -1220,13 +1220,13 @@ export default function PublicSpeakingAdmin({ tab, event }) {
         {drawView==='prelim' &&
           <section id="prelims">
             <h2>Preliminary Draws</h2>
-            {renderDrawCards(preliminaryRounds,'Draw for this prelim round is not out yet')}
+            {renderDrawCards(preliminaryRounds,'Draw for this prelim round is not out yet', false)}
           </section>
         }
         {drawView==='breaks' &&
           <section id="breaks">
             <h2>Preliminary Draws</h2>
-            {renderDrawCards(breakRounds,'Draw for this round is not out yet')}
+            {renderDrawCards(breakRounds,'Draw for this break round is not out yet', true)}
             {drawForm.preview && 
               <div className="roomCard">
                 <div className="roomHeader">
